@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Relatório de Fretes — Barreto's</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --bg:      #0A0B0E;
+  --surface: #12141A;
+  --card:    #181B24;
+  --border:  #252836;
+  --gold:    #F5B800;
+  --gold2:   #FFD54F;
+  --txt:     #E8EAF0;
+  --txt-dim: #6B7280;
+  --txt-mid: #9CA3AF;
+  --green:   #22C55E;
+  --red:     #EF4444;
+  --blue:    #3B82F6;
+  --orange:  #F97316;
+  --purple:  #A855F7;
+  --teal:    #14B8A6;
+  --radius:  10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* ─── LAYOUT ─── */
+.app{display:flex;flex-direction:column;min-height:100vh}
+
+/* ─── HEADER ─── */
+.header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 28px;height:58px;display:flex;align-items:center;gap:16px;
+  position:sticky;top:0;z-index:100;
+}
+.header-logo{display:flex;align-items:center;gap:12px}
+.header-logo img{height:34px;object-fit:contain}
+.header-divider{width:1px;height:28px;background:var(--border)}
+.header-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--txt);letter-spacing:-.01em}
+.header-sub{font-size:11px;color:var(--txt-dim);font-weight:400}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.sync-btn{
+  display:flex;align-items:center;gap:7px;padding:7px 16px;
+  background:var(--gold);color:#111;border:none;border-radius:7px;
+  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;
+  cursor:pointer;transition:opacity .15s;letter-spacing:.02em;
+}
+.sync-btn:hover{opacity:.88}
+.sync-btn:disabled{opacity:.5;cursor:not-allowed}
+.config-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 14px;
+  background:transparent;color:var(--txt-mid);border:1px solid var(--border);
+  border-radius:7px;font-size:12px;cursor:pointer;transition:all .15s;
+}
+.config-btn:hover{border-color:var(--gold);color:var(--gold)}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--red)}
+.conn-dot.on{background:var(--green)}
+.conn-label{font-size:11px;color:var(--txt-dim)}
+
+/* ─── FILTERS ─── */
+.filters{
+  display:flex;align-items:center;gap:10px;padding:14px 28px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.filter-group{display:flex;align-items:center;gap:6px}
+.filter-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);white-space:nowrap}
+.filter-select,.filter-input{
+  background:var(--card);border:1px solid var(--border);border-radius:7px;
+  color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12px;
+  padding:6px 10px;outline:none;transition:border-color .15s;min-width:120px;
+}
+.filter-select:focus,.filter-input:focus{border-color:var(--gold)}
+.filter-select option{background:var(--card)}
+.clear-btn{
+  display:flex;align-items:center;gap:5px;padding:6px 12px;
+  background:transparent;border:1px solid var(--border);border-radius:7px;
+  color:var(--txt-dim);font-size:11px;cursor:pointer;transition:all .15s;
+}
+.clear-btn:hover{border-color:var(--red);color:var(--red)}
+.results-count{margin-left:auto;font-size:11px;color:var(--txt-dim)}
+
+/* ─── MAIN ─── */
+.main{flex:1;padding:24px 28px;display:flex;flex-direction:column;gap:22px}
+
+/* ─── KPI STRIP ─── */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.kpi-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;
+}
+.kpi-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--accent,var(--gold));
+}
+.kpi-card.green{--accent:var(--green)}
+.kpi-card.blue{--accent:var(--blue)}
+.kpi-card.orange{--accent:var(--orange)}
+.kpi-card.purple{--accent:var(--purple)}
+.kpi-card.teal{--accent:var(--teal)}
+.kpi-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim)}
+.kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--txt);letter-spacing:-.02em}
+.kpi-val.green{color:var(--green)}
+.kpi-val.gold{color:var(--gold)}
+.kpi-val.blue{color:var(--blue)}
+.kpi-delta{font-size:10px;color:var(--txt-dim);margin-top:2px}
+
+/* ─── VENDEDOR SECTION ─── */
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+.section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-dim)}
+
+/* ─── VENDEDOR CARDS ─── */
+.vendedor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.vendedor-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;cursor:pointer;transition:border-color .15s,transform .12s;
+}
+.vendedor-card:hover{border-color:var(--gold);transform:translateY(-1px)}
+.vendedor-card.active{border-color:var(--gold);background:#181B24}
+.vc-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.vc-avatar{
+  width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#111;flex-shrink:0;
+}
+.vc-name{font-size:13px;font-weight:600;color:var(--txt);line-height:1.3}
+.vc-meta{font-size:10px;color:var(--txt-dim)}
+.vc-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vc-metric{background:var(--surface);border-radius:7px;padding:10px 12px}
+.vc-metric-lbl{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:3px}
+.vc-metric-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--txt)}
+.vc-metric-val.green{color:var(--green)}
+.vc-metric-val.red{color:var(--red)}
+.vc-bar{margin-top:12px}
+.vc-bar-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--txt-dim);margin-bottom:4px}
+.vc-bar-track{height:3px;background:var(--border);border-radius:2px}
+.vc-bar-fill{height:3px;background:var(--gold);border-radius:2px;transition:width .4s ease}
+
+/* ─── TABLE ─── */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+}
+.panel-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-dim)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{
+  text-align:left;padding:10px 14px;font-size:10px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim);
+  background:var(--surface);border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:10px 14px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(245,184,0,.03)}
+.mono{font-family:'DM Mono',monospace;font-size:11px}
+.route{display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap}
+.city{font-weight:500;color:var(--txt)}
+.uf-badge{
+  font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;
+  background:rgba(245,184,0,.12);color:var(--gold);letter-spacing:.04em;
+}
+.arrow{color:var(--txt-dim);font-size:13px}
+.status-badge{
+  display:inline-flex;align-items:center;font-size:9px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;
+}
+.s-finalizado{background:rgba(34,197,94,.12);color:var(--green)}
+.s-faturado{background:rgba(168,85,247,.12);color:var(--purple)}
+.s-manifestos{background:rgba(245,184,0,.12);color:var(--gold)}
+.s-coleta{background:rgba(59,130,246,.12);color:var(--blue)}
+.s-operacional{background:rgba(249,115,22,.12);color:var(--orange)}
+.origem-badge{
+  display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;
+  padding:2px 7px;border-radius:4px;text-transform:uppercase;
+}
+.o-infra{background:rgba(20,184,166,.12);color:var(--teal)}
+.o-barretos{background:rgba(245,184,0,.12);color:var(--gold)}
+.o-goncalves{background:rgba(59,130,246,.12);color:var(--blue)}
+.o-pinheiro{background:rgba(249,115,22,.12);color:var(--orange)}
+.txt-green{color:var(--green)}
+.txt-red{color:var(--red)}
+.txt-dim{color:var(--txt-dim)}
+.tbl-empty{text-align:center;padding:40px;color:var(--txt-dim);font-size:12px}
+
+/* ─── SPINNER ─── */
+.spinner{
+  display:inline-block;width:14px;height:14px;
+  border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;
+  border-radius:50%;animation:spin .6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── MODAL ─── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);
+  z-index:200;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:420px;max-width:95vw}
+.modal-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:20px;color:var(--txt)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:5px}
+.form-input{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;
+  color:var(--txt);font-family:'DM Sans',sans-serif;font-size:13px;
+  padding:9px 12px;outline:none;transition:border-color .15s;
+}
+.form-input:focus{border-color:var(--gold)}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+.btn-ghost{padding:8px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--txt-dim);font-size:12px;cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--txt-mid);color:var(--txt)}
+.btn-primary{padding:8px 20px;background:var(--gold);border:none;border-radius:7px;color:#111;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.88}
+.help-txt{font-size:11px;color:var(--txt-dim);line-height:1.5;margin-top:8px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-logo">
+      <div style="display:flex;flex-direction:column">
+        <div class="header-title">Relatório de Fretes</div>
+        <div class="header-sub">Barreto's — Por Vendedor</div>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openConfig()">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span class="conn-label" id="conn-label">Não configurado</span>
+    </div>
+    <div class="header-right">
+      <button class="config-btn" onclick="openConfig()">
+        <i class="ti ti-settings" style="font-size:13px"></i> Configurar
+      </button>
+      <button class="sync-btn" id="sync-btn" onclick="syncData()">
+        <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
+      </button>
+    </div>
+  </header>
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">Mês</span>
+      <select class="filter-select" id="f-mes" onchange="applyFilters()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Vendedor</span>
+      <select class="filter-select" id="f-vendedor" onchange="applyFilters()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Empresa</span>
+      <select class="filter-select" id="f-origem" onchange="applyFilters()">
+        <option value="">Todas</option>
+        <option>INFRA</option>
+        <option>BARRETO'S</option>
+        <option>GONCALVES</option>
+        <option>PINHEIRO</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Cliente</span>
+      <input class="filter-input" id="f-cliente" placeholder="Buscar cliente..." oninput="applyFilters()" style="min-width:150px">
+    </div>
+    <button class="clear-btn" onclick="clearFilters()">
+      <i class="ti ti-x" style="font-size:11px"></i> Limpar
+    </button>
+    <span class="results-count" id="results-count"></span>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- KPI STRIP -->
+    <div class="kpi-strip" id="kpi-strip">
+      <div class="kpi-card"><div class="kpi-label">Faturamento Total</div><div class="kpi-val gold" id="kpi-fat">—</div><div class="kpi-delta" id="kpi-fat-d"></div></div>
+      <div class="kpi-card green"><div class="kpi-label">Margem Líquida</div><div class="kpi-val green" id="kpi-margem">—</div><div class="kpi-delta" id="kpi-margem-d"></div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Custo Operacional</div><div class="kpi-val blue" id="kpi-custo">—</div><div class="kpi-delta" id="kpi-custo-d"></div></div>
+      <div class="kpi-card orange"><div class="kpi-label">ICMS (12%)</div><div class="kpi-val" style="color:var(--orange)" id="kpi-icms">—</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Qtd de Fretes</div><div class="kpi-val" id="kpi-qtd">—</div><div class="kpi-delta" id="kpi-qtd-d"></div></div>
+      <div class="kpi-card teal"><div class="kpi-label">Ticket Médio</div><div class="kpi-val" id="kpi-ticket">—</div></div>
+    </div>
+
+    <!-- VENDEDOR CARDS -->
+    <div>
+      <div class="section-header">
+        <span class="section-title">Performance por Vendedor</span>
+      </div>
+      <div class="vendedor-grid" id="vendedor-grid">
+        <div style="color:var(--txt-dim);font-size:12px;padding:20px">Conecte e sincronize para ver os dados</div>
+      </div>
+    </div>
+
+    <!-- DETAIL TABLE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title" id="table-title">Todos os fretes</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn-ghost" onclick="exportCSV()" style="font-size:11px;display:flex;align-items:center;gap:5px">
+            <i class="ti ti-file-spreadsheet" style="font-size:12px"></i> CSV
+          </button>
+          <button onclick="exportXLSX()" style="display:flex;align-items:center;gap:5px;padding:6px 14px;background:var(--green);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+            <i class="ti ti-table-export" style="font-size:12px"></i> Excel (.xlsx)
+          </button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês</th><th>Data Coleta</th><th>Origem</th><th>Destino</th>
+              <th>Cliente</th><th>Vendedor</th><th>DT Código</th><th>Empresa</th>
+              <th>Frete Cobrado</th><th>Custo Oper.</th><th>ICMS</th><th>Margem Líquida</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-main">
+            <tr><td colspan="11" class="tbl-empty">Configure e sincronize os dados da planilha</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div id="modal-config" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-link" style="color:var(--gold);margin-right:8px"></i>Configurar Conexão</div>
+    <div class="form-group">
+      <label class="form-label">URL do Apps Script</label>
+      <input class="form-input" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
+      <p class="help-txt">Cole aqui a URL do Web App após implantar o Apps Script fornecido abaixo.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="document.getElementById('modal-config').classList.remove('open')">Cancelar</button>
+      <button class="btn-primary" onclick="saveConfig()">Salvar e Conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPS SCRIPT CODE MODAL -->
+<div id="modal-script" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="width:700px;max-width:95vw">
+    <div class="modal-title"><i class="ti ti-code" style="color:var(--gold);margin-right:8px"></i>Código do Apps Script</div>
+    <p style="font-size:11px;color:var(--txt-dim);margin-bottom:12px">Cole este código em Extensões → Apps Script na planilha "Jira Barreto's", depois implante como Web App.</p>
+    <textarea id="script-code" readonly style="width:100%;height:300px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--txt);font-family:'DM Mono',monospace;font-size:10px;padding:12px;resize:vertical;outline:none"></textarea>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="document.getElementById('modal-script').classList.remove('open')">Fechar</button>
+      <button class="btn-primary" onclick="copyScript()"><i class="ti ti-copy" style="font-size:12px"></i> Copiar Código</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   APPS SCRIPT CODE (para implantar)
+════════════════════════════════════════ */
+
+/* ════════════════════════════════════════
+   ESTADO
+════════════════════════════════════════ */
+let WEBAPP_URL = localStorage.getItem('relatorio_webapp_url') || '';
+let db = [];
+let filtered = [];
+let activeVendedor = null;
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('script-code').value = document.getElementById('gas-source').value;
+  if (WEBAPP_URL) {
+    setConnected(true);
+    loadData();
+  } else {
+    setConnected(false);
+  }
+});
+
+/* ════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════ */
+function openConfig() {
+  document.getElementById('cfg-url').value = WEBAPP_URL;
+  document.getElementById('modal-config').classList.add('open');
+}
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  if (!url) return alert('Cole a URL do Apps Script');
+  WEBAPP_URL = url;
+  localStorage.setItem('relatorio_webapp_url', url);
+  document.getElementById('modal-config').classList.remove('open');
+  setConnected(true);
+  loadData();
+}
+function setConnected(on) {
+  document.getElementById('conn-dot').className = 'conn-dot' + (on ? ' on' : '');
+  document.getElementById('conn-label').textContent = on ? 'Planilha conectada' : 'Não configurado';
+}
+function showScript() {
+  document.getElementById('modal-script').classList.add('open');
+}
+function copyScript() {
+  const ta = document.getElementById('script-code');
+  ta.select(); document.execCommand('copy');
+  alert('Código copiado! Cole no Apps Script da planilha.');
+}
+
+/* ════════════════════════════════════════
+   DADOS
+════════════════════════════════════════ */
+async function loadData() {
+  if (!WEBAPP_URL) return;
+  try {
+    const r = await fetch(WEBAPP_URL);
+    const j = await r.json();
+    if (j.success) {
+      db = j.data || [];
+      populateFilters();
+      applyFilters();
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function syncData() {
+  if (!WEBAPP_URL) { openConfig(); return; }
+  const btn = document.getElementById('sync-btn');
+  btn.innerHTML = '<span class="spinner"></span> Atualizando…';
+  btn.disabled = true;
+  try {
+    const r = await fetch(WEBAPP_URL + '?action=sync');
+    const j = await r.json();
+    if (j.success) {
+      await loadData();
+      btn.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Atualizado!';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
+        btn.disabled = false;
+      }, 2000);
+    } else {
+      alert('Erro: ' + (j.error || 'Falha na sincronização'));
+      btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Erro de conexão. Verifique a URL.');
+    btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
+    btn.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════
+   FILTROS
+════════════════════════════════════════ */
+function populateFilters() {
+  const meses = [...new Set(db.map(r => r['Mes']||r['Mês']||'').filter(Boolean))].sort();
+  const vends  = [...new Set(db.map(r => r['Vendedor']||'').filter(Boolean))].sort();
+  const fMes = document.getElementById('f-mes');
+  const cur = fMes.value;
+  fMes.innerHTML = '<option value="">Todos os meses</option>' + meses.map(m=>`<option>${m}</option>`).join('');
+  if (cur) fMes.value = cur;
+  const fVend = document.getElementById('f-vendedor');
+  const curV = fVend.value;
+  fVend.innerHTML = '<option value="">Todos</option>' + vends.map(v=>`<option>${v}</option>`).join('');
+  if (curV) fVend.value = curV;
+}
+
+function applyFilters() {
+  const mes    = document.getElementById('f-mes').value;
+  const vend   = document.getElementById('f-vendedor').value;
+  const origem = document.getElementById('f-origem').value;
+  const cli    = document.getElementById('f-cliente').value.toLowerCase();
+
+  filtered = db.filter(r => {
+    if (mes    && (r['Mes']||r['Mês']||'') !== mes) return false;
+    if (vend   && (r['Vendedor']||'') !== vend) return false;
+    if (origem && (r['Origem']||'').toUpperCase() !== origem) return false;
+    if (cli    && !(r['Cliente']||'').toLowerCase().includes(cli)) return false;
+    return true;
+  });
+
+  renderKPIs(filtered);
+  renderVendedorCards(filtered);
+  renderTable(filtered, vend ? vend : null);
+  document.getElementById('results-count').textContent = filtered.length + ' registros';
+}
+
+function clearFilters() {
+  document.getElementById('f-mes').value = '';
+  document.getElementById('f-vendedor').value = '';
+  document.getElementById('f-origem').value = '';
+  document.getElementById('f-cliente').value = '';
+  activeVendedor = null;
+  applyFilters();
+}
+
+/* ════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════ */
+const fmtBRL = v => (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+const fmtK   = v => v >= 1000 ? 'R$ ' + (v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1}) + 'k' : fmtBRL(v);
+function parseBRL(s) {
+  if (!s) return 0;
+  let v = String(s).replace(/R\$\s*/g,'').trim();
+  if (v.includes(',')) v = v.replace(/\./g,'').replace(',','.');
+  return parseFloat(v)||0;
+}
+function shortName(name) {
+  const parts = String(name||'').split(' ');
+  if (parts.length <= 1) return name;
+  return parts[0] + ' ' + parts[parts.length-1];
+}
+function initials(name) {
+  const p = String(name||'').split(' ').filter(Boolean);
+  if (p.length === 0) return '?';
+  if (p.length === 1) return p[0][0].toUpperCase();
+  return (p[0][0] + p[p.length-1][0]).toUpperCase();
+}
+const COLORS = ['#F5B800','#22C55E','#3B82F6','#F97316','#A855F7','#14B8A6','#EF4444'];
+function vendorColor(name) {
+  let h = 0;
+  for (let c of String(name||'')) h = (h*31 + c.charCodeAt(0)) % COLORS.length;
+  return COLORS[h];
+}
+function statusClass(s) {
+  s = (s||'').toUpperCase();
+  if (s==='FINALIZADO') return 's-finalizado';
+  if (s==='FATURADO')   return 's-faturado';
+  if (s==='MANIFESTOS') return 's-manifestos';
+  if (s==='COLETA')     return 's-coleta';
+  return 's-operacional';
+}
+function origemClass(o) {
+  o = (o||'').toUpperCase();
+  if (o==="BARRETO'S" || o==='BARRETOS') return 'o-barretos';
+  if (o==='GONCALVES') return 'o-goncalves';
+  if (o==='PINHEIRO')  return 'o-pinheiro';
+  return 'o-infra';
+}
+
+/* ════════════════════════════════════════
+   RENDER KPIs
+════════════════════════════════════════ */
+function renderKPIs(rows) {
+  const fat   = rows.reduce((s,r) => s + parseBRL(r['Frete Cobrado']), 0);
+  const custo = rows.reduce((s,r) => s + parseBRL(r['Custo Operacional']), 0);
+  const icms  = rows.reduce((s,r) => s + parseBRL(r['ICMS']), 0);
+  const marg  = fat - custo - icms;
+  const qtd   = rows.length;
+  const ticket = qtd ? fat/qtd : 0;
+  const margPct = fat ? (marg/fat*100).toFixed(1) : 0;
+
+  document.getElementById('kpi-fat').textContent = fmtK(fat);
+  document.getElementById('kpi-fat-d').textContent = qtd + ' fretes no período';
+  document.getElementById('kpi-margem').textContent = fmtK(marg);
+  document.getElementById('kpi-margem-d').textContent = margPct + '% margem líquida';
+  document.getElementById('kpi-custo').textContent = fmtK(custo);
+  document.getElementById('kpi-custo-d').textContent = fat ? (custo/fat*100).toFixed(1) + '% do faturamento' : '';
+  document.getElementById('kpi-qtd').textContent = qtd;
+  document.getElementById('kpi-qtd-d').textContent = qtd ? 'ticket médio ' + fmtK(ticket) : '';
+  document.getElementById('kpi-ticket').textContent = fmtK(ticket);
+  const icmsEl = document.getElementById('kpi-icms');
+  if(icmsEl) icmsEl.textContent = fmtK(icms);
+}
+
+/* ════════════════════════════════════════
+   RENDER VENDEDOR CARDS
+════════════════════════════════════════ */
+function renderVendedorCards(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const v = r['Vendedor'] || 'Sem vendedor';
+    if (!map[v]) map[v] = {fat:0, custo:0, icms:0, qtd:0};
+    map[v].fat   += parseBRL(r['Frete Cobrado']);
+    map[v].custo += parseBRL(r['Custo Operacional']);
+    map[v].icms  += parseBRL(r['ICMS']);
+    map[v].qtd++;
+  });
+  const vendors = Object.entries(map).sort((a,b) => b[1].fat - a[1].fat);
+  const totalFat = vendors.reduce((s,[,m]) => s + m.fat, 0);
+  const grid = document.getElementById('vendedor-grid');
+
+  if (!vendors.length) {
+    grid.innerHTML = '<div style="color:var(--txt-dim);font-size:12px;padding:20px">Nenhum dado disponível</div>';
+    return;
+  }
+
+  grid.innerHTML = vendors.map(([name, m]) => {
+    const margem = m.fat - m.custo - (m.icms||0);
+    const margPct = m.fat ? (margem/m.fat*100).toFixed(1) : 0;
+    const pct = totalFat ? (m.fat/totalFat*100).toFixed(1) : 0;
+    const col = vendorColor(name);
+    const isActive = activeVendedor === name;
+    return `<div class="vendedor-card${isActive?' active':''}" onclick="selectVendedor('${name.replace(/'/g,"\'")}')">
+      <div class="vc-header">
+        <div class="vc-avatar" style="background:${col}">${initials(name)}</div>
+        <div>
+          <div class="vc-name">${shortName(name)}</div>
+          <div class="vc-meta">${m.qtd} frete${m.qtd!==1?'s':''}</div>
+        </div>
+      </div>
+      <div class="vc-metrics">
+        <div class="vc-metric">
+          <div class="vc-metric-lbl">Faturamento</div>
+          <div class="vc-metric-val">${fmtK(m.fat)}</div>
+        </div>
+        <div class="vc-metric">
+          <div class="vc-metric-lbl">Margem</div>
+          <div class="vc-metric-val ${margem>=0?'green':'red'}">${fmtK(margem)}</div>
+        </div>
+        <div class="vc-metric">
+          <div class="vc-metric-lbl">Custo Oper.</div>
+          <div class="vc-metric-val">${fmtK(m.custo)}</div>
+        </div>
+        <div class="vc-metric">
+          <div class="vc-metric-lbl">% Margem</div>
+          <div class="vc-metric-val ${parseFloat(margPct)>=30?'green':parseFloat(margPct)>=0?'':'red'}">${margPct}%</div>
+        </div>
+      </div>
+      <div class="vc-bar">
+        <div class="vc-bar-lbl"><span>Participação no faturamento</span><span>${pct}%</span></div>
+        <div class="vc-bar-track"><div class="vc-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectVendedor(name) {
+  if (activeVendedor === name) {
+    activeVendedor = null;
+    document.getElementById('f-vendedor').value = '';
+  } else {
+    activeVendedor = name;
+    document.getElementById('f-vendedor').value = name;
+  }
+  applyFilters();
+}
+
+/* ════════════════════════════════════════
+   RENDER TABLE
+════════════════════════════════════════ */
+function renderTable(rows, vendedorFilter) {
+  const title = vendedorFilter ? 'Fretes — ' + shortName(vendedorFilter) : 'Todos os fretes';
+  document.getElementById('table-title').textContent = title;
+  const tb = document.getElementById('tbody-main');
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="11" class="tbl-empty">Nenhum frete encontrado</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(r => {
+    const fat     = parseBRL(r['Frete Cobrado']);
+    const custo   = parseBRL(r['Custo Operacional']);
+    const icmsVal = parseBRL(r['ICMS']);
+    const marg    = fat - custo - icmsVal;
+    const cOrigem = r['Cidade Origem'] || '—';
+    const ufOrig  = r['UF Origem']  || '';
+    const cDest   = r['Cidade Destino'] || '—';
+    const ufDest  = r['UF Destino'] || '';
+    return `<tr>
+      <td class="mono">${r['Mes']||r['Mês']||'—'}</td>
+      <td class="mono" style="white-space:nowrap">${r['Data Coleta']||'—'}</td>
+      <td><div class="route">
+        <span class="city">${cOrigem}</span>
+        ${ufOrig?`<span class="uf-badge">${ufOrig}</span>`:''}
+      </div></td>
+      <td><div class="route">
+        <span class="arrow">→</span>
+        <span class="city">${cDest}</span>
+        ${ufDest?`<span class="uf-badge">${ufDest}</span>`:''}
+      </div></td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r['Cliente']||''}">${r['Cliente']||'—'}</td>
+      <td style="white-space:nowrap;font-size:11px">${shortName(r['Vendedor']||'—')}</td>
+      <td class="mono" style="font-size:10px;color:var(--txt-dim)">${r['DT Codigo']||'—'}</td>
+      <td><span class="origem-badge ${origemClass(r['Origem'])}">${r['Origem']||'—'}</span></td>
+      <td class="mono txt-green">${fmtBRL(fat)}</td>
+      <td class="mono txt-dim">${fmtBRL(custo)}</td>
+      <td class="mono" style="color:var(--orange)">${fmtBRL(icmsVal)}</td>
+      <td class="mono ${marg>=0?'txt-green':'txt-red'}">${fmtBRL(marg)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ════════════════════════════════════════
+   EXPORT
+════════════════════════════════════════ */
+function exportCSV() {
+  const cols = ['Mes','Data Coleta','Cidade Origem','UF Origem','Cidade Destino','UF Destino','Cliente','Contato Cliente','Vendedor','DT Codigo','Origem','Frete Cobrado','Custo Operacional'];
+  const bom = '﻿';
+  const lines = [cols.map(c=>`"${c}"`).join(';')];
+  filtered.forEach(r => {
+    lines.push(cols.map(c=>`"${String(r[c]||'').replace(/"/g,'""')}"`).join(';'));
+  });
+  const blob = new Blob([bom + lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='relatorio_fretes.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+/* ════════════════════════════════════════
+   EXPORT EXCEL (.xlsx)
+════════════════════════════════════════ */
+function exportXLSX() {
+  if (!filtered.length) { alert('Nenhum dado para exportar.'); return; }
+  const cols = ['Mes','Data Coleta','Cidade Origem','UF Origem','Cidade Destino','UF Destino',
+    'Cliente','Contato Cliente','Vendedor','DT Codigo','Origem','Frete Cobrado','Custo Operacional','ICMS'];
+  
+  // Build worksheet data
+  const wsData = [cols]; // header row
+  filtered.forEach(r => {
+    wsData.push(cols.map(k => {
+      const v = r[k] || '';
+      // Parse numeric columns
+      if (k === 'Frete Cobrado' || k === 'Custo Operacional') return parseBRL(v);
+      return v;
+    }));
+  });
+
+  // Create workbook
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:8},{wch:12},{wch:22},{wch:8},{wch:22},{wch:8},
+    {wch:28},{wch:18},{wch:24},{wch:12},{wch:12},{wch:14},{wch:16}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Fretes');
+
+  // Summary sheet per vendedor
+  const vendMap = {};
+  filtered.forEach(r => {
+    const v = r['Vendedor'] || 'Sem vendedor';
+    if (!vendMap[v]) vendMap[v] = {fat:0, custo:0, qtd:0};
+    vendMap[v].fat   += parseBRL(r['Frete Cobrado']);
+    vendMap[v].custo += parseBRL(r['Custo Operacional']);
+    vendMap[v].qtd++;
+  });
+  const sumData = [['Vendedor','Qtd Fretes','Faturamento','Custo Operacional','Margem','% Margem']];
+  Object.entries(vendMap).sort((a,b)=>b[1].fat-a[1].fat).forEach(([name,m]) => {
+    const marg = m.fat - m.custo;
+    sumData.push([name, m.qtd, m.fat, m.custo, marg, m.fat ? +(marg/m.fat*100).toFixed(2) : 0]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(sumData);
+  ws2['!cols'] = [{wch:28},{wch:12},{wch:16},{wch:18},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo Vendedor');
+
+  // Download
+  const now = new Date();
+  const dt = now.toLocaleDateString('pt-BR').split('/').join('-');
+  XLSX.writeFile(wb, `relatorio_fretes_${dt}.xlsx`);
+}
+</script>
+<div style="position:fixed;bottom:16px;right:16px;z-index:50">
+  <button onclick="showScript()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt-dim);font-size:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--txt-dim)'">
+    <i class="ti ti-code" style="font-size:13px"></i> Ver Apps Script
+  </button>
+</div>
+<textarea id="gas-source" style="display:none">const SS_FONTE_ID   = &#x27;15SW9S9N7kJugsbZE7_-Owd0uxvvsuJ4NX6YJiS47DuA&#x27;;
+const SS_DESTINO_ID = &#x27;1V2v2Na6x0IiC5OMDCaGdq1D6vAREtNDQA-cXzBbR8iE&#x27;;
+const TORRE_SHEET   = &#x27;TORRE DE CONTROLE&#x27;;
+
+function col(headers, name) {
+  function norm(s) {
+    return String(s).toLowerCase()
+      .normalize(&#x27;NFD&#x27;)
+      .replace(/[\u0300-\u036f]/g, &#x27;&#x27;)
+      .trim();
+  }
+  var n = norm(name);
+  for (var i = 0; i &lt; headers.length; i++) {
+    if (norm(headers[i]) === n) return i;
+  }
+  return -1;
+}
+
+function doGet(e) {
+  try {
+    // action=sync via GET para evitar CORS
+    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;sync&#x27;) {
+      sincronizar();
+      return ok({msg:&#x27;Atualizado com sucesso&#x27;});
+    }
+    // Leitura normal dos dados
+    var ss = SpreadsheetApp.openById(SS_DESTINO_ID);
+    var sh = ss.getSheets()[0];
+    if (!sh || sh.getLastRow() &lt;= 1) return ok({data:[]});
+    var data = sh.getDataRange().getValues();
+    var headers = data[0].map(String);
+    var rows = data.slice(1).map(function(r) {
+      var o = {}; headers.forEach(function(h,i){ o[h] = cellStr(r[i]); }); return o;
+    }).filter(function(r){ return Object.values(r).some(function(v){return v;}); });
+    return ok({data:rows});
+  } catch(err) { return err_(err); }
+}
+
+function doPost(e) {
+  try {
+    var d = JSON.parse(e.postData.contents);
+    if (d.action === &#x27;sync&#x27;) { sincronizar(); return ok({msg:&#x27;Sincronizado com sucesso&#x27;}); }
+    return err_(&#x27;Acao desconhecida&#x27;);
+  } catch(err) { return err_(err); }
+}
+
+function ok(obj)   { obj.success=true;  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
+function err_(e)   { return ContentService.createTextOutput(JSON.stringify({success:false,error:String(e)})).setMimeType(ContentService.MimeType.JSON); }
+
+function sincronizar() {
+  var ssFonte   = SpreadsheetApp.openById(SS_FONTE_ID);
+  var ssDestino = SpreadsheetApp.openById(SS_DESTINO_ID);
+  var torre = ssFonte.getSheetByName(TORRE_SHEET);
+  if (!torre) throw new Error(&#x27;Aba &quot;TORRE DE CONTROLE&quot; nao encontrada.&#x27;);
+
+  var tData = torre.getDataRange().getValues();
+  var h = tData[0].map(String);
+
+  var C = {
+    origem  : col(h,&#x27;ORIGEM&#x27;),
+    resumo  : col(h,&#x27;Resumo&#x27;),
+    coleta  : col(h,&#x27;DATA DA COLETA&#x27;),
+    cliente : col(h,&#x27;CLIENTE&#x27;),
+    contato : col(h,&#x27;CONTATO CLIENTE&#x27;),
+    vendedor: col(h,&#x27;VENDEDOR&#x27;),
+    codigo  : col(h,&#x27;DT CODIGO&#x27;),
+    frete   : col(h,&#x27;FRETE CLIENTE&#x27;),
+    custo   : col(h,&#x27;CUSTO TOTAL OPERACIONAL&#x27;),
+    mes     : col(h,&#x27;MES&#x27;),
+    icms    : col(h,&#x27;IMPOSTO (12%)&#x27;)
+  };
+
+  var rel = ssDestino.getSheets()[0];
+  rel.clearContents();
+
+  var newH = [&#x27;Mes&#x27;,&#x27;Data Coleta&#x27;,&#x27;Cidade Origem&#x27;,&#x27;UF Origem&#x27;,&#x27;Cidade Destino&#x27;,&#x27;UF Destino&#x27;,
+    &#x27;Cliente&#x27;,&#x27;Contato Cliente&#x27;,&#x27;Vendedor&#x27;,&#x27;DT Codigo&#x27;,&#x27;Origem&#x27;,&#x27;Frete Cobrado&#x27;,&#x27;Custo Operacional&#x27;,&#x27;ICMS&#x27;];
+  rel.appendRow(newH);
+
+  var rows = [];
+  for (var i = 1; i &lt; tData.length; i++) {
+    var r = tData[i];
+    if (!r.some(function(v){return v;})) continue;
+    var route    = parseRoute(String(r[C.resumo] || &#x27;&#x27;));
+    var freteVal = parseBRL(r[C.frete]);
+    var custoVal = parseBRL(r[C.custo]);
+    var icmsVal  = C.icms &gt;= 0 ? parseBRL(r[C.icms]) : Math.round(freteVal * 0.12 * 100) / 100;
+    rows.push([
+      cellStr(r[C.mes]),
+      r[C.coleta] instanceof Date ? Utilities.formatDate(r[C.coleta], Session.getScriptTimeZone(), &#x27;dd/MM/yyyy&#x27;) : cellStr(r[C.coleta]),
+      route.cidadeOrigem, route.ufOrigem,
+      route.cidadeDestino, route.ufDestino,
+      cellStr(r[C.cliente]), cellStr(r[C.contato]),
+      cellStr(r[C.vendedor]), cellStr(r[C.codigo]),
+      cellStr(r[C.origem]),
+      freteVal, custoVal, icmsVal
+    ]);
+  }
+  if (rows.length &gt; 0) rel.getRange(2, 1, rows.length, newH.length).setValues(rows);
+}
+
+function parseRoute(resumo) {
+  if (!resumo) return {cidadeOrigem:&#x27;&#x27;,ufOrigem:&#x27;&#x27;,cidadeDestino:&#x27;&#x27;,ufDestino:&#x27;&#x27;};
+  var s = resumo.trim();
+  var xMatch = s.match(/(\s+)[xX](\s+)/);
+  if (!xMatch) return {cidadeOrigem:limpar(s),ufOrigem:&#x27;&#x27;,cidadeDestino:&#x27;&#x27;,ufDestino:&#x27;&#x27;};
+  var xIdx = s.search(/(\s+)[xX](\s+)/);
+  var orig = s.substring(0, xIdx).split(/\s*\+\s*/)[0].trim();
+  var dest = s.substring(xIdx + xMatch[0].length).replace(/\s*\(.*?\)/g,&#x27;&#x27;).split(/\s*\+\s*/)[0].trim();
+  var o = cidadeUF(orig), d = cidadeUF(dest);
+  return {cidadeOrigem:o.c,ufOrigem:o.u,cidadeDestino:d.c,ufDestino:d.u};
+}
+
+function cidadeUF(s) {
+  s = String(s).trim();
+  var m = s.match(/^(.*?)\s*\/\s*([A-Za-z]{2})\s*$/);
+  if (m) return {c:limpar(m[1]),u:m[2].toUpperCase()};
+  var m2 = s.match(/^(.*?)\s*-\s*([A-Za-z]{2})\s*$/);
+  if (m2 &amp;&amp; /^[A-Z]{2}$/i.test(m2[2])) return {c:limpar(m2[1]),u:m2[2].toUpperCase()};
+  return {c:limpar(s),u:&#x27;&#x27;};
+}
+
+function limpar(s) {
+  s = String(s).trim()
+    .replace(/\bS\d{4,}\s*[-]\s*/ig, &#x27;&#x27;)
+    .replace(/\bCTE\s*[\d\/]+\s*[-]\s*/ig, &#x27;&#x27;)
+    .replace(/\bNF\s*[\w]+\s*[-]\s*/ig, &#x27;&#x27;)
+    .replace(/\bMDF\s*\d+\s*[-]\s*/ig, &#x27;&#x27;);
+  var p = s.split(/\s+-\s+/);
+  for (var i = p.length - 1; i &gt;= 0; i--) {
+    var v = p[i].trim();
+    if (v &amp;&amp; v.length &gt; 1 &amp;&amp; !/^\d+$/.test(v)) return v;
+  }
+  return s.trim();
+}
+
+function cellStr(val) {
+  if (val === null || val === undefined || val === &#x27;&#x27;) return &#x27;&#x27;;
+  if (val instanceof Date) return Utilities.formatDate(val, Session.getScriptTimeZone(), &#x27;dd/MM/yyyy&#x27;);
+  return String(val);
+}
+
+function parseBRL(val) {
+  if (!val &amp;&amp; val !== 0) return 0;
+  if (typeof val === &#x27;number&#x27;) return val;
+  var s = String(val).replace(/R\$\s*/g,&#x27;&#x27;).trim();
+  if (s.includes(&#x27;,&#x27;)) s = s.replace(/\./g,&#x27;&#x27;).replace(&#x27;,&#x27;,&#x27;.&#x27;);
+  return parseFloat(s) || 0;
+}</textarea>
+</body>
+</html>
