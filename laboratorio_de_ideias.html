@@ -348,11 +348,7 @@ tbody tr:hover td{background:rgba(245,184,0,.02);cursor:pointer}
         </div>
         <div class="form-group"><label class="form-label">Seu Nome</label>
           <input class="form-input" id="cfg-nome" placeholder="Seu nome completo"></div>
-        <div class="form-group"><label class="form-label">Perfil</label>
-          <select class="form-select" id="cfg-perfil">
-            <option value="colaborador">Colaborador</option>
-            <option value="gestor">Gestor</option>
-          </select></div>
+        
       </div>
     </div>
     <div class="modal-ft">
@@ -458,8 +454,12 @@ function err_(e)  { return ContentService.createTextOutput(JSON.stringify({succe
    STATE
 ═══════════════════════════ */
 let WEBAPP_URL = localStorage.getItem('mc_webapp_url') || '';
-let USER_NOME  = localStorage.getItem('mc_nome') || '';
-let USER_PERFIL= localStorage.getItem('mc_perfil') || 'colaborador';
+// Lê sessão do shell
+let _barretos_user = null;
+try { _barretos_user = JSON.parse(sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || 'null'); } catch(e){}
+let USER_NOME   = (_barretos_user && _barretos_user.nome)   || localStorage.getItem('mc_nome')   || '';
+let USER_PERFIL = (_barretos_user && _barretos_user.perfil) || localStorage.getItem('mc_perfil') || 'colaborador';
+let USER_LOGIN  = (_barretos_user && _barretos_user.login)  || '';
 let db = [];
 let filtered = [];
 let editingId = null;
@@ -491,7 +491,14 @@ function applyUserUI() {
   const n = USER_NOME || '?';
   document.getElementById('sb-nm').textContent = n;
   document.getElementById('sb-role').textContent = USER_PERFIL === 'gestor' ? 'Gestor' : 'Colaborador';
-  document.getElementById('sb-av').textContent = n[0]?.toUpperCase() || '?';
+  // Avatar: foto ou inicial
+  const avEl = document.getElementById('sb-av');
+  const photo = localStorage.getItem('barretos_photo_' + USER_LOGIN);
+  if (photo) {
+    avEl.innerHTML = '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:7px;">';
+  } else {
+    avEl.textContent = n[0]?.toUpperCase() || '?';
+  }
   document.getElementById('nav-todas').style.display = USER_PERFIL === 'gestor' ? 'flex' : 'none';
   if (USER_NOME) document.getElementById('id-colab').value = USER_NOME;
 }
@@ -515,14 +522,23 @@ function showView(v) {
 /* ═══════════════════════════
    CONFIG
 ═══════════════════════════ */
-function openConfig() { document.getElementById('cfg-url').value=WEBAPP_URL; document.getElementById('cfg-nome').value=USER_NOME; document.getElementById('cfg-perfil').value=USER_PERFIL; openModal('modal-cfg'); }
+function openConfig() {
+  // Pre-fill from shell session
+  if (_barretos_user) {
+    const nomeEl = document.getElementById('cfg-nome');
+    if (nomeEl) nomeEl.value = USER_NOME;
+    const perfilEl = document.getElementById('cfg-perfil');
+    if (perfilEl) { perfilEl.value = USER_PERFIL; perfilEl.disabled = true; }
+  } document.getElementById('cfg-url').value=WEBAPP_URL; document.getElementById('cfg-nome').value=USER_NOME; const _pe=document.getElementById('cfg-perfil'); if(_pe) _pe.value=USER_PERFIL; openModal('modal-cfg'); }
 function saveConfig() {
   WEBAPP_URL  = document.getElementById('cfg-url').value.trim();
   USER_NOME   = document.getElementById('cfg-nome').value.trim();
-  USER_PERFIL = document.getElementById('cfg-perfil').value;
+  if (!_barretos_user) USER_PERFIL = (document.getElementById('cfg-perfil') || {value: USER_PERFIL}).value;
   localStorage.setItem('mc_webapp_url', WEBAPP_URL);
-  localStorage.setItem('mc_nome', USER_NOME);
-  localStorage.setItem('mc_perfil', USER_PERFIL);
+  if (!_barretos_user) {
+    localStorage.setItem('mc_nome',   USER_NOME);
+    localStorage.setItem('mc_perfil', USER_PERFIL);
+  }
   applyUserUI(); closeModal('modal-cfg');
   if (WEBAPP_URL) { setConn(true); loadData(); }
 }
