@@ -163,6 +163,11 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
       <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
         <i class="ti ti-refresh" style="font-size:12px"></i> Atualizar
       </button>
+      <button class="refresh-btn" onclick="openConfig()" title="Configurar Apps Script" style="background:transparent;border:1px solid var(--border);gap:5px;">
+        <div class="conn-dot" id="conn-dot"></div>
+        <span id="conn-label" style="font-size:10px;color:var(--txt-dim)">Configurar</span>
+        <i class="ti ti-settings" style="font-size:12px"></i>
+      </button>
     </div>
   </div>
 
