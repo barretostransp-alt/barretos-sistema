@@ -656,6 +656,8 @@ function toggleReg() {
 async function doLogin() {
   const login = document.getElementById('lg-login').value.trim();
   const senha = document.getElementById('lg-senha').value;
+  // Re-read URL from storage on every attempt (fixes timing issues)
+  if (!WEBAPP_URL) WEBAPP_URL = localStorage.getItem('login_webapp_url') || '';
   if (!login || !senha) { setMsg('Preencha login e senha.',''); return; }
   if (!WEBAPP_URL) { setMsg('Configure a URL do Apps Script primeiro.',''); openConfig(); return; }
   const btn = document.getElementById('btn-login');
@@ -828,9 +830,13 @@ document.addEventListener("DOMContentLoaded", function(){
 
 // Definido DEPOIS de todas as funções do shell
 window._shellLoginSuccess = function(user){
-  applyUser(user);
-  showShell();
-  navigate("dashboard");
+  try {
+    applyUser(user);
+    showShell();
+    navigate("dashboard");
+  } catch(e) {
+    alert("Erro ao entrar: " + e.message);
+  }
 };
 
 function toggleSidebar(){
