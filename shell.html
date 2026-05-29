@@ -740,14 +740,16 @@ function applyUser(user){
   var isGestor=perfil==="gestor";
   var cn=document.getElementById("nav-config");
   if(cn) cn.style.display=isGestor?"flex":"none";
-  aplicarPermissoes(login);
+  if(isGestor) aplicarPermissoes(login);
+  else aplicarPermissoes(login);
 }
 async function aplicarPermissoes(login){
-  var url=localStorage.getItem("login_webapp_url")||""; if(!url) return;
+  var url=localStorage.getItem("login_webapp_url")||""; 
+  if(!url){ mostrarTudo(); return; }
   try{
     var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
     var j=await r.json();
-    if(j.success&&j.ferramentas){
+    if(j.success&&j.ferramentas&&j.ferramentas.length>0){
       var p=j.ferramentas;
       ["cotacao","relatorio","frota","ideias"].forEach(function(k){
         var el=document.getElementById("nav-"+k); if(el) el.style.display=p.includes(k)?"flex":"none";
@@ -757,8 +759,16 @@ async function aplicarPermissoes(login){
         var el=document.getElementById("section-"+s); if(!el) return;
         el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
       });
-    }
-  }catch(e){}
+    } else { mostrarTudo(); }
+  }catch(e){ mostrarTudo(); }
+}
+function mostrarTudo(){
+  ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+    var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
+  });
+  ["section-comercial","section-operacional","section-melhoria"].forEach(function(s){
+    var el=document.getElementById(s); if(el) el.style.display="flex";
+  });
 }
 function navigate(key){
   var tool=TOOLS[key]; if(!tool) return;
