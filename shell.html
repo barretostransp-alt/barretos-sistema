@@ -577,6 +577,9 @@ function respErr(e) {
       </div>
     </nav>
     <div class="sb-footer">
+      <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
+        <i class="ti ti-settings"></i><span>Configurações</span>
+      </div>
       <button class="sb-logout" onclick="logout()">
         <i class="ti ti-power"></i>Encerrar sessão
       </button>
@@ -720,7 +723,8 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
-  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             }
+  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
+  config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
 };
 var currentTool = null;
 
@@ -742,6 +746,11 @@ function applyUser(user){
   var av=document.getElementById("sb-avatar"), photo=localStorage.getItem("barretos_photo_"+login);
   if(photo){ av.innerHTML='<img src="'+photo+'" alt="'+nome+'">'; }
   else{ av.textContent=nome.charAt(0).toUpperCase(); av.style.background="var(--gold)"; av.style.color="#111"; }
+  // Mostra Configurações para gestor
+  setTimeout(function(){
+    var cn=document.getElementById("nav-config");
+    if(cn) cn.style.display=(perfil.toLowerCase().trim()==="gestor")?"flex":"none";
+  }, 100);
 }
 function navigate(key){
   var tool=TOOLS[key]; if(!tool) return;
