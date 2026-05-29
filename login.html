@@ -424,8 +424,9 @@ async function doLogin() {
       localStorage.setItem('barretos_nome',   j.user.nome);
       localStorage.setItem('barretos_perfil', j.user.perfil);
       localStorage.setItem('barretos_login',  j.user.login);
+      localStorage.setItem('login_webapp_url', WEBAPP_URL);
       // Redireciona para o dashboard principal
-      window.location.href = 'sistema.html';
+      window.location.href = 'dashboard_home.html';
     } else {
       setMsg(j.error || 'Login ou senha incorretos.','');
     }
