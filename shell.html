@@ -806,6 +806,14 @@ window._shellLoginSuccess = function(user){
   applyUser(user);
   showShell();
   navigate("dashboard");
+  // Garante exibição do botão config após shell estar visível
+  setTimeout(function(){
+    var raw=sessionStorage.getItem("barretos_user")||localStorage.getItem("barretos_user");
+    if(!raw) return;
+    var u=JSON.parse(raw);
+    var cn=document.getElementById("nav-config");
+    if(cn) cn.style.display=(u.perfil||"").toLowerCase().trim()==="gestor"?"flex":"none";
+  }, 300);
 };
 
 function toggleSidebar(){
