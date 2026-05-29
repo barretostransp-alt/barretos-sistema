@@ -560,18 +560,18 @@ function respErr(e) {
           <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
         </div>
       </div>
-      <div class="sb-section">Comercial</div>
+      <div class="sb-section" id="section-comercial">Comercial</div>
       <div class="sb-item" id="nav-cotacao" onclick="navigate('cotacao')">
         <i class="ti ti-calculator"></i><span>Cotação Comercial</span>
       </div>
       <div class="sb-item" id="nav-relatorio" onclick="navigate('relatorio')">
         <i class="ti ti-chart-bar"></i><span>Relatório de Vendedor</span>
       </div>
-      <div class="sb-section">Operacional</div>
+      <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
       </div>
-      <div class="sb-section">Melhoria</div>
+      <div class="sb-section" id="section-melhoria">Melhoria</div>
       <div class="sb-item" id="nav-ideias" onclick="navigate('ideias')">
         <i class="ti ti-bulb"></i><span>Laboratório de Ideias</span>
       </div>
@@ -746,12 +746,53 @@ function applyUser(user){
   var av=document.getElementById("sb-avatar"), photo=localStorage.getItem("barretos_photo_"+login);
   if(photo){ av.innerHTML='<img src="'+photo+'" alt="'+nome+'">'; }
   else{ av.textContent=nome.charAt(0).toUpperCase(); av.style.background="var(--gold)"; av.style.color="#111"; }
-  // Mostra Configurações para gestor
-  setTimeout(function(){
-    var cn=document.getElementById("nav-config");
-    if(cn) cn.style.display=(perfil.toLowerCase().trim()==="gestor")?"flex":"none";
-  }, 100);
+  // Config só para gestor
+  var cn=document.getElementById("nav-config");
+  if(cn) cn.style.display=(perfil==="gestor")?"flex":"none";
+  // Busca e aplica permissões
+  setTimeout(function(){ aplicarPermissoes(login); }, 200);
 }
+
+async function aplicarPermissoes(login){
+  // Busca URL em localStorage e sessionStorage
+  var url=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
+  if(!url){ mostrarTudo(); return; }
+  try{
+    var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
+    var j=await r.json();
+    if(j.success&&j.ferramentas&&j.ferramentas.length>0){
+      // Salva em cache
+      sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(j.ferramentas));
+      aplicarMenuPermissoes(j.ferramentas);
+    } else { mostrarTudo(); }
+  } catch(e){
+    var cached=sessionStorage.getItem("barretos_perms_"+login);
+    if(cached){ aplicarMenuPermissoes(JSON.parse(cached)); }
+    else{ mostrarTudo(); }
+  }
+}
+
+function aplicarMenuPermissoes(p){
+  ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+    var el=document.getElementById("nav-"+k);
+    if(el) el.style.display=p.includes(k)?"flex":"none";
+  });
+  var sm={comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]};
+  Object.keys(sm).forEach(function(s){
+    var el=document.getElementById("section-"+s); if(!el) return;
+    el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
+  });
+}
+
+function mostrarTudo(){
+  ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+    var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
+  });
+  ["section-comercial","section-operacional","section-melhoria"].forEach(function(s){
+    var el=document.getElementById(s); if(el) el.style.display="flex";
+  });
+}
+
 function navigate(key){
   var tool=TOOLS[key]; if(!tool) return;
   currentTool=key;
@@ -790,8 +831,8 @@ function logout(){
 }
 
 document.addEventListener("DOMContentLoaded", function(){
-  var saved=localStorage.getItem("login_webapp_url")||"";
-  if(saved){ WEBAPP_URL=saved; }
+  var saved=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
+  if(saved){ WEBAPP_URL=saved; localStorage.setItem("login_webapp_url",saved); sessionStorage.setItem("login_webapp_url",saved); }
   var cfgEl=document.getElementById("cfg-url"); if(cfgEl) cfgEl.value=WEBAPP_URL;
   var sc=document.getElementById("script-code"), gs=document.getElementById("gas-src");
   if(sc&&gs) sc.value=gs.value;
@@ -806,14 +847,6 @@ window._shellLoginSuccess = function(user){
   applyUser(user);
   showShell();
   navigate("dashboard");
-  // Garante exibição do botão config após shell estar visível
-  setTimeout(function(){
-    var raw=sessionStorage.getItem("barretos_user")||localStorage.getItem("barretos_user");
-    if(!raw) return;
-    var u=JSON.parse(raw);
-    var cn=document.getElementById("nav-config");
-    if(cn) cn.style.display=(u.perfil||"").toLowerCase().trim()==="gestor"?"flex":"none";
-  }, 300);
 };
 
 function toggleSidebar(){
