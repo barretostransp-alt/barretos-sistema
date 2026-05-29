@@ -560,20 +560,24 @@ function respErr(e) {
           <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
         </div>
       </div>
-      <div class="sb-section">Comercial</div>
+      <div class="sb-section" id="section-comercial">Comercial</div>
       <div class="sb-item" id="nav-cotacao" onclick="navigate('cotacao')">
         <i class="ti ti-calculator"></i><span>Cotação Comercial</span>
       </div>
       <div class="sb-item" id="nav-relatorio" onclick="navigate('relatorio')">
         <i class="ti ti-chart-bar"></i><span>Relatório de Vendedor</span>
       </div>
-      <div class="sb-section">Operacional</div>
+      <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
       </div>
-      <div class="sb-section">Melhoria</div>
+      <div class="sb-section" id="section-melhoria">Melhoria</div>
       <div class="sb-item" id="nav-ideias" onclick="navigate('ideias')">
         <i class="ti ti-bulb"></i><span>Laboratório de Ideias</span>
+      </div>
+      <div class="sb-section" id="section-admin" style="display:none">Admin</div>
+      <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none">
+        <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
     </nav>
     <div class="sb-footer">
@@ -720,7 +724,8 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
-  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             }
+  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
+  config:    { src:"configuracoes.html", cat:"Admin", label:"Configurações", icon:"ti-settings" }
 };
 var currentTool = null;
 
@@ -742,7 +747,36 @@ function applyUser(user){
   var av=document.getElementById("sb-avatar"), photo=localStorage.getItem("barretos_photo_"+login);
   if(photo){ av.innerHTML='<img src="'+photo+'" alt="'+nome+'">'; }
   else{ av.textContent=nome.charAt(0).toUpperCase(); av.style.background="var(--gold)"; av.style.color="#111"; }
+  // Configurações apenas para gestor
+  var isGestor = perfil === "gestor";
+  var cfgNav = document.getElementById("nav-config");
+  var cfgSec = document.getElementById("section-admin");
+  if(cfgNav) cfgNav.style.display = isGestor ? "flex" : "none";
+  if(cfgSec) cfgSec.style.display = isGestor ? "flex" : "none";
+  // Aplica permissões
+  aplicarPermissoes(login);
 }
+async function aplicarPermissoes(login){
+  var loginUrl = localStorage.getItem("login_webapp_url") || "";
+  if(!loginUrl) return;
+  try {
+    var res  = await fetch(loginUrl + "?action=get_permissoes_user&login=" + encodeURIComponent(login));
+    var json = await res.json();
+    if(json.success && json.ferramentas){
+      var perm = json.ferramentas;
+      ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+        var el = document.getElementById("nav-"+k);
+        if(el) el.style.display = perm.includes(k) ? "flex" : "none";
+      });
+      var secMap = { comercial:["cotacao","relatorio"], operacional:["frota"], melhoria:["ideias"] };
+      Object.keys(secMap).forEach(function(sec){
+        var el = document.getElementById("section-"+sec);
+        if(!el) return;
+        el.style.display = secMap[sec].some(function(k){ return perm.includes(k); }) ? "flex" : "none";
+      });
+    }
+  } catch(e){}
+
 function navigate(key){
   var tool=TOOLS[key]; if(!tool) return;
   currentTool=key;
