@@ -656,7 +656,6 @@ function toggleReg() {
 async function doLogin() {
   const login = document.getElementById('lg-login').value.trim();
   const senha = document.getElementById('lg-senha').value;
-  // Re-read URL from storage on every attempt (fixes timing issues)
   if (!WEBAPP_URL) WEBAPP_URL = localStorage.getItem('login_webapp_url') || '';
   if (!login || !senha) { setMsg('Preencha login e senha.',''); return; }
   if (!WEBAPP_URL) { setMsg('Configure a URL do Apps Script primeiro.',''); openConfig(); return; }
@@ -749,13 +748,11 @@ function applyUser(user){
   var av=document.getElementById("sb-avatar"), photo=localStorage.getItem("barretos_photo_"+login);
   if(photo){ av.innerHTML='<img src="'+photo+'" alt="'+nome+'">'; }
   else{ av.textContent=nome.charAt(0).toUpperCase(); av.style.background="var(--gold)"; av.style.color="#111"; }
-  // Configurações apenas para gestor
   var isGestor = perfil === "gestor";
   var cfgNav = document.getElementById("nav-config");
   var cfgSec = document.getElementById("section-admin");
   if(cfgNav) cfgNav.style.display = isGestor ? "flex" : "none";
   if(cfgSec) cfgSec.style.display = isGestor ? "flex" : "none";
-  // Aplica permissões
   aplicarPermissoes(login);
 }
 async function aplicarPermissoes(login){
@@ -830,13 +827,9 @@ document.addEventListener("DOMContentLoaded", function(){
 
 // Definido DEPOIS de todas as funções do shell
 window._shellLoginSuccess = function(user){
-  try {
-    applyUser(user);
-    showShell();
-    navigate("dashboard");
-  } catch(e) {
-    alert("Erro ao entrar: " + e.message);
-  }
+  applyUser(user);
+  showShell();
+  navigate("dashboard");
 };
 
 function toggleSidebar(){
