@@ -560,26 +560,23 @@ function respErr(e) {
           <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
         </div>
       </div>
-      <div class="sb-section" id="section-comercial">Comercial</div>
+      <div class="sb-section">Comercial</div>
       <div class="sb-item" id="nav-cotacao" onclick="navigate('cotacao')">
         <i class="ti ti-calculator"></i><span>Cotação Comercial</span>
       </div>
       <div class="sb-item" id="nav-relatorio" onclick="navigate('relatorio')">
         <i class="ti ti-chart-bar"></i><span>Relatório de Vendedor</span>
       </div>
-      <div class="sb-section" id="section-operacional">Operacional</div>
+      <div class="sb-section">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
       </div>
-      <div class="sb-section" id="section-melhoria">Melhoria</div>
+      <div class="sb-section">Melhoria</div>
       <div class="sb-item" id="nav-ideias" onclick="navigate('ideias')">
         <i class="ti ti-bulb"></i><span>Laboratório de Ideias</span>
       </div>
     </nav>
     <div class="sb-footer">
-      <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:4px;border-radius:7px;border-left:none;">
-        <i class="ti ti-settings"></i><span>Configurações</span>
-      </div>
       <button class="sb-logout" onclick="logout()">
         <i class="ti ti-power"></i>Encerrar sessão
       </button>
@@ -723,8 +720,7 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
-  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
-  config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
+  ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             }
 };
 var currentTool = null;
 
@@ -746,33 +742,7 @@ function applyUser(user){
   var av=document.getElementById("sb-avatar"), photo=localStorage.getItem("barretos_photo_"+login);
   if(photo){ av.innerHTML='<img src="'+photo+'" alt="'+nome+'">'; }
   else{ av.textContent=nome.charAt(0).toUpperCase(); av.style.background="var(--gold)"; av.style.color="#111"; }
-  // Permissões e config
-  var isGestor = perfil==="gestor";
-  var cn=document.getElementById("nav-config"), cs=document.getElementById("section-admin");
-  if(cn) cn.style.display=isGestor?"flex":"none";
-  if(cs) cs.style.display=isGestor?"flex":"none";
-  aplicarPermissoes(login);
 }
-async function aplicarPermissoes(login){
-  var url=localStorage.getItem("login_webapp_url")||""; if(!url) return;
-  try{
-    var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
-    var j=await r.json();
-    if(j.success&&j.ferramentas){
-      var p=j.ferramentas;
-      ["cotacao","relatorio","frota","ideias"].forEach(function(k){
-        var e=document.getElementById("nav-"+k); if(e) e.style.display=p.includes(k)?"flex":"none";
-      });
-      ({comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]});
-      var sm={comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]};
-      Object.keys(sm).forEach(function(s){
-        var e=document.getElementById("section-"+s); if(!e) return;
-        e.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
-      });
-    }
-  }catch(e){}
-// close brace handled above
-
 function navigate(key){
   var tool=TOOLS[key]; if(!tool) return;
   currentTool=key;
