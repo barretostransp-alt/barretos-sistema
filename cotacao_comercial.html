@@ -9,26 +9,26 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
   :root {
-    --gold: #F5C518;
-    --gold-dark: #C9A100;
-    --gold-light: #FFD84D;
-    --charcoal: #1A1A1A;
-    --charcoal-mid: #242424;
-    --charcoal-light: #2E2E2E;
-    --charcoal-border: #3A3A3A;
-    --text-primary: #F0F0F0;
-    --text-secondary: #A0A0A0;
-    --text-muted: #666;
-    --success: #2ECC71;
-    --info: #3498DB;
-    --warn-color: #E67E22;
-    --danger: #E74C3C;
-    --blue-accent: #4A9EFF;
-    --green-accent: #2ECC71;
+    --gold: #F5B800;
+    --gold-dark: #C9A000;
+    --gold-light: #F5B800;
+    --charcoal: #090A0D;
+    --charcoal-mid: #0F1117;
+    --charcoal-light: #151820;
+    --charcoal-border: #1E2130;
+    --text-primary: #E8EAF0;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --success: #22C55E;
+    --info: #3B82F6;
+    --warn-color: #F59E0B;
+    --danger: #EF4444;
+    --blue-accent: #3B82F6;
+    --green-accent: #22C55E;
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 12px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow: 0 4px 24px rgba(0,0,0,0.6);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -941,7 +941,12 @@
   <style>
     #btn-pdf { display: none; }
     #btn-pdf.visible { display: inline-flex !important; }
-  </style>
+  
+.placa-remove{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+  color:#EF4444;border-radius:6px;padding:7px 10px;cursor:pointer;font-size:13px;
+  flex-shrink:0;display:flex;align-items:center;transition:all .15s;}
+.placa-remove:hover{background:rgba(239,68,68,.25);}
+</style>
 </head>
 <body>
 
@@ -1042,6 +1047,10 @@
     <div class="field">
       <label class="lbl" for="cnpj-tomador">CNPJ Tomador</label>
       <input type="text" id="cnpj-tomador" placeholder="00.000.000/0000-00" maxlength="18">
+    </div>
+    <div class="field">
+      <label class="lbl" for="faturamento">Faturamento DDL (dias)</label>
+      <input type="text" id="faturamento" placeholder="Ex: 30 DDL, 28 DDL..." maxlength="20">
     </div>
     <div class="field-grid">
       <div class="field">
@@ -1502,11 +1511,22 @@
     <div class="oc-grid">
       <div>
         <div class="oc-grid-3">
-          <div class="oc-field">
-            <label class="oc-lbl" for="oc-placa">Placa</label>
-            <div class="vend-wrap">
-              <input type="text" id="oc-placa" placeholder="AAA-0000" maxlength="8" style="text-transform:uppercase" autocomplete="off" oninput="onDriverInput('placa',this.value)">
-              <div class="addr-dropdown" id="drop-placa"></div>
+          <div class="oc-field" style="grid-column:1/-1">
+            <label class="oc-lbl">Placa(s) do veículo</label>
+            <div id="placas-wrap" style="display:flex;flex-direction:column;gap:6px;">
+              <div class="placa-row" style="display:flex;gap:6px;align-items:center;">
+                <div class="vend-wrap" style="flex:1">
+                  <input type="text" id="oc-placa" placeholder="AAA-0000 (principal)" maxlength="8"
+                    style="text-transform:uppercase" autocomplete="off"
+                    oninput="onDriverInput('placa',this.value)">
+                  <div class="addr-dropdown" id="drop-placa"></div>
+                </div>
+                <button type="button" onclick="adicionarPlaca()" title="Adicionar placa"
+                  style="background:var(--gold);border:none;border-radius:6px;padding:7px 11px;
+                  cursor:pointer;color:#111;font-size:13px;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+                  <i class="ti ti-plus"></i> Placa
+                </button>
+              </div>
             </div>
           </div>
           <div class="oc-field" style="grid-column:span 2"><label class="oc-lbl" for="oc-veiculo">Marca / Modelo</label><input type="text" id="oc-veiculo" placeholder="Ex: FIAT / DUCATO MAXICARGO"></div>
@@ -2296,6 +2316,7 @@ async function gerarPDF(){
   const empresaCnpj=document.getElementById('emit-cnpj').textContent.trim();
   const cliente=document.getElementById('cliente').value.trim();
   const cnpj=document.getElementById('cnpj-tomador').value.trim();
+  const faturamento=document.getElementById('faturamento').value.trim();
   const origem=document.getElementById('addr-origem').value.trim();
   const destino=document.getElementById('addr-destino').value.trim();
   const obs=document.getElementById('observacoes').value.trim();
@@ -2312,7 +2333,8 @@ async function gerarPDF(){
   if(empresa&&empresaCnpj) y=drawRow('CNPJ emitente',empresaCnpj,y,true);
   if(vendedor) y=drawRow('Vendedor',vendedor+(vendTel?' · '+vendTel:''),y,!!empresa);
   if(cliente) y=drawRow('Cliente',cliente,y,!!vendedor);
-  if(cnpj)    y=drawRow('CNPJ Tomador',cnpj,y,!!cliente);
+  if(cnpj)        y=drawRow('CNPJ Tomador',cnpj,y,!!cliente);
+  if(faturamento) y=drawRow('Faturamento DDL',faturamento,y,!!cnpj);
   y=drawRow('Modalidade',isFrac?'Fracionado':'Dedicado',y,!!cnpj);
   if(origem)  y=drawRow('Origem',origem,y,!cnpj);
   if(destino) y=drawRow('Destino',destino,y,origem?!!cliente:false);
@@ -2932,6 +2954,7 @@ function limparOC() {
     'oc-dest-cnpj','oc-dest-nome','oc-dest-end','oc-dest-num','oc-dest-comp',
     'oc-dest-bairro','oc-dest-cidade','oc-dest-uf','oc-dest-cep','oc-dest-ie','oc-dest-tel',
     'oc-placa','oc-veiculo','oc-motorista','oc-cnh','oc-cnh-cat'];
+  document.querySelectorAll('.oc-placa-extra').forEach(el=>el.closest('.placa-row').remove());
   ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['cnpj-result-rem','cnpj-result-dest','cnpj-error-rem','cnpj-error-dest'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.style.display='none';
@@ -3138,7 +3161,7 @@ async function gerarOCPDF() {
   doc.text('VEÍCULO',MX+2,y+3.8);
   doc.text('MOTORISTA',mid+2,y+3.8);
   y+=8;
-  lv('Placa',gv('oc-placa'),MX,y); lv('Marca/Modelo',gv('oc-veiculo'),MX+30,y,55);
+  lv('Placa(s)',getTodasPlacas(),MX,y); lv('Marca/Modelo',gv('oc-veiculo'),MX+30,y,55);
   lv('Motorista',gv('oc-motorista'),mid,y,55);
   y+=6;
   lv('Nº CNH',gv('oc-cnh'),mid,y,35); lv('Categoria',gv('oc-cnh-cat'),mid+52,y);
@@ -3194,7 +3217,7 @@ async function gerarOCPDF() {
         cnpjRem: gv('oc-rem-cnpj'),
         destinatario: gv('oc-dest-nome'),
         cnpjDest: gv('oc-dest-cnpj'),
-        placa: gv('oc-placa'),
+        placa: getTodasPlacas(),
         veiculo: gv('oc-veiculo'),
         motorista: gv('oc-motorista')
       })
@@ -3709,6 +3732,31 @@ document.getElementById('cnpj-tomador').addEventListener('input',function(){
   else if(v.length>2) v=v.replace(/^(\d{2})(\d{0,3}).*/,'$1.$2');
   this.value=v;
 });
+
+/* ── MÚLTIPLAS PLACAS ── */
+function adicionarPlaca(){
+  const wrap = document.getElementById('placas-wrap');
+  const idx  = wrap.querySelectorAll('.placa-row').length + 1;
+  const row  = document.createElement('div');
+  row.className = 'placa-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" class="oc-placa-extra" placeholder="Placa ${idx}"
+      maxlength="8" style="text-transform:uppercase;flex:1;background:var(--charcoal-light);
+      border:1px solid var(--charcoal-border);border-radius:6px;color:var(--text-primary);
+      font-size:13px;padding:8px 10px;outline:none;"
+      oninput="this.value=this.value.toUpperCase()">
+    <button type="button" class="placa-remove" onclick="this.parentElement.remove()" title="Remover">
+      <i class="ti ti-trash"></i>
+    </button>`;
+  wrap.appendChild(row);
+}
+function getTodasPlacas(){
+  const principal = document.getElementById('oc-placa')?.value?.trim()||'';
+  const extras = [...document.querySelectorAll('.oc-placa-extra')]
+    .map(i=>i.value.trim()).filter(v=>v);
+  return [principal,...extras].filter(v=>v).join(' / ');
+}
 
 addCubRow();calc();
 
