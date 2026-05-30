@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INFRA — Fluxo Operacional</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
+  --gold:#F5B800;--gold-dim:rgba(245,184,0,.12);--gold-b:rgba(245,184,0,.28);
+  --txt:#E8EAF0;--txt-dim:#6B7280;--txt-mid:#9CA3AF;
+  --green:#22C55E;--red:#EF4444;--blue:#3B82F6;--r:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;overflow:hidden;}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:8px;flex-shrink:0;}
+.tb-logo{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--gold);white-space:nowrap;}
+.tb-sep{color:var(--border);font-size:18px;}
+.tb-sw{position:relative;flex:1;max-width:280px;}
+.tb-s{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;
+  color:var(--txt);font-size:12px;padding:6px 10px 6px 30px;outline:none;font-family:'DM Sans',sans-serif;}
+.tb-s:focus{border-color:var(--gold);}
+.tb-si{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--txt-dim);font-size:13px;pointer-events:none;}
+.tb-f{background:var(--card);border:1px solid var(--border);border-radius:6px;
+  color:var(--txt);font-size:11px;padding:5px 9px;outline:none;font-family:'DM Sans',sans-serif;}
+.tb-f:focus{border-color:var(--gold);}
+.tb-r{margin-left:auto;display:flex;align-items:center;gap:7px;}
+.bsm{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--txt-dim);
+  padding:5px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;
+  transition:all .15s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.bsm:hover{border-color:var(--gold);color:var(--gold);}
+.cdot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;}
+.cdot.on{background:var(--green);}
+.board-wrap{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;height:calc(100vh - 52px);padding:12px;gap:10px;}
+.board-wrap::-webkit-scrollbar{height:5px;}
+.board-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.col{min-width:268px;max-width:268px;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:border-color .15s,background .15s;}
+.col.dov{border-color:var(--gold);background:rgba(245,184,0,.05);}
+.col-hd{padding:10px 12px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.col-nm{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt);flex:1;}
+.col-ct{font-size:10px;color:var(--txt-dim);background:var(--card);padding:2px 7px;border-radius:10px;font-weight:600;}
+.badd{background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:16px;padding:1px;transition:color .15s;display:flex;align-items:center;}
+.badd:hover{color:var(--gold);}
+.col-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:7px;min-height:60px;}
+.col-body::-webkit-scrollbar{width:3px;}
+.col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;cursor:grab;transition:all .15s;border-left:3px solid transparent;user-select:none;}
+.kcard:hover{border-color:rgba(245,184,0,.3);border-left-color:var(--gold);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.4);}
+.kcard.dragging{opacity:.35;cursor:grabbing;}
+.kcard.hidden{display:none;}
+.kcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:4px;}
+.kcard-code{font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.05em;}
+.kcard-acomp{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(139,92,246,.15);
+  color:#A78BFA;border:1px solid rgba(139,92,246,.3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kcard-cli{font-size:11px;color:var(--txt);font-weight:600;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kcard-route{font-size:10px;color:var(--txt-dim);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kcard-foot{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.ktag{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+.tg{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-b);}
+.tb{background:rgba(59,130,246,.1);color:#3B82F6;border:1px solid rgba(59,130,246,.3);}
+.tp{background:rgba(139,92,246,.1);color:#8B5CF6;border:1px solid rgba(139,92,246,.3);}
+.kav{width:18px;height:18px;border-radius:4px;background:var(--gold);display:flex;align-items:center;
+  justify-content:center;font-size:8px;font-weight:800;color:#111;flex-shrink:0;margin-left:auto;font-family:'Syne',sans-serif;}
+/* MODAL */
+.mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;
+  backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px;}
+.mov.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  width:780px;max-width:100%;margin:auto;box-shadow:0 8px 40px rgba(0,0,0,.7);overflow:hidden;}
+.mhd{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;border-bottom:1px solid var(--border);}
+.mhl{display:flex;align-items:center;gap:10px;}
+.mttl{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--txt);}
+.mcod{font-size:12px;color:var(--gold);font-weight:700;background:var(--gold-dim);padding:3px 9px;border-radius:5px;border:1px solid var(--gold-b);}
+.mclose{background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:18px;display:flex;align-items:center;}
+.mclose:hover{color:var(--txt);}
+.mbody{padding:16px 20px;overflow-y:auto;max-height:72vh;}
+.fsec{margin-bottom:16px;}
+.fst{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);
+  margin-bottom:9px;display:flex;align-items:center;gap:6px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.fg-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.fg{display:flex;flex-direction:column;gap:3px;}
+.fg.full{grid-column:1/-1;}
+.fg.sp2{grid-column:span 2;}
+.fg label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);}
+.fg input,.fg select,.fg textarea{background:var(--card);border:1px solid var(--border);border-radius:6px;
+  color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 9px;outline:none;transition:border-color .15s;}
+.fg input[type="date"]{color-scheme:dark;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
+.fg select option{background:var(--card);}
+.cod-ok{font-size:10px;color:var(--green);margin-top:3px;display:flex;align-items:center;gap:3px;}
+.cod-err{font-size:10px;color:var(--red);margin-top:3px;display:none;align-items:center;gap:3px;font-weight:600;}
+.cod-inp-dup{border-color:var(--red)!important;}.vw{position:relative;}
+.vw input{width:100%;}
+.vdrop{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--gold-b);
+  border-radius:6px;z-index:20;max-height:130px;overflow-y:auto;display:none;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.vdrop.open{display:block;}
+.vitem{padding:7px 10px;font-size:12px;cursor:pointer;color:var(--txt);}
+.vitem:hover{background:var(--gold-dim);color:var(--gold);}
+.pct-w{position:relative;}
+.pct-w input{padding-right:26px;}
+.pct-s{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--txt-dim);pointer-events:none;}
+.az{border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;margin-top:4px;}
+.az:hover,.az.dov{border-color:var(--gold);background:var(--gold-dim);}
+.az p{font-size:11px;color:var(--txt-dim);margin-top:4px;}
+.alist{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+.aitem{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;}
+.aname{flex:1;font-size:11px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.asz{font-size:10px;color:var(--txt-dim);flex-shrink:0;}
+.adl,.arm{background:none;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;flex-shrink:0;}
+.adl{color:var(--gold);}
+.arm{color:var(--red);}
+.mft{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.bprim{background:var(--gold);color:#111;border:none;border-radius:7px;padding:9px 18px;font-size:12px;
+  font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .15s;}
+.bprim:hover{opacity:.85;}
+.bprim:disabled{opacity:.4;cursor:default;}
+.bgh{background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--txt-dim);
+  padding:9px 13px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;}
+.bgh:hover{border-color:var(--txt-dim);color:var(--txt);}
+.bdng{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:7px;color:var(--red);
+  padding:9px 12px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:5px;}
+.bdng:hover{background:rgba(239,68,68,.2);}
+.mmsg{font-size:11px;color:var(--green);}
+.mmsg.err{color:var(--red);}
+.cfg-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:440px;
+  max-width:95vw;margin:auto;padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+.cfg-box h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:13px;color:var(--txt);}
+.cfgr label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);display:block;margin-bottom:4px;}
+.cfgr input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;
+  color:var(--txt);font-size:12px;padding:7px 9px;outline:none;margin-bottom:10px;font-family:'DM Sans',sans-serif;}
+.cfgr input:focus{border-color:var(--gold);}
+.spinner{width:14px;height:14px;border:2px solid rgba(245,184,0,.2);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.prev-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;padding:16px;}
+.prev-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(860px,96vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;}
+.prev-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.prev-hd span{font-size:12px;font-weight:600;color:var(--txt);}
+.prev-body{flex:1;overflow:auto;padding:12px;display:flex;align-items:center;justify-content:center;min-height:200px;}
+.empty-col{font-size:11px;color:var(--txt-dim);text-align:center;padding:16px 0;opacity:.5;}
+</style>
+</head>
+<body style="display:flex;flex-direction:column;">
+
+<div class="topbar">
+  <div class="tb-logo">INF</div>
+  <span class="tb-sep">|</span>
+  <div class="tb-sw">
+    <i class="ti ti-search tb-si"></i>
+    <input class="tb-s" id="tb-s" placeholder="Buscar código, cliente, motorista..." oninput="doFilter()">
+  </div>
+  <select class="tb-f" id="f-vend" onchange="doFilter()">
+    <option value="">Todos os vendedores</option>
+  </select>
+  <div class="tb-r">
+    <button class="bsm" onclick="openCfg()">
+      <div class="cdot" id="cdot"></div>
+      <span id="clbl">Configurar</span>
+      <i class="ti ti-settings" style="font-size:12px"></i>
+    </button>
+    <button class="bsm" id="btn-ref" onclick="loadData()">
+      <i class="ti ti-refresh" style="font-size:12px"></i> Atualizar
+    </button>
+  </div>
+</div>
+
+<div class="board-wrap" id="board">
+  <div style="margin:auto;display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--txt-dim);">
+    <div class="spinner" style="width:24px;height:24px;border-width:3px;"></div>
+    <span style="font-size:12px;">Carregando...</span>
+  </div>
+</div>
+
+<div class="mov" id="card-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mhd">
+      <div class="mhl">
+        <span class="mttl" id="mttl">Novo Card</span>
+        <span class="mcod" id="mcod" style="display:none"></span>
+      </div>
+      <button class="mclose" onclick="closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mbody" id="mbody"></div>
+    <div class="mft">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="bdng" id="btn-del" onclick="deleteCard()" style="display:none">
+          <i class="ti ti-trash" style="font-size:12px"></i> Excluir
+        </button>
+        <span class="mmsg" id="mmsg"></span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="bgh" onclick="closeModal()">Cancelar</button>
+        <button class="bprim" id="btn-sv" onclick="saveCard()">
+          <i class="ti ti-device-floppy" style="font-size:13px"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mov" id="cfg-modal" onclick="if(event.target===this)closeCfg()">
+  <div class="cfg-box">
+    <h3><i class="ti ti-plug" style="font-size:13px;color:var(--gold);margin-right:6px"></i>Configurar Apps Script</h3>
+    <div class="cfgr">
+      <label>URL do Web App</label>
+      <input id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="bgh" onclick="closeCfg()">Cancelar</button>
+      <button class="bprim" onclick="saveCfg()"><i class="ti ti-check" style="font-size:12px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var ABA="INFRA", PFX="S", SK="jira_url_INFRA", ATK="att_INF_", EXTK="extra_INF_";
+var STATUS_LIST=["OPERACIONAL","COLETA","AGUARDANDO MANIFESTO","FATURADO","MANIFESTOS","FINALIZADO"];
+var SC={"OPERACIONAL":"#3B82F6","COLETA":"#F59E0B","AGUARDANDO MANIFESTO":"#8B5CF6","FATURADO":"#F5B800","MANIFESTOS":"#EC4899","FINALIZADO":"#22C55E"};
+var AO=["","EM ROTA DE COLETA","AGUARDANDO CARREGAMENTO","CARREGANDO","EM ROTA DE ENTREGA","DESCARREGANDO","CONCLUIDO","NECESSARIO TRANSBORDO","RETOMAR CONTRATAÇÃO","SEM CONTATO"];
+
+// Field map: chave do dado → id do elemento HTML
+// As chaves DEVEM bater exatamente com os cabeçalhos da planilha Google Sheets
+var FM={
+  // ── Campos que já existem na planilha (nomes exatos da linha 1)
+  "Chave":          "fi_dt_codigo",   // coluna A — mesmo valor do DT CODIGO
+  "Resumo":         "fi_resumo_hid",  // coluna B — gerado no saveCard, sem input
+  "Responsável":    "fi_responsavel", // coluna C
+  "Status":         "fi_status",      // coluna D
+  "ACOMPANHAMENTO": "fi_acomp",       // coluna E
+  "DATA DA COLETA": "fi_data_col",    // coluna F
+  "CLIENTE":        "fi_cliente",     // coluna G
+  "CONTATO CLIENTE":"fi_contato",     // coluna H
+  "VENDEDOR":       "fi_vendedor",    // coluna I
+  "DT CODIGO":      "fi_dt_codigo",   // coluna J
+  "FRETE COBRADO":  "fi_fr_cli",      // coluna K  ← era "FRETE CLIENTE"
+  "FRETE PAGO":     "fi_fr_mot",      // coluna L  ← era "FRETE MOTORISTA"
+  "TIPO DE VEICULO":"fi_veiculo",     // coluna M
+  "MOTORISTA":      "fi_motor",       // coluna N
+  "GERENCIAMENTO":  "fi_gerenc",      // coluna O
+  "PREVISÃO DE ENTREGA":"fi_prev_ent",// coluna P  ← era "PREVISAO DA ENTREGA"
+  "DATA DA ENTREGA":"fi_data_ent",    // coluna Q
+  "UF ORIGEM":      "fi_uf_orig",     // coluna R
+  "CUSTO OPERACIONAL TOTAL":"fi_custo",// coluna S ← era "CUSTO TOTAL OPERACIONAL"
+
+  // ── Campos extras do form que precisam de colunas na planilha
+  "CNPJ TOMADOR":       "fi_cnpj_tom",
+  "CTE":                "fi_cte",
+  "NF":                 "fi_nf",
+  "CIDADE ORIGEM":      "fi_cid_orig",
+  "CIDADE DESTINO":     "fi_cid_dest",
+  "UF DESTINO":         "fi_uf_dest",
+  "ADIANTAMENTO":       "fi_adiant",
+  "TITULAR DA CONTA":   "fi_titular",
+  "TIPO CHAVE PIX":     "fi_tipo_pix",
+  "CHAVE PIX":          "fi_pix",
+  "BANCO":              "fi_banco",
+  "TELEFONE MOTORISTA": "fi_tel_mot",
+  "TITULO":             "fi_titulo",
+  "OBSERVACAO":         "fi_obs"
+};
+function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
+function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
+function fset(k,v){var e=document.getElementById(fid(k));if(e){if(e.type==="date")e.value=toBR_inv(v);else e.value=v||"";}}
+
+// Date helpers: sheet = dd/MM/yyyy, input[type=date] = yyyy-MM-dd
+function toBR_inv(s){
+  if(!s)return "";
+  // dd/MM/yyyy → yyyy-MM-dd
+  var p=String(s).split("/");
+  if(p.length===3&&p[2].length===4)return p[2]+"-"+p[1]+"-"+p[0];
+  // already yyyy-MM-dd?
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  return "";
+}
+function fromDateInp(s){
+  if(!s)return "";
+  // yyyy-MM-dd → dd/MM/yyyy
+  var p=String(s).split("-");
+  if(p.length===3)return p[2]+"/"+p[1]+"/"+p[0];
+  return s;
+}
+
+var WEBAPP_URL=localStorage.getItem(SK)||"";
+var allCards=[],editKey=null,vendedores=[],pendAtt=[];
+
+document.addEventListener("DOMContentLoaded",function(){
+  document.getElementById("cfg-url").value=WEBAPP_URL;
+  if(WEBAPP_URL)loadData();else{setConn(false);setTimeout(openCfg,400);}
+});
+
+function setConn(on){
+  document.getElementById("cdot").className="cdot"+(on?" on":"");
+  document.getElementById("clbl").textContent=on?"Conectado":"Configurar";
+}
+
+async function loadData(){
+  var btn=document.getElementById("btn-ref");
+  btn.innerHTML="<span class=\"spinner\"></span>";
+  try{
+    var r=await fetch(WEBAPP_URL+"?aba="+encodeURIComponent(ABA));
+    var j=await r.json();
+    if(!j.success)throw new Error(j.error);
+    allCards=j.rows;
+    // rebuild vendedores list
+    var vs={};
+    allCards.forEach(function(c){if(c["VENDEDOR"])vs[c["VENDEDOR"]]=1;});
+    try{JSON.parse(localStorage.getItem("vend_INF")||"[]").forEach(function(v){vs[v]=1;});}catch(e){}
+    vendedores=Object.keys(vs).sort();
+    var sel=document.getElementById("f-vend"),cur=sel.value;
+    sel.innerHTML="<option value=\"\">Todos os vendedores</option>"+
+      vendedores.map(function(v){return "<option value=\""+e(v)+"\""+(v===cur?" selected":"")+">"+v+"</option>";}).join("");
+    setConn(true);renderBoard();
+  }catch(ex){
+    setConn(false);
+    document.getElementById("board").innerHTML="<div style=\"padding:40px;color:var(--red);font-size:13px;margin:auto;text-align:center\">"+
+      "<i class=\"ti ti-plug-off\" style=\"font-size:32px;display:block;margin-bottom:12px\"></i>"+
+      "Erro: "+ex.message+"<br><br><button onclick=\"openCfg()\" style=\"background:var(--gold);border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer;font-weight:700\">Configurar URL</button></div>";
+  }
+  btn.innerHTML="<i class=\"ti ti-refresh\" style=\"font-size:12px\"></i> Atualizar";
+}
+
+function doFilter(){
+  var q=(document.getElementById("tb-s").value||"").toLowerCase().trim();
+  var v=(document.getElementById("f-vend").value||"");
+  document.querySelectorAll(".kcard").forEach(function(el){
+    var show=(!q||(el.dataset.s||"").toLowerCase().indexOf(q)!==-1)&&(!v||el.dataset.v===v);
+    el.classList.toggle("hidden",!show);
+  });
+  document.querySelectorAll(".col").forEach(function(col){
+    var n=col.querySelectorAll(".kcard:not(.hidden)").length;
+    var b=col.querySelector(".col-ct");if(b)b.textContent=n;
+  });
+}
+
+function renderBoard(){
+  var h="";
+  STATUS_LIST.forEach(function(st){
+    var cc=allCards.filter(function(c){return c["Status"]===st;});
+    var color=SC[st]||"#888";
+    h+="<div class=\"col\" data-status=\""+e(st)+"\" ondragover=\"dov(event)\" ondragleave=\"dlv(event)\" ondrop=\"ddrop(event,\'"+e(st)+"\')\">"+
+      "<div class=\"col-hd\"><div class=\"col-dot\" style=\"background:"+color+"\"></div>"+
+      "<div class=\"col-nm\">"+st+"</div><span class=\"col-ct\">"+cc.length+"</span>"+
+      "<button class=\"badd\" onclick=\"openNew(\'"+e(st)+"\')\"><i class=\"ti ti-plus\"></i></button></div>"+
+      "<div class=\"col-body\" onclick=\"onColClick(event)\">"+
+      (cc.length?cc.map(rCard).join(""):"<div class=\"empty-col\">Sem cards</div>")+
+      "</div></div>";
+  });
+  document.getElementById("board").innerHTML=h;
+}
+function onColClick(ev){
+  var el=ev.target.closest(".kcard");
+  if(el&&el.dataset.key)openEdit(el.dataset.key);
+}
+function rCard(c){
+  var key=c["DT CODIGO"]||c["Chave"]||"";
+  var cli=c["CLIENTE"]||"",vend=c["VENDEDOR"]||"?";
+  var fret=c["FRETE COBRADO"]||"",acomp=c["ACOMPANHAMENTO"]||"",tip=c["TIPO DE VEICULO"]||"";
+  var ro=[c["CIDADE ORIGEM"],c["UF ORIGEM"]].filter(Boolean).join("/");
+  if(c["CIDADE DESTINO"])ro+=(ro?" → ":"")+[c["CIDADE DESTINO"],c["UF DESTINO"]].filter(Boolean).join("/");
+  // Title: read from local extra storage (saved on form submit)
+  var _extra=getExtra(key);
+  var _parts=(c["Resumo"]||"").split(" - ");
+  var _rota=_parts.find(function(p){return p.toUpperCase().indexOf(" X ")!==-1;})||"";
+  var titulo=_extra["TITULO"]||_rota||"";
+  var att=getAtt(key);
+  var srch=[key,titulo,cli,vend,c["MOTORISTA"]||"",ro,fret,c["NF"]||"",c["CTE"]||""].join(" ").toLowerCase();
+  return "<div class=\"kcard\" draggable=\"true\""
+    +" data-key=\""+e(key)+"\" data-s=\""+srch+"\" data-v=\""+e(vend)+"\""+
+    " ondragstart=\"dstart(event,event.currentTarget)\" ondragend=\"dend(event)\">"+
+    "<div class=\"kcard-top\"><span class=\"kcard-code\">"+key+"</span>"+
+    (acomp?"<span class=\"kcard-acomp\">"+acomp+"</span>":"")+
+    "</div>"+
+    "<div class=\"kcard-cli\">"+e(titulo||"(sem título)")+"</div>"+
+    (cli?"<div style=\"margin-bottom:5px\"><span class=\"ktag tb\" style=\"font-size:10px\">"+e(cli)+"</span></div>":"")+
+    "<div class=\"kcard-foot\">"+
+    (fret?"<span class=\"ktag tg\">"+e(fret)+"</span>":"")+
+    (tip?"<span class=\"ktag\" style=\"background:rgba(34,197,94,.1);color:#22C55E;border:1px solid rgba(34,197,94,.3)\">"+tip.slice(0,14)+"</span>":"")+
+    (att.length?"<span class=\"ktag tp\"><i class=\"ti ti-paperclip\" style=\"font-size:9px\"></i> "+att.length+"</span>":"")+
+    "<div class=\"kav\" title=\""+e(vend)+"\">"+vend[0].toUpperCase()+"</div>"+
+    "</div></div>";
+}
+function openNew(st){
+  editKey=null;pendAtt=[];
+  document.getElementById("mttl").textContent="Novo Card — INF";
+  document.getElementById("mcod").style.display="none";
+  document.getElementById("btn-del").style.display="none";
+  document.getElementById("mmsg").textContent="";document.getElementById("mmsg").className="mmsg";
+  buildForm({Status:st},true);
+  document.getElementById("card-modal").classList.add("open");
+}
+function openEdit(key){
+  var card=null;
+  var k=String(key).trim();
+  for(var i=0;i<allCards.length;i++){
+    var c=allCards[i];
+    var cod=String(c["DT CODIGO"]||c["Chave"]||"").trim();
+    // também tenta extrair o código do campo Resumo (ex: "P26500 - CLIENTE - ...")
+    var resumoCod=(c["Resumo"]||"").split(" - ")[0].trim();
+    if(cod===k||resumoCod===k){card=c;break;}
+  }
+  if(!card){console.warn("[openEdit] Card não encontrado:",k,"Total cards:",allCards.length);return;}
+  console.log("[openEdit] dados recebidos da planilha:",JSON.stringify(card,null,2));
+  editKey=key;
+  var extra=getExtra(key);
+  Object.keys(extra).forEach(function(k){ if(!card[k]) card[k]=extra[k]; });
+  pendAtt=getAtt(key);
+  document.getElementById("mttl").textContent="Editar Card";
+  var ce=document.getElementById("mcod");ce.textContent=key;ce.style.display="inline-flex";
+  document.getElementById("btn-del").style.display="flex";
+  document.getElementById("mmsg").textContent="";document.getElementById("mmsg").className="mmsg";
+  buildForm(card,false);
+  document.getElementById("card-modal").classList.add("open");
+}
+function closeModal(){document.getElementById("card-modal").classList.remove("open");}
+
+function buildForm(data,isNew){
+  // Normaliza aliases: garante que os campos do form sempre encontrem seus dados
+  // mesmo que o Apps Script retorne nomes ligeiramente diferentes
+  var aliases={
+    "FRETE CLIENTE":               "FRETE COBRADO",
+    "FRETE MOTORISTA":             "FRETE PAGO",
+    "CUSTO TOTAL OPERACIONAL":     "CUSTO OPERACIONAL TOTAL",
+    "PREVISAO DA ENTREGA":         "PREVISÃO DE ENTREGA",
+    "PREVISAO DE ENTREGA":         "PREVISÃO DE ENTREGA",
+    "CUSTO OPERACIONAL":           "CUSTO OPERACIONAL TOTAL"
+  };
+  Object.keys(aliases).forEach(function(old){
+    var novo=aliases[old];
+    if(data[old]!=null&&data[old]!=""&&!data[novo])data[novo]=data[old];
+  });
+  if(!data["DT CODIGO"]&&data["Chave"])data["DT CODIGO"]=data["Chave"];
+
+  var auto=isNew?genCod():(data["DT CODIGO"]||"");
+  var custo=data["CUSTO OPERACIONAL TOTAL"]||(isNew?"":data["FRETE PAGO"]||"");
+
+  function inp(k,ph,extra){
+    return "<input id=\""+fid(k)+"\" value=\""+e(data[k]||"")+"\" placeholder=\""+(ph||"")+"\" "+(extra||"")+">";
+  }
+  function dateinp(k){
+    return "<input type=\"date\" id=\""+fid(k)+"\" value=\""+toBR_inv(data[k]||"")+"\">";
+  }
+  function sel(k,opts,cur){
+    var v=data[k]||cur||"";
+    return "<select id=\""+fid(k)+"\">"+opts.map(function(o){return "<option value=\""+e(o)+"\""+(o===v?" selected":"")+">"+o+"</option>";}).join("")+"</select>";
+  }
+
+  document.getElementById("mbody").innerHTML=
+  // ── IDENTIFICAÇÃO
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-id\" style=\"font-size:12px\"></i> Identificação</div>"+
+  "<div class=\"fg-grid g3\">"+
+    "<div class=\"fg\"><label>DT Código *</label>"+
+      "<input id=\""+fid("DT CODIGO")+"\" value=\""+e(auto)+"\" maxlength=\"10\" oninput=\"checkCod(this.value)\" style=\"font-weight:700;letter-spacing:.05em\">"+
+      "<div class=\"cod-ok\" id=\"cod-ok\" style=\"display:flex\">"+(isNew?"<i class='ti ti-sparkles' style='font-size:10px'></i> Gerado automaticamente — sequência "+auto.slice(-2)+" de "+auto.slice(0,-2)+"":"")+"</div>"+
+      "<div class=\"cod-err\" id=\"cod-err\"><i class='ti ti-alert-triangle' style='font-size:10px'></i> Código já utilizado! Escolha outro.</div>"+
+    "</div>"+
+    "<div class=\"fg\"><label>Status</label>"+sel("Status",STATUS_LIST,isNew?(data["Status"]||"OPERACIONAL"):"")+"</div>"+
+    "<div class=\"fg\"><label>Acompanhamento</label>"+sel("ACOMPANHAMENTO",AO,"")+"</div>"+"<div class=\"fg-grid\" style=\"margin-top:9px\">"+"<div class=\"fg full\"><label>Título do Card</label>"+inp("TITULO","Descreva brevemente...")+"</div>"+"</div></div>"+
+
+  // ── COMERCIAL
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-briefcase\" style=\"font-size:12px\"></i> Comercial</div>"+
+  "<div class=\"fg-grid\">"+
+    "<div class=\"fg\"><label>Vendedor</label><div class=\"vw\">"+
+      "<input id=\""+fid("VENDEDOR")+"\" value=\""+e(data["VENDEDOR"]||"")+"\" autocomplete=\"off\" oninput=\"onVI(this)\" onblur=\"setTimeout(closeVD,200)\">"+
+      "<div class=\"vdrop\" id=\"vdrop\"></div></div></div>"+
+    "<div class=\"fg\"><label>CNPJ Tomador</label>"+inp("CNPJ TOMADOR","00.000.000/0000-00")+"</div>"+
+    "<div class=\"fg\"><label>Cliente *</label>"+inp("CLIENTE","Nome do cliente")+"</div>"+
+    "<div class=\"fg\"><label>Contato Cliente</label>"+inp("CONTATO CLIENTE","Nome / Telefone")+"</div>"+
+  "</div></div>"+
+
+  // ── FISCAL
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-file-invoice\" style=\"font-size:12px\"></i> Fiscal</div>"+
+  "<div class=\"fg-grid g4\">"+
+    "<div class=\"fg\"><label>CTE</label>"+inp("CTE","Número CTE")+"</div>"+
+    "<div class=\"fg\"><label>NF</label>"+inp("NF","Número NF")+"</div>"+
+    "<div class=\"fg\"><label>Data da Coleta</label>"+dateinp("DATA DA COLETA")+"</div>"+
+    "<div class=\"fg\"><label>Previsão de Entrega</label>"+dateinp("PREVISÃO DE ENTREGA")+"</div>"+
+  "</div></div>"+
+
+  // ── ROTA
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-route\" style=\"font-size:12px\"></i> Rota</div>"+
+  "<div class=\"fg-grid g4\">"+
+    "<div class=\"fg sp2\"><label>Cidade Origem</label>"+inp("CIDADE ORIGEM","Cidade de origem")+"</div>"+
+    "<div class=\"fg\"><label>UF Origem</label>"+
+      "<input id=\""+fid("UF ORIGEM")+"\" value=\""+e(data["UF ORIGEM"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
+    "</div>"+
+    "<div class=\"fg\"><label>Data da Entrega</label>"+dateinp("DATA DA ENTREGA")+"</div>"+
+    "<div class=\"fg sp2\"><label>Cidade Destino</label>"+inp("CIDADE DESTINO","Cidade de destino")+"</div>"+
+    "<div class=\"fg\"><label>UF Destino</label>"+
+      "<input id=\""+fid("UF DESTINO")+"\" value=\""+e(data["UF DESTINO"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
+    "</div>"+
+  "</div></div>"+
+
+  // ── FINANCEIRO
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-currency-dollar\" style=\"font-size:12px\"></i> Financeiro</div>"+
+  "<div class=\"fg-grid g4\">"+
+    "<div class=\"fg\"><label>Frete Cobrado (R$)</label>"+inp("FRETE COBRADO","R$ 0,00")+"</div>"+
+    "<div class=\"fg\"><label>Frete Pago (R$)</label>"+
+      "<input id=\""+fid("FRETE PAGO")+"\" value=\""+e(data["FRETE PAGO"]||"")+"\" placeholder=\"R$ 0,00\" onblur=\"onFretMotBlur()\">"+
+    "</div>"+
+    "<div class=\"fg\"><label>Custo Operacional Total</label>"+
+      "<input id=\""+fid("CUSTO OPERACIONAL TOTAL")+"\" value=\""+e(data["CUSTO OPERACIONAL TOTAL"]||custo)+"\" placeholder=\"Preenche do frete pago\">"+
+    "</div>"+
+    "<div class=\"fg\"><label>Adiantamento (%)</label><div class=\"pct-w\">"+
+      "<input id=\""+fid("ADIANTAMENTO")+"\" value=\""+e(data["ADIANTAMENTO"]||"")+"\" placeholder=\"0\" oninput=\"this.value=this.value.replace(/[^0-9.,]/g,'')\">"+
+      "<span class=\"pct-s\">%</span></div></div>"+
+  "</div></div>"+
+
+  // ── TRANSPORTE
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-truck\" style=\"font-size:12px\"></i> Transporte</div>"+
+  "<div class=\"fg-grid g4\">"+
+    "<div class=\"fg\"><label>Tipo de Veículo</label>"+inp("TIPO DE VEICULO","Ex: Truck, Carreta...")+"</div>"+
+    "<div class=\"fg\"><label>Motorista</label>"+inp("MOTORISTA","Nome completo")+"</div>"+
+    "<div class=\"fg\"><label>Telefone Motorista</label>"+inp("TELEFONE MOTORISTA","(00) 00000-0000")+"</div>"+
+    "<div class=\"fg\"><label>Gerenciamento</label>"+inp("GERENCIAMENTO","SKYMARK, BUONNY...")+"</div>"+
+  "</div>"+
+  "<div class=\"fg-grid g4\" style=\"margin-top:9px\">"+
+    "<div class=\"fg\"><label>Titular da Conta</label>"+inp("TITULAR DA CONTA","Nome")+"</div>"+
+    "<div class=\"fg\"><label>Tipo de Chave Pix</label>"+
+      sel("TIPO CHAVE PIX",["","CPF","CNPJ","Telefone","E-mail","Chave Aleatória"],"")+"</div>"+
+    "<div class=\"fg\"><label>Chave Pix</label>"+inp("CHAVE PIX","Informe a chave")+"</div>"+
+    "<div class=\"fg\"><label>Banco</label>"+inp("BANCO","Ex: Nubank, Itaú")+"</div>"+
+  "</div></div>"+
+
+  // ── OBSERVAÇÃO
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-notes\" style=\"font-size:12px\"></i> Observações</div>"+
+  "<div class=\"fg full\">"+
+    "<label>Observação</label>"+
+    "<textarea id=\""+fid("OBSERVACAO")+"\" rows=\"3\" placeholder=\"Informações adicionais sobre o card...\">"+e(data["OBSERVACAO"]||"")+"</textarea>"+
+  "</div></div>"+
+
+  // ── ANEXOS
+  "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-paperclip\" style=\"font-size:12px\"></i> Anexos</div>"+
+  "<div class=\"az\" onclick=\"document.getElementById('att-inp').click()\""+
+  " ondragover=\"event.preventDefault();this.classList.add('dov')\""+
+  " ondragleave=\"this.classList.remove('dov')\""+
+  " ondrop=\"event.preventDefault();this.classList.remove('dov');handleFiles(event.dataTransfer.files)\">"+
+  "<i class=\"ti ti-cloud-upload\" style=\"font-size:22px;color:var(--txt-dim)\"></i>"+
+  "<p>Clique ou arraste arquivos aqui<br><span style=\"font-size:10px;opacity:.6\">Qualquer formato · máx 5MB cada</span></p>"+
+  "</div>"+
+  "<input type=\"file\" id=\"att-inp\" multiple style=\"display:none\" onchange=\"handleFiles(this.files)\">"+
+  "<div class=\"alist\" id=\"att-list\"></div></div>"+
+
+  // ── DEBUG (só aparece em modo edição)
+  (!isNew?"<details style=\"margin-top:12px;border:1px solid var(--border);border-radius:6px;padding:8px 12px;\">"+
+  "<summary style=\"font-size:10px;color:var(--txt-dim);cursor:pointer;user-select:none;\">"+
+  "<i class='ti ti-bug' style='font-size:10px;margin-right:4px'></i>Debug — dados recebidos da planilha</summary>"+
+  "<pre id='dbg-json' style=\"font-size:9px;color:var(--txt-dim);overflow:auto;max-height:160px;margin-top:6px;white-space:pre-wrap\">"+
+  e(JSON.stringify(data,null,2))+"</pre></details>":"");
+
+  renderAttList();
+  setTimeout(function(){checkCod(auto);},50);
+}
+
+function getFormData(){
+  var dados={};
+  // Campos sem input real no form — computados em saveCard
+  var skipKeys={"Resumo":1,"Chave":1};
+  Object.keys(FM).forEach(function(k){
+    if(skipKeys[k])return;
+    var elId=FM[k];
+    // DT CODIGO e Chave compartilham o mesmo input fi_dt_codigo
+    var el=document.getElementById(elId);
+    if(!el)return;
+    if(el.type==="date")dados[k]=fromDateInp(el.value);
+    else dados[k]=el.value.trim();
+  });
+  // Garante fallback de custo
+  if(!dados["CUSTO OPERACIONAL TOTAL"]&&dados["FRETE PAGO"])
+    dados["CUSTO OPERACIONAL TOTAL"]=dados["FRETE PAGO"];
+  var v=dados["VENDEDOR"];
+  if(v&&vendedores.indexOf(v)===-1){vendedores.push(v);vendedores.sort();localStorage.setItem("vend_INF",JSON.stringify(vendedores));}
+  return dados;
+}
+
+async function saveCard(){
+  var btn=document.getElementById("btn-sv"),msg=document.getElementById("mmsg");
+  var dados=getFormData();
+  if(!dados["DT CODIGO"]){msg.textContent="DT Código obrigatório.";msg.className="mmsg err";return;}
+  if(!dados["CLIENTE"]){msg.textContent="Cliente obrigatório.";msg.className="mmsg err";return;}
+  if(isUsed(dados["DT CODIGO"])){msg.textContent="Código já utilizado!";msg.className="mmsg err";return;}
+
+  // Chave e Resumo (colunas A e B da planilha)
+  dados["Chave"]=dados["DT CODIGO"];
+  var parts=[dados["DT CODIGO"]];
+  if(dados["CTE"])parts.push("CTE "+dados["CTE"]);
+  if(dados["NF"])parts.push("NF "+dados["NF"]);
+  if(dados["CLIENTE"])parts.push(dados["CLIENTE"]);
+  var rota="";
+  if(dados["CIDADE ORIGEM"])rota+=dados["CIDADE ORIGEM"]+(dados["UF ORIGEM"]?"/"+dados["UF ORIGEM"]:"");
+  if(dados["CIDADE DESTINO"])rota+=(rota?" X ":"")+dados["CIDADE DESTINO"]+(dados["UF DESTINO"]?"/"+dados["UF DESTINO"]:"");
+  if(rota)parts.push(rota);
+  dados["Resumo"]=parts.join(" - ");
+
+  btn.disabled=true;btn.innerHTML="<span class=\"spinner\"></span> Salvando…";msg.textContent="";
+  try{
+    var pl=editKey
+      ?{action:"update",aba:ABA,chave:editKey,dados:dados}
+      :{action:"create",aba:ABA,dados:dados};
+    var r=await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify(pl)});
+    var j=await r.json();
+    if(!j.success)throw new Error(j.error);
+    var ck=editKey||dados["DT CODIGO"];
+    saveExtra(ck,dados);
+    saveAtt(ck);
+    msg.textContent=editKey?"Atualizado!":"Card "+dados["DT CODIGO"]+" criado!";
+    msg.className="mmsg";
+    await loadData();
+    setTimeout(closeModal,1100);
+  }catch(ex){msg.textContent="Erro: "+ex.message;msg.className="mmsg err";}
+  btn.disabled=false;btn.innerHTML="<i class=\"ti ti-device-floppy\" style=\"font-size:13px\"></i> Salvar";
+}
+
+async function deleteCard(){
+  if(!editKey)return;
+  if(!confirm("Excluir card "+editKey+"?"))return;
+  var msg=document.getElementById("mmsg");
+  try{
+    var r=await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"delete",aba:ABA,chave:editKey})});
+    var j=await r.json();if(!j.success)throw new Error(j.error);
+    localStorage.removeItem(ATK+editKey);
+    localStorage.removeItem("titulo_INF_"+editKey);
+    await loadData();closeModal();
+  }catch(ex){msg.textContent="Erro: "+ex.message;msg.className="mmsg err";}
+}
+
+function openCfg(){document.getElementById("cfg-url").value=WEBAPP_URL;document.getElementById("cfg-modal").classList.add("open");}
+function closeCfg(){document.getElementById("cfg-modal").classList.remove("open");}
+function saveCfg(){var u=document.getElementById("cfg-url").value.trim();if(!u)return;WEBAPP_URL=u;localStorage.setItem(SK,u);closeCfg();loadData();}
+function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// ── RENDERIZAR LISTA DE ANEXOS
+// pendAtt pode conter File objects (recém adicionados) ou objetos {name,size,type,data} (carregados do localStorage)
+function renderAttList(){
+  var l=document.getElementById("att-list");if(!l)return;
+  var out="";
+  for(var i=0;i<pendAtt.length;i++){
+    var a=pendAtt[i];
+    var nm=a.name||"arquivo";
+    var sz=a.size>1048576?(a.size/1048576).toFixed(1)+"MB":(a.size/1024).toFixed(0)+"KB";
+    var tp=a.type||"";
+    var img=/^image\//i.test(tp),pdf=tp==="application/pdf";
+    var ico=img?"ti-photo":pdf?"ti-file-type-pdf":"ti-file";
+    out+="<div class=\"aitem\">"
+        +"<i class=\"ti "+ico+"\" style=\"font-size:14px;color:var(--gold);flex-shrink:0\"></i>"
+        +"<span class=\"aname\">"+e(nm)+"</span>"
+        +"<span class=\"asz\">"+sz+"</span>";
+    if(img||pdf)out+="<button class=\"adl\" style=\"color:#3B82F6\" onclick=\"prevAtt("+i+")\"><i class=\"ti ti-eye\"></i></button>";
+    out+="<button class=\"adl\" onclick=\"dlAtt("+i+")\"><i class=\"ti ti-download\"></i></button>"
+        +"<button class=\"arm\" onclick=\"rmAtt("+i+")\"><i class=\"ti ti-x\"></i></button>"
+        +"</div>";
+  }
+  l.innerHTML=out;
+}
+
+
+function getExtra(key){
+  try{return JSON.parse(localStorage.getItem(EXTK+key)||"{}");}
+  catch(ex){return {};}
+}
+function saveExtra(key,dados){
+  localStorage.setItem(EXTK+key,JSON.stringify(dados));
+}
+
+// ── ANEXOS: localStorage helpers
+function getAtt(key){
+  try{return JSON.parse(localStorage.getItem(ATK+key)||"[]");}catch(ex){return [];}
+}
+function saveAtt(key,files){
+  var arr=[];
+  var done=0;
+  if(!files||!files.length){localStorage.setItem(ATK+key,JSON.stringify([]));return;}
+  Array.prototype.forEach.call(files,function(f){
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      arr.push({name:f.name,size:f.size,type:f.type,data:ev.target.result});
+      done++;
+      if(done===files.length)localStorage.setItem(ATK+key,JSON.stringify(arr));
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function handleFiles(files){
+  Array.prototype.forEach.call(files,function(f){
+    if(f.size>5*1048576){alert("Arquivo "+f.name+" excede 5MB.");return;}
+    // Converte File → objeto {name,size,type,data} imediatamente
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      pendAtt.push({name:f.name,size:f.size,type:f.type,data:ev.target.result});
+      renderAttList();
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function rmAtt(i){pendAtt.splice(i,1);renderAttList();}
+
+// saveAtt: pendAtt já são objetos {name,size,type,data} — salva direto no localStorage
+function saveAtt(key){
+  localStorage.setItem(ATK+key,JSON.stringify(pendAtt));
+}
+function dlAtt(i){
+  var f=pendAtt[i];if(!f)return;
+  // f pode ser objeto {name,size,type,data} ou File — usa data base64 se disponível
+  if(f.data){
+    var a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();
+  }else{
+    // fallback para File object (não deve ocorrer após a migração)
+    var url=URL.createObjectURL(f);
+    var a=document.createElement("a");a.href=url;a.download=f.name;a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  }
+}
+function prevAtt(i){
+  var f=pendAtt[i];if(!f)return;
+  // Obtém a URL de dados: base64 direto ou objectURL para File
+  var src=f.data||(f instanceof File?URL.createObjectURL(f):null);
+  if(!src)return;
+  var ov=document.getElementById("prev-ov");
+  if(!ov){
+    ov=document.createElement("div");ov.id="prev-ov";
+    ov.style.cssText="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;padding:16px;";
+    ov.innerHTML='<div class="prev-box"><div class="prev-hd"><span id="prev-nm" style="font-size:12px;font-weight:600;color:var(--txt)"></span><button onclick="closePrev()" style="background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:18px;display:flex;align-items:center;"><i class="ti ti-x"></i></button></div><div class="prev-body" id="prev-body" style="flex:1;overflow:auto;padding:12px;display:flex;align-items:center;justify-content:center;min-height:200px;"></div></div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById("prev-nm").textContent=f.name;
+  var body=document.getElementById("prev-body");
+  body.innerHTML="";
+  var tp=f.type||"";
+  if(/^image\//i.test(tp)){
+    var img=document.createElement("img");img.src=src;img.style.cssText="max-width:100%;max-height:70vh;border-radius:6px;";
+    body.appendChild(img);
+  }else{
+    var ifr=document.createElement("iframe");ifr.src=src;ifr.style.cssText="width:100%;height:70vh;border:none;border-radius:6px;background:#fff;";
+    body.appendChild(ifr);
+  }
+  ov.style.display="flex";
+}
+function closePrev(){var ov=document.getElementById("prev-ov");if(ov)ov.style.display="none";}
+
+// ── DRAG & DROP COLUNAS
+function dstart(ev,el){el.classList.add("dragging");ev.dataTransfer.setData("text/plain",el.dataset.key||"");}
+function dend(ev){document.querySelectorAll(".kcard.dragging").forEach(function(el){el.classList.remove("dragging");});}
+function dov(ev){ev.preventDefault();ev.currentTarget.classList.add("dov");}
+function dlv(ev){ev.currentTarget.classList.remove("dov");}
+async function ddrop(ev,status){
+  ev.preventDefault();ev.currentTarget.classList.remove("dov");
+  var key=ev.dataTransfer.getData("text/plain");if(!key)return;
+  var card=null;
+  for(var i=0;i<allCards.length;i++){if((allCards[i]["DT CODIGO"]||allCards[i]["Chave"])===key){card=allCards[i];break;}}
+  if(!card)return;
+  card["Status"]=status;
+  try{
+    await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"update",aba:ABA,chave:key,dados:card})});
+    renderBoard();
+  }catch(ex){console.warn("Erro ao mover card:",ex);}
+}
+
+// ── CÓDIGO AUTOMÁTICO
+// ── GERAÇÃO DE CÓDIGO
+// Formato: [PFX][AA][M][NN]
+//   PFX = letra da empresa (P, B, G, S)
+//   AA  = ano vigente com 2 dígitos (ex: 26)
+//   M   = mês sem zero à esquerda (1-12)
+//   NN  = sequência do card no mês, 2 dígitos, começa em 01 e zera todo mês
+function genCod(){
+  var d=new Date();
+  var yy=String(d.getFullYear()).slice(2);   // "26"
+  var m=String(d.getMonth()+1);             // "5" (sem zero)
+  var prefix=PFX+yy+m;                      // ex: "P265"
+
+  // Filtra cards do mês atual com mesmo prefixo para achar a maior sequência
+  var re=new RegExp("^"+prefix+"(\\d{2})$");
+  var maxSeq=0;
+  allCards.forEach(function(c){
+    var cod=(c["DT CODIGO"]||c["Chave"]||"");
+    var match=cod.match(re);
+    if(match){
+      var n=parseInt(match[1],10);
+      if(n>maxSeq)maxSeq=n;
+    }
+  });
+  var nextSeq=String(maxSeq+1).padStart(2,"0");
+  return prefix+nextSeq;
+}
+function isUsed(cod){
+  if(!cod||editKey===cod)return false;
+  for(var i=0;i<allCards.length;i++){if((allCards[i]["DT CODIGO"]||allCards[i]["Chave"])===cod)return true;}
+  return false;
+}
+function checkCod(val){
+  var ok=document.getElementById("cod-ok");
+  var err=document.getElementById("cod-err");
+  var inp=document.getElementById("fi_dt_codigo");
+  if(!ok||!err)return;
+  var used=isUsed(val);
+  ok.style.display=used?"none":"flex";
+  err.style.display=used?"flex":"none";
+  if(inp)inp.classList.toggle("cod-inp-dup",used);
+  // Bloqueia o botão Salvar se código duplicado
+  var btn=document.getElementById("btn-sv");
+  if(btn)btn.disabled=used;
+}
+
+// ── VENDEDOR AUTOCOMPLETE
+function onVI(input){
+  var q=(input.value||"").toLowerCase();
+  var drop=document.getElementById("vdrop");if(!drop)return;
+  var matches=vendedores.filter(function(v){return v.toLowerCase().indexOf(q)===0&&v!==input.value;});
+  if(!matches.length||!q){drop.classList.remove("open");return;}
+  drop.innerHTML=matches.map(function(v){
+    return "<div class=\"vitem\" onmousedown=\"selV('"+e(v)+"')\">"+v+"</div>";
+  }).join("");
+  drop.classList.add("open");
+}
+function selV(v){
+  var inp=document.getElementById(fid("VENDEDOR"));if(inp)inp.value=v;
+  closeVD();
+}
+function closeVD(){var d=document.getElementById("vdrop");if(d)d.classList.remove("open");}
+
+// ── FRETE PAGO → preenche Custo Operacional Total se vazio
+function onFretMotBlur(){
+  var fm=document.getElementById(fid("FRETE PAGO"));
+  var ct=document.getElementById(fid("CUSTO OPERACIONAL TOTAL"));
+  if(fm&&ct&&!ct.value.trim())ct.value=fm.value.trim();
+}
+</script>
+</body>
+</html>
