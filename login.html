@@ -355,7 +355,7 @@ function respErr(e) {
 /* ══════════════════════════════
    CONFIG
 ══════════════════════════════ */
-let WEBAPP_URL = localStorage.getItem('login_webapp_url') || '';
+var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('script-code').value = document.getElementById('gas-src').value;
@@ -425,6 +425,16 @@ async function doLogin() {
       localStorage.setItem('barretos_perfil', j.user.perfil);
       localStorage.setItem('barretos_login',  j.user.login);
       localStorage.setItem('login_webapp_url', WEBAPP_URL);
+      // Busca URLs centralizadas do servidor e salva localmente
+      try {
+        const ru = await fetch(WEBAPP_URL + '?action=get_urls');
+        const ju = await ru.json();
+        if (ju.success && ju.urls) {
+          Object.keys(ju.urls).forEach(function(k) {
+            if (ju.urls[k]) localStorage.setItem(k, ju.urls[k]);
+          });
+        }
+      } catch(e) { /* URLs não críticas, segue */ }
       // Redireciona para o dashboard principal
       window.location.href = 'dashboard_home.html';
     } else {
