@@ -311,23 +311,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 }
 .perfil-msg.err{color:var(--red);}
 
-
-/* ── TEMA DE COR ─────────────────────── */
-.tema-section{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
-.tema-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--txt-dim);margin-bottom:10px;display:block;}
-.cores-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;margin-bottom:10px;}
-.cor-btn{width:100%;aspect-ratio:1;border-radius:6px;border:2px solid transparent;
-  cursor:pointer;transition:transform .15s,border-color .15s;position:relative;}
-.cor-btn:hover{transform:scale(1.15);}
-.cor-btn.ativa{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.3);}
-.cor-btn.ativa::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:center;font-size:11px;font-weight:700;color:#111;}
-.cor-custom-row{display:flex;align-items:center;gap:10px;margin-top:6px;}
-.cor-custom-row label{font-size:11px;color:var(--txt-dim);}
-.cor-custom-inp{width:36px;height:28px;border:1px solid var(--border);border-radius:5px;
-  background:var(--card);cursor:pointer;padding:1px 2px;}
-.cor-preview-txt{font-size:11px;color:var(--txt-dim);}
 </style>
 </head>
 <body>
@@ -878,7 +861,6 @@ function logout(){
 }
 
 document.addEventListener("DOMContentLoaded", function(){
-  carregarCorSalva();
   var saved=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
   if(saved){ WEBAPP_URL=saved; localStorage.setItem("login_webapp_url",saved); sessionStorage.setItem("login_webapp_url",saved); }
   var cfgEl=document.getElementById("cfg-url"); if(cfgEl) cfgEl.value=WEBAPP_URL;
@@ -907,54 +889,6 @@ function closeSidebar(){
 }
 
 /* ── PERFIL ── */
-
-/* ── TEMA DE COR ────────────────── */
-var _corAtual = '#F5B800';
-
-function hexToRgb(hex) {
-  var r = parseInt(hex.slice(1,3),16);
-  var g = parseInt(hex.slice(3,5),16);
-  var b = parseInt(hex.slice(5,7),16);
-  return {r:r,g:g,b:b};
-}
-
-function aplicarCor(hex) {
-  if (!hex || hex.length < 4) return;
-  var rgb = hexToRgb(hex.length === 4
-    ? '#'+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3]
-    : hex);
-  var root = document.documentElement;
-  root.style.setProperty('--gold', hex);
-  root.style.setProperty('--gold-dim', 'rgba('+rgb.r+','+rgb.g+','+rgb.b+',.12)');
-  root.style.setProperty('--gold-b',   'rgba('+rgb.r+','+rgb.g+','+rgb.b+',.28)');
-  _corAtual = hex;
-}
-
-function selecionarCor(hex) {
-  aplicarCor(hex);
-  // Update UI
-  document.querySelectorAll('.cor-btn').forEach(function(el) {
-    el.classList.toggle('ativa', el.dataset.cor && el.dataset.cor.toLowerCase() === hex.toLowerCase());
-  });
-  var inp = document.getElementById('cor-custom-inp');
-  var txt = document.getElementById('cor-preview-txt');
-  if (inp) inp.value = hex;
-  if (txt) txt.textContent = hex.toUpperCase();
-}
-
-function carregarCorSalva() {
-  var login = localStorage.getItem('barretos_login') || '';
-  var cor = localStorage.getItem('barretos_cor_' + login) || localStorage.getItem('barretos_cor') || '#F5B800';
-  aplicarCor(cor);
-  selecionarCor(cor);
-}
-
-function salvarCorLocal() {
-  var login = localStorage.getItem('barretos_login') || '';
-  localStorage.setItem('barretos_cor_' + login, _corAtual);
-  localStorage.setItem('barretos_cor', _corAtual);
-}
-
 function openPerfilModal(){
   var raw = sessionStorage.getItem("barretos_user") || localStorage.getItem("barretos_user");
   if(!raw) return;
@@ -978,8 +912,6 @@ function openPerfilModal(){
     avEl.style.background = "var(--gold)";
   }
   document.getElementById("perfil-ov").classList.add("open");
-  // Sync color picker with current color
-  selecionarCor(_corAtual);
 }
 function closePerfilModal(){
   document.getElementById("perfil-ov").classList.remove("open");
@@ -1053,7 +985,6 @@ async function savePerfilModal(){
     }
   }
 
-  salvarCorLocal();
   msgEl.textContent = "Perfil salvo com sucesso!";
   msgEl.className = "perfil-msg";
   setTimeout(closePerfilModal, 1200);
@@ -1116,26 +1047,6 @@ async function savePerfilModal(){
 
       <div class="perfil-msg" id="perfil-msg"></div>
 
-
-      <!-- Cor do tema -->
-      <div class="tema-section">
-        <span class="tema-label"><i class="ti ti-palette" style="font-size:12px;margin-right:5px"></i>Cor do sistema</span>
-        <div class="cores-grid" id="cores-grid">
-          <div class="cor-btn" style="background:#F5B800" data-cor="#F5B800" onclick="selecionarCor('#F5B800')"></div>
-          <div class="cor-btn" style="background:#EF4444" data-cor="#EF4444" onclick="selecionarCor('#EF4444')"></div>
-          <div class="cor-btn" style="background:#F97316" data-cor="#F97316" onclick="selecionarCor('#F97316')"></div>
-          <div class="cor-btn" style="background:#22C55E" data-cor="#22C55E" onclick="selecionarCor('#22C55E')"></div>
-          <div class="cor-btn" style="background:#3B82F6" data-cor="#3B82F6" onclick="selecionarCor('#3B82F6')"></div>
-          <div class="cor-btn" style="background:#8B5CF6" data-cor="#8B5CF6" onclick="selecionarCor('#8B5CF6')"></div>
-          <div class="cor-btn" style="background:#EC4899" data-cor="#EC4899" onclick="selecionarCor('#EC4899')"></div>
-          <div class="cor-btn" style="background:#06B6D4" data-cor="#06B6D4" onclick="selecionarCor('#06B6D4')"></div>
-        </div>
-        <div class="cor-custom-row">
-          <label>Cor personalizada:</label>
-          <input type="color" class="cor-custom-inp" id="cor-custom-inp" value="#F5B800" oninput="selecionarCor(this.value)">
-          <span class="cor-preview-txt" id="cor-preview-txt">#F5B800</span>
-        </div>
-      </div>
       <div class="perfil-actions">
         <button class="btn-perfil-cancel" onclick="closePerfilModal()">Cancelar</button>
         <button class="btn-perfil-save" onclick="savePerfilModal()">
