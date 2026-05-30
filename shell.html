@@ -777,13 +777,15 @@ async function aplicarPermissoes(login){
     var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
     var j=await r.json();
     if(j.success&&j.ferramentas&&j.ferramentas.length>0){
-      // Salva em cache
       sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(j.ferramentas));
-      aplicarMenuPermissoes(j.ferramentas);
+      var perfil=localStorage.getItem("barretos_perfil")||sessionStorage.getItem("barretos_perfil")||"";
+      if(perfil==="gestor") mostrarTudo();
+      else aplicarMenuPermissoes(j.ferramentas);
     } else { mostrarTudo(); }
   } catch(e){
     var cached=sessionStorage.getItem("barretos_perms_"+login);
-    if(cached){ aplicarMenuPermissoes(JSON.parse(cached)); }
+    var perfilC=localStorage.getItem("barretos_perfil")||"";
+    if(cached){ if(perfilC==="gestor") mostrarTudo(); else aplicarMenuPermissoes(JSON.parse(cached)); }
     else{ mostrarTudo(); }
   }
 }
@@ -801,7 +803,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-comercial","section-operacional","section-melhoria"].forEach(function(s){
