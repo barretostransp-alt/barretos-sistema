@@ -383,30 +383,26 @@ let activeVendedor = null;
    INIT
 ════════════════════════════════════════ */
 
-/* ── PERFIL/VENDEDOR LOCK ─── */
-function getPerfilRel(){
-  return localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';
-}
-function getNomeRel(){
-  return localStorage.getItem('barretos_nome')||sessionStorage.getItem('barretos_nome')||'';
-}
-function lockVendedorColaborador(){
-  if(getPerfilRel()==='gestor') return;
-  var nome=getNomeRel();
-  if(!nome) return;
-  var sel=document.getElementById('f-vendedor');
-  if(!sel) return;
-  // Set value to own name and disable
-  // We'll force it after data loads
-  window._colaboradorVend=nome;
-}
+/* ── CONTROLE DE PERFIL ── */
+function _getPerfil(){ return localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||''; }
+function _getNome()  { return localStorage.getItem('barretos_nome')||sessionStorage.getItem('barretos_nome')||''; }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('script-code').value = document.getElementById('gas-source').value;
   if (WEBAPP_URL) {
     setConnected(true);
-    lockVendedorColaborador();
     loadData();
+    // Lock vendedor for colaborador after data loads
+    if(_getPerfil()!=='gestor'){
+      var _nome=_getNome();
+      if(_nome){
+        setTimeout(function(){
+          var s=document.getElementById('f-vendedor');
+          if(s){s.value=_nome;s.disabled=true;}
+          applyFilters();
+        },1200);
+      }
+    }
   } else {
     setConnected(false);
   }
@@ -496,18 +492,16 @@ function populateFilters() {
   if (cur) fMes.value = cur;
   const fVend = document.getElementById('f-vendedor');
   const curV = fVend.value;
-  if(window._colaboradorVend){
-    fVend.innerHTML='<option value="'+window._colaboradorVend+'">'+(window._colaboradorVend)+'</option>';
-    fVend.value=window._colaboradorVend;
-    fVend.disabled=true;
-  } else {
-    fVend.innerHTML = '<option value="">Todos</option>' + vends.map(v=>`<option>${v}</option>`).join('');
+  fVend.innerHTML = '<option value="">Todos</option>' + vends.map(v=>`<option>${v}</option>`).join('');
   if (curV) fVend.value = curV;
+  // Re-apply colaborador lock after filters are populated
+  if(_getPerfil()!=='gestor'){
+    var _nome=_getNome();
+    if(_nome){ fVend.value=_nome; fVend.disabled=true; }
+  }
 }
 
-function 
-  }
-  applyFilters() {
+function applyFilters() {
   const mes    = document.getElementById('f-mes').value;
   const vend   = document.getElementById('f-vendedor').value;
   const origem = document.getElementById('f-origem').value;
