@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conexões — Barreto's</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{--bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
+  --gold:#F5B800;--gold-dim:rgba(245,184,0,.12);--gold-b:rgba(245,184,0,.28);
+  --txt:#E8EAF0;--txt-dim:#6B7280;--green:#22C55E;--red:#EF4444;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;
+  min-height:100vh;padding:28px 18px;}
+.page{max-width:700px;margin:0 auto;}
+.hd{margin-bottom:24px;}
+.hd-brand{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:var(--gold);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.hd h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px;}
+.hd p{font-size:12px;color:var(--txt-dim);line-height:1.6;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px;margin-bottom:14px;}
+.card-hd{display:flex;align-items:center;gap:12px;margin-bottom:16px;
+  padding-bottom:12px;border-bottom:1px solid var(--border);}
+.card-ico{width:36px;height:36px;border-radius:9px;background:var(--gold-dim);border:1px solid var(--gold-b);
+  display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:17px;flex-shrink:0;}
+.card-info h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:2px;}
+.card-info p{font-size:11px;color:var(--txt-dim);line-height:1.4;}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt-dim);margin-bottom:5px;}
+.field input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;
+  color:var(--txt);font-size:12px;padding:9px 12px;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .15s;}
+.field input:focus{border-color:var(--gold);}
+.status{display:flex;align-items:center;gap:7px;margin-top:6px;min-height:18px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
+.dot.ok{background:var(--green);}
+.dot.err{background:var(--red);}
+.dot.wait{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-txt{font-size:11px;color:var(--txt-dim);}
+.btns{display:flex;gap:8px;margin-top:14px;align-items:center;}
+.btn-test{background:transparent;border:1px solid var(--border);border-radius:7px;
+  color:var(--txt-dim);padding:8px 14px;font-size:12px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.btn-test:hover{border-color:var(--gold);color:var(--gold);}
+.btn-test:disabled{opacity:.4;cursor:default;}
+.btn-save{background:var(--gold);color:#111;border:none;border-radius:7px;
+  padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;transition:opacity .15s;}
+.btn-save:hover{opacity:.85;}
+.tag-saved{font-size:11px;color:var(--green);display:none;align-items:center;gap:4px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);
+  padding:4px 10px;border-radius:20px;}
+.tag-saved.show{display:flex;}
+.spinner{width:12px;height:12px;border:2px solid rgba(245,184,0,.2);
+  border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.info-box{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);
+  border-radius:8px;padding:12px 14px;font-size:11px;color:#93C5FD;
+  line-height:1.6;margin-top:6px;}
+.save-all-bar{position:sticky;bottom:16px;display:flex;justify-content:center;margin-top:20px;}
+.btn-save-all{background:var(--gold);color:#111;border:none;border-radius:10px;
+  padding:12px 32px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;
+  display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(245,184,0,.3);transition:opacity .15s;}
+.btn-save-all:hover{opacity:.85;}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hd">
+    <div class="hd-brand">Barreto's Transportes</div>
+    <h1>Conexões de API</h1>
+    <p>Configure as URLs dos Apps Script uma única vez aqui. Todos os módulos do sistema leem automaticamente desta página.</p>
+  </div>
+
+  <!-- Usuários -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-users"></i></div>
+      <div class="card-info">
+        <h3>Gestão de Usuários</h3>
+        <p>Login, permissões e controle de acesso · shell, login, configurações</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-usuarios" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('usuarios')">
+    </div>
+    <div class="status"><div class="dot" id="dot-usuarios"></div><span class="status-txt" id="txt-usuarios">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('usuarios','?action=ping')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('usuarios')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-usuarios"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <!-- Operacional -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-database"></i></div>
+      <div class="card-info">
+        <h3>Apps Script Operacional</h3>
+        <p>Kanbans (Pinheiro, Infra, Barreto's, Gonçalves) · Dashboard · Relatório de Vendedor</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-jira" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('jira')">
+    </div>
+    <div class="status"><div class="dot" id="dot-jira"></div><span class="status-txt" id="txt-jira">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('jira','?aba=PINHEIRO')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('jira')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-jira"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <!-- Cotação -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-calculator"></i></div>
+      <div class="card-info">
+        <h3>Apps Script Cotação Comercial</h3>
+        <p>Cálculo de fretes ANTT, tabelas e orçamentos</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-cotacao" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('cotacao')">
+    </div>
+    <div class="status"><div class="dot" id="dot-cotacao"></div><span class="status-txt" id="txt-cotacao">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('cotacao','')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('cotacao')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-cotacao"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <!-- Frota -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-truck"></i></div>
+      <div class="card-info">
+        <h3>Apps Script Gestão da Frota</h3>
+        <p>Controle de veículos, manutenções e abastecimentos</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-frota" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('frota')">
+    </div>
+    <div class="status"><div class="dot" id="dot-frota"></div><span class="status-txt" id="txt-frota">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('frota','')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('frota')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-frota"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <!-- Lab -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-bulb"></i></div>
+      <div class="card-info">
+        <h3>Apps Script Laboratório de Ideias</h3>
+        <p>Módulo de melhoria contínua e sugestões</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-lab" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('lab')">
+    </div>
+    <div class="status"><div class="dot" id="dot-lab"></div><span class="status-txt" id="txt-lab">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('lab','')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('lab')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-lab"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <div class="save-all-bar">
+    <button class="btn-save-all" onclick="saveAll()">
+      <i class="ti ti-device-floppy" style="font-size:15px"></i> Salvar Todas as Conexões
+    </button>
+  </div>
+</div>
+
+<script>
+// Mapa: id -> chaves localStorage que cada módulo lê
+var KEYS = {
+  usuarios: ['login_webapp_url', 'barretos_usuarios_url'],
+  jira:     ['barretos_jira_url','login_webapp_url',
+             'jira_url_PINHEIRO','jira_url_INFRA','jira_url_BARRETOS','jira_url_GONCALVES',
+             'relatorio_webapp_url'],
+  cotacao:  ['barretos_cotacao_url','sheets_webapp_url'],
+  frota:    ['barretos_frota_url','frota_webapp_url'],
+  lab:      ['barretos_lab_url','mc_webapp_url'],
+};
+
+// Primary read key for each group (what conexoes saves as "canonical")
+var PRIMARY = {
+  usuarios: 'login_webapp_url',
+  jira:     'barretos_jira_url',
+  cotacao:  'barretos_cotacao_url',
+  frota:    'barretos_frota_url',
+  lab:      'barretos_lab_url',
+};
+
+function load(){
+  Object.keys(PRIMARY).forEach(function(k){
+    var url='';
+    KEYS[k].forEach(function(lsKey){
+      if(!url) url=localStorage.getItem(lsKey)||'';
+    });
+    var inp=document.getElementById('url-'+k);
+    if(inp) inp.value=url;
+    if(url) setSt(k,true,'Configurado');
+  });
+}
+
+function setSt(k,ok,msg){
+  document.getElementById('dot-'+k).className='dot '+(ok?'ok':'err');
+  document.getElementById('txt-'+k).textContent=msg;
+}
+function clearSt(k){
+  document.getElementById('dot-'+k).className='dot';
+  document.getElementById('txt-'+k).textContent='Não testado';
+}
+
+async function test(k,params){
+  var url=document.getElementById('url-'+k).value.trim();
+  if(!url){setSt(k,false,'Cole a URL primeiro');return;}
+  var btn=event.currentTarget;
+  var orig=btn.innerHTML;
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> Testando…';
+  document.getElementById('dot-'+k).className='dot wait';
+  document.getElementById('txt-'+k).textContent='Testando conexão...';
+  try{
+    var r=await fetch(url+params);
+    var j=await r.json();
+    if(j.success!==false){setSt(k,true,'Conexão OK ✓');}
+    else{setSt(k,false,'Resposta: '+(j.error||'inválida'));}
+  }catch(e){setSt(k,false,'Falha: '+e.message);}
+  btn.disabled=false;btn.innerHTML=orig;
+}
+
+async function save(k){
+  var url=document.getElementById('url-'+k).value.trim();
+  if(!url){setSt(k,false,'URL não pode ser vazia');return;}
+  // 1. Save locally
+  KEYS[k].forEach(function(lsKey){localStorage.setItem(lsKey,url);});
+  // 2. Persist to Apps Script so other devices get it on login
+  var usuUrl=localStorage.getItem('login_webapp_url')||'';
+  if(usuUrl){
+    var payload={};
+    KEYS[k].forEach(function(lsKey){payload[lsKey]=url;});
+    try{
+      await fetch(usuUrl,{method:'POST',
+        body:JSON.stringify({action:'set_urls',urls:payload})});
+    }catch(e){/* silent */}
+  }
+  setSt(k,true,'Salvo localmente e no servidor ✓');
+  var tag=document.getElementById('sv-'+k);
+  tag.classList.add('show');
+  setTimeout(function(){tag.classList.remove('show');},2500);
+}
+
+async function saveAll(){
+  var saved=0;
+  var allPayload={};
+  Object.keys(PRIMARY).forEach(function(k){
+    var url=document.getElementById('url-'+k).value.trim();
+    if(url){
+      KEYS[k].forEach(function(lsKey){localStorage.setItem(lsKey,url);allPayload[lsKey]=url;});
+      saved++;
+    }
+  });
+  // Persist all to server
+  var usuUrl=localStorage.getItem('login_webapp_url')||'';
+  if(usuUrl&&saved>0){
+    try{
+      await fetch(usuUrl,{method:'POST',
+        body:JSON.stringify({action:'set_urls',urls:allPayload})});
+    }catch(e){/* silent */}
+  }
+  if(saved>0){
+    // Show brief confirmation
+    var btn=document.querySelector('.btn-save-all');
+    var orig=btn.innerHTML;
+    btn.innerHTML='<i class="ti ti-check" style="font-size:15px"></i> '+saved+' conexões salvas!';
+    setTimeout(function(){btn.innerHTML=orig;},2500);
+    Object.keys(PRIMARY).forEach(function(k){
+      if(document.getElementById('url-'+k).value.trim()) setSt(k,true,'Salvo ✓');
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded',load);
+</script>
+</body>
+</html>
