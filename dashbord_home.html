@@ -204,8 +204,34 @@ let filtered = [];
 /* ════════════════════════════════════
    INIT
 ════════════════════════════════════ */
+
+/* ── PERMISSÕES DE ACESSO ─────────────────── */
+function getPerfil(){
+  return localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';
+}
+function getEmpresasPermitidas(){
+  var perfil=getPerfil();
+  if(perfil==='gestor') return null; // null = todas
+  var cached=sessionStorage.getItem('barretos_perms_'+(localStorage.getItem('barretos_login')||''));
+  var ferr=[];
+  try{ ferr=cached?JSON.parse(cached):[]; }catch(e){}
+  var MAP={'kanban_inf':'INFRA','kanban_bar':"BARRETO'S",'kanban_gon':'GONCALVES','kanban_pin':'PINHEIRO'};
+  var allowed=[];
+  Object.keys(MAP).forEach(function(k){ if(ferr.indexOf(k)!==-1) allowed.push(MAP[k]); });
+  return allowed.length ? allowed : null;
+}
+function isGestor(){ return getPerfil()==='gestor'; }
+
 document.addEventListener('DOMContentLoaded', () => {
   if (WEBAPP_URL) { setConn(true); loadData(); }
+  // Hide margem for colaborador
+  if (!isGestor()) {
+    document.querySelectorAll('.tc-item').forEach(function(el){
+      if(el.querySelector && el.querySelector('.tc-lbl') && el.querySelector('.tc-lbl').textContent.indexOf('Margem')!==-1)
+        el.style.display='none';
+    });
+    document.querySelectorAll('.ec-m-lbl,.ec-m-val,[class*="marg"]').forEach(function(el){ el.style.display='none'; });
+  }
   else { setConn(false); setTimeout(openConfig, 500); }
 });
 
@@ -266,6 +292,11 @@ function populateMes() {
 }
 
 function applyFilter() {
+  // Filter by allowed companies for colaborador
+  var _allowed = getEmpresasPermitidas();
+  if (_allowed) {
+    rawData = rawData.filter(function(r){ return _allowed.indexOf(String(r['Origem']||'').trim()) !== -1; });
+  }
   const mes = document.getElementById('f-mes').value;
   filtered = mes ? rawData.filter(r => (r['Mes'] || '') === mes) : rawData;
   const mesLabel = mes || 'todos os meses';
@@ -335,7 +366,7 @@ function renderDashboard(rows) {
         <div class="tc-delta">${totQtd} frete${totQtd!==1?'s':''} no período</div>
       </div>
       <div class="total-card green">
-        <div class="tc-lbl">Margem Líquida</div>
+        <div class="tc-lbl">Margem Líquida</div><!-- margem-card -->
         <div class="tc-val green">${fmtK(totMarg)}</div>
         <div class="tc-delta">${margPct}% sobre faturamento</div>
       </div>
