@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Grupo Barreto's — Sistema</title>
@@ -591,6 +589,9 @@ function respErr(e) {
       </div>
     </nav>
     <div class="sb-footer">
+      <div class="sb-item" id="nav-conexoes" onclick="navigate('conexoes')">
+        <i class="ti ti-plug"></i><span>Conexões</span>
+      </div>
       <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
         <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
@@ -619,7 +620,7 @@ function respErr(e) {
 /* ══════════════════════════════
    CONFIG
 ══════════════════════════════ */
-let WEBAPP_URL = localStorage.getItem('login_webapp_url') || '';
+var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'';
 
 
 
@@ -737,11 +738,12 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
-  kanban_pin: { src:"pinheiro.html",               cat:"Operacional", label:"Pinheiro",        icon:"ti-columns"          },
-  kanban_inf: { src:"infra.html",                  cat:"Operacional", label:"Infra",           icon:"ti-columns"          },
-  kanban_bar: { src:"barretos.html",               cat:"Operacional", label:"Barreto's",       icon:"ti-columns"          },
-  kanban_gon: { src:"goncalves.html",              cat:"Operacional", label:"Gonçalves",       icon:"ti-columns"          },
+  kanban_pin: { src:"pinheiro.html",              cat:"Operacional", label:"Pinheiro",              icon:"ti-columns"          },
+  kanban_inf: { src:"infra.html",                 cat:"Operacional", label:"Infra",                 icon:"ti-columns"          },
+  kanban_bar: { src:"barretos.html",              cat:"Operacional", label:"Barreto's",            icon:"ti-columns"          },
+  kanban_gon: { src:"goncalves.html",             cat:"Operacional", label:"Gonçalves",             icon:"ti-columns"          },
   ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
+    conexoes:  { src:"conexoes.html",              cat:"Admin",      label:"Conexões",              icon:"ti-plug"            },
   config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
 };
 var currentTool = null;
@@ -767,6 +769,16 @@ function applyUser(user){
   // Config só para gestor
   var cn=document.getElementById("nav-config");
   if(cn) cn.style.display=(perfil==="gestor")?"flex":"none";
+  // Kanbans: visible based on permissions (handled by aplicarMenuPermissoes)
+  // but always visible for gestor
+  if(perfil==="gestor"){
+    ["kanban_pin","kanban_inf","kanban_bar","kanban_gon"].forEach(function(k){
+      var el=document.getElementById("nav-"+k);
+      if(el) el.style.display="flex";
+    });
+  }
+  var cnx=document.getElementById("nav-conexoes");
+  if(cnx) cnx.style.display=(perfil==="gestor")?"flex":"none";
   // Busca e aplica permissões
   setTimeout(function(){ aplicarPermissoes(login); }, 200);
 }
@@ -779,15 +791,13 @@ async function aplicarPermissoes(login){
     var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
     var j=await r.json();
     if(j.success&&j.ferramentas&&j.ferramentas.length>0){
+      // Salva em cache
       sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(j.ferramentas));
-      var perfil=localStorage.getItem("barretos_perfil")||sessionStorage.getItem("barretos_perfil")||"";
-      if(perfil==="gestor") mostrarTudo();
-      else aplicarMenuPermissoes(j.ferramentas);
+      aplicarMenuPermissoes(j.ferramentas);
     } else { mostrarTudo(); }
   } catch(e){
     var cached=sessionStorage.getItem("barretos_perms_"+login);
-    var perfilC=localStorage.getItem("barretos_perfil")||"";
-    if(cached){ if(perfilC==="gestor") mostrarTudo(); else aplicarMenuPermissoes(JSON.parse(cached)); }
+    if(cached){ aplicarMenuPermissoes(JSON.parse(cached)); }
     else{ mostrarTudo(); }
   }
 }
@@ -797,7 +807,7 @@ function aplicarMenuPermissoes(p){
     var el=document.getElementById("nav-"+k);
     if(el) el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias"]};
+  var sm={comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
