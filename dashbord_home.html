@@ -144,6 +144,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 
 
 
+.hide-margem .tc-margem,.hide-margem .ec-m-lbl,.hide-margem .ec-m-val,.hide-margem [data-margem]{ display:none !important; }
 </style>
 </head>
 <body>
@@ -197,7 +198,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 /* ════════════════════════════════════
    STATE
 ════════════════════════════════════ */
-let WEBAPP_URL = localStorage.getItem('relatorio_webapp_url') || '';
+let WEBAPP_URL = localStorage.getItem('login_webapp_url') || '';
 let rawData = [];
 let filtered = [];
 
@@ -224,14 +225,7 @@ function isGestor(){ return getPerfil()==='gestor'; }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (WEBAPP_URL) { setConn(true); loadData(); }
-  // Hide margem for colaborador
-  if (!isGestor()) {
-    document.querySelectorAll('.tc-item').forEach(function(el){
-      if(el.querySelector && el.querySelector('.tc-lbl') && el.querySelector('.tc-lbl').textContent.indexOf('Margem')!==-1)
-        el.style.display='none';
-    });
-    document.querySelectorAll('.ec-m-lbl,.ec-m-val,[class*="marg"]').forEach(function(el){ el.style.display='none'; });
-  }
+  if (!isGestor()) document.body.classList.add('hide-margem');
   else { setConn(false); setTimeout(openConfig, 500); }
 });
 
@@ -246,7 +240,7 @@ function saveConfig() {
   const u = document.getElementById('cfg-url').value.trim();
   if (!u) return alert('Informe a URL');
   WEBAPP_URL = u;
-  localStorage.setItem('relatorio_webapp_url', u);
+  localStorage.setItem('login_webapp_url', u);
   document.getElementById('modal-cfg').classList.remove('open');
   setConn(true);
   loadData();
@@ -420,16 +414,16 @@ function renderEmpresas(empresas, totFat) {
           </div>
           <div class="ec-metrics">
             <div class="ec-metric">
-              <div class="ec-m-lbl">Faturamento</div>
-              <div class="ec-m-val" style="color:${cfg.color}">${fmtK(m.fat)}</div>
+              <div class="ec-m-lbl" data-margem="1">Faturamento</div>
+              <div class="ec-m-val" data-margem="1" class="ec-m-val" style="color:${cfg.color}">${fmtK(m.fat)}</div>
             </div>
             <div class="ec-metric">
-              <div class="ec-m-lbl">Margem Líq.</div>
-              <div class="ec-m-val ${marg>=0?'green':'red'}">${fmtK(marg)}</div>
+              <div class="ec-m-lbl" data-margem="1">Margem Líq.</div>
+              <div class="ec-m-val" data-margem="1" class="ec-m-val ${marg>=0?'green':'red'}">${fmtK(marg)}</div>
             </div>
             <div class="ec-metric">
-              <div class="ec-m-lbl">% Margem</div>
-              <div class="ec-m-val ${parseFloat(margPct)>=20?'green':parseFloat(margPct)>=0?'':'red'}">${margPct}%</div>
+              <div class="ec-m-lbl" data-margem="1">% Margem</div>
+              <div class="ec-m-val" data-margem="1" class="ec-m-val ${parseFloat(margPct)>=20?'green':parseFloat(margPct)>=0?'':'red'}">${margPct}%</div>
             </div>
           </div>
           <div class="ec-bar">
