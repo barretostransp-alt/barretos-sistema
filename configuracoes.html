@@ -149,7 +149,11 @@ const TOOLS_LIST = [
   { key:"dashboard", label:"Dashboard",             icon:"ti-layout-dashboard", cat:"" },
   { key:"cotacao",   label:"Cotação Comercial",     icon:"ti-calculator",       cat:"Comercial" },
   { key:"relatorio", label:"Relatório de Vendedor", icon:"ti-chart-bar",        cat:"Comercial" },
-  { key:"frota",     label:"Gestão da Frota",       icon:"ti-truck",            cat:"Operacional" },
+  { key:"frota",        label:"Gestão da Frota",   icon:"ti-truck",    cat:"Operacional" },
+  { key:"kanban_pin",   label:"Pinheiro",          icon:"ti-columns",  cat:"Operacional" },
+  { key:"kanban_inf",   label:"Infra",             icon:"ti-columns",  cat:"Operacional" },
+  { key:"kanban_bar",   label:"Barreto's",         icon:"ti-columns",  cat:"Operacional" },
+  { key:"kanban_gon",   label:"Gonçalves",         icon:"ti-columns",  cat:"Operacional" },
   { key:"ideias",    label:"Laboratório de Ideias", icon:"ti-bulb",             cat:"Melhoria" },
   { key:"config",    label:"Configurações",         icon:"ti-settings",         cat:"Admin" },
 ];
@@ -192,11 +196,14 @@ async function carregarUsuarios(){
     const jsonPerm = await resPerm.json();
     if (jsonPerm.success && jsonPerm.permissoes) {
       permissoes = jsonPerm.permissoes;
-    } else {
-      // Default: todos os usuários têm acesso a tudo
-      usuarios.forEach(u => { permissoes[u.login] = TOOLS_LIST.map(t => t.key); });
     }
-    renderUsuarios();
+    // Para usuários sem permissões salvas, define acesso total como padrão
+    usuarios.forEach(u => {
+      if (!permissoes[u.login]) {
+        permissoes[u.login] = TOOLS_LIST.map(t => t.key);
+      }
+    });
+        renderUsuarios();
   } catch(e) {
     document.getElementById("loading-wrap").innerHTML = '<div style="text-align:center;color:var(--red);font-size:13px;padding:40px"><i class="ti ti-alert-circle" style="font-size:32px;display:block;margin-bottom:12px"></i>Erro ao carregar: ' + e.message + '</div>';
   }
@@ -210,8 +217,8 @@ function renderUsuarios(){
   container.innerHTML = "";
 
   usuarios.forEach(function(u){
-    const login   = u.login;
-    const perms   = permissoes[login] || TOOLS_LIST.map(t => t.key);
+    const login   = u.login.toLowerCase().trim();
+    const perms   = (permissoes[login] !== undefined) ? permissoes[login] : TOOLS_LIST.map(t => t.key);
     const isGestor = u.perfil === "gestor";
     const inicial = (u.nome || "?")[0].toUpperCase();
 
@@ -253,6 +260,7 @@ function toggleCard(loginId){
 }
 
 function toggleTool(login, toolKey){
+  login = login.toLowerCase().trim();
   if (!permissoes[login]) permissoes[login] = [];
   var idx = permissoes[login].indexOf(toolKey);
   if (idx >= 0) permissoes[login].splice(idx,1);
@@ -264,6 +272,7 @@ function toggleTool(login, toolKey){
 }
 
 async function salvarPermissoes(login){
+  login = login.toLowerCase().trim();
   var loginId = login.replace(/\s/g,"_");
   var btn  = document.querySelector("#card-" + loginId + " .btn-save");
   var msgEl = document.getElementById("msg-" + loginId);
@@ -277,7 +286,7 @@ async function salvarPermissoes(login){
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
-    msgEl.innerHTML = '<i class="ti ti-circle-check"></i> Salvo com sucesso!';
+        msgEl.innerHTML = '<i class="ti ti-circle-check"></i> Salvo com sucesso!';
     msgEl.className = "save-msg";
     msgEl.style.display = "flex";
     setTimeout(() => { msgEl.style.display="none"; }, 3000);
