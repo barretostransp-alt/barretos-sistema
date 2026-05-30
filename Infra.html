@@ -288,7 +288,7 @@ function fromDateInp(s){
   return s;
 }
 
-var WEBAPP_URL=localStorage.getItem(SK)||"";
+var WEBAPP_URL=localStorage.getItem(SK)||localStorage.getItem("login_webapp_url")||"";
 var allCards=[],editKey=null,vendedores=[],pendAtt=[];
 
 document.addEventListener("DOMContentLoaded",function(){
@@ -633,7 +633,7 @@ async function deleteCard(){
 
 function openCfg(){document.getElementById("cfg-url").value=WEBAPP_URL;document.getElementById("cfg-modal").classList.add("open");}
 function closeCfg(){document.getElementById("cfg-modal").classList.remove("open");}
-function saveCfg(){var u=document.getElementById("cfg-url").value.trim();if(!u)return;WEBAPP_URL=u;localStorage.setItem(SK,u);closeCfg();loadData();}
+function saveCfg(){var u=document.getElementById("cfg-url").value.trim();if(!u)return;WEBAPP_URL=u;localStorage.setItem(SK,u);localStorage.setItem("login_webapp_url",u);closeCfg();loadData();}
 function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 // ── RENDERIZAR LISTA DE ANEXOS
