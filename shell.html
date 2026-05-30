@@ -571,6 +571,18 @@ function respErr(e) {
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
       </div>
+      <div class="sb-item" id="nav-kanban_pin" onclick="navigate('kanban_pin')">
+        <i class="ti ti-columns"></i><span>Kanban Pinheiro</span>
+      </div>
+      <div class="sb-item" id="nav-kanban_inf" onclick="navigate('kanban_inf')">
+        <i class="ti ti-columns"></i><span>Kanban Infra</span>
+      </div>
+      <div class="sb-item" id="nav-kanban_bar" onclick="navigate('kanban_bar')">
+        <i class="ti ti-columns"></i><span>Kanban Barreto's</span>
+      </div>
+      <div class="sb-item" id="nav-kanban_gon" onclick="navigate('kanban_gon')">
+        <i class="ti ti-columns"></i><span>Kanban Gonçalves</span>
+      </div>
       <div class="sb-section" id="section-melhoria">Melhoria</div>
       <div class="sb-item" id="nav-ideias" onclick="navigate('ideias')">
         <i class="ti ti-bulb"></i><span>Laboratório de Ideias</span>
@@ -723,6 +735,10 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
+  kanban_pin: { src:"pinheiro.html",               cat:"Operacional", label:"Kanban Pinheiro",        icon:"ti-columns"          },
+  kanban_inf: { src:"infra.html",                  cat:"Operacional", label:"Kanban Infra",           icon:"ti-columns"          },
+  kanban_bar: { src:"barretos.html",               cat:"Operacional", label:"Kanban Barreto's",       icon:"ti-columns"          },
+  kanban_gon: { src:"goncalves.html",              cat:"Operacional", label:"Kanban Gonçalves",       icon:"ti-columns"          },
   ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
   config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
 };
@@ -773,11 +789,11 @@ async function aplicarPermissoes(login){
 }
 
 function aplicarMenuPermissoes(p){
-  ["cotacao","relatorio","frota","ideias"].forEach(function(k){
+  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(el) el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]};
+  var sm={comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
