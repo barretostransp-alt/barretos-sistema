@@ -71,7 +71,10 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;
   <div class="hd">
     <div class="hd-brand">Barreto's Transportes</div>
     <h1>Conexões de API</h1>
-    <p>Configure as URLs dos Apps Script uma única vez aqui. Todos os módulos do sistema leem automaticamente desta página.</p>
+    <p>Configure as URLs dos Apps Script aqui. Todos os módulos leem automaticamente desta página.</p>
+  <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:11px;color:#FCA5A5;line-height:1.6;">
+    <b>⚠ Importante:</b> cada Apps Script tem seu próprio campo. Não cole a URL do Kanbans no campo de Usuários ou vice-versa.
+  </div>
   </div>
 
   <!-- Usuários -->
@@ -95,24 +98,45 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;
     </div>
   </div>
 
-  <!-- Operacional -->
+  <!-- Kanbans -->
   <div class="card">
     <div class="card-hd">
-      <div class="card-ico"><i class="ti ti-database"></i></div>
+      <div class="card-ico"><i class="ti ti-columns"></i></div>
       <div class="card-info">
-        <h3>Apps Script Operacional</h3>
-        <p>Kanbans (Pinheiro, Infra, Barreto's, Gonçalves) · Dashboard · Relatório de Vendedor</p>
+        <h3>Apps Script — Kanbans</h3>
+        <p>Pinheiro · Infra · Barreto's · Gonçalves · Dashboard</p>
       </div>
     </div>
     <div class="field">
       <label>URL do Web App</label>
-      <input id="url-jira" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('jira')">
+      <input id="url-kanbans" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('kanbans')">
     </div>
-    <div class="status"><div class="dot" id="dot-jira"></div><span class="status-txt" id="txt-jira">Não configurado</span></div>
+    <div class="status"><div class="dot" id="dot-kanbans"></div><span class="status-txt" id="txt-kanbans">Não configurado</span></div>
     <div class="btns">
-      <button class="btn-test" onclick="test('jira','?aba=PINHEIRO')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
-      <button class="btn-save" onclick="save('jira')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
-      <span class="tag-saved" id="sv-jira"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+      <button class="btn-test" onclick="test('kanbans','?aba=PINHEIRO')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('kanbans')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-kanbans"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
+    </div>
+  </div>
+
+  <!-- Relatorio -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico"><i class="ti ti-chart-bar"></i></div>
+      <div class="card-info">
+        <h3>Apps Script — Relatório de Vendedor</h3>
+        <p>Relatório de fretes e performance por vendedor</p>
+      </div>
+    </div>
+    <div class="field">
+      <label>URL do Web App</label>
+      <input id="url-relatorio" placeholder="https://script.google.com/macros/s/.../exec" oninput="clearSt('relatorio')">
+    </div>
+    <div class="status"><div class="dot" id="dot-relatorio"></div><span class="status-txt" id="txt-relatorio">Não configurado</span></div>
+    <div class="btns">
+      <button class="btn-test" onclick="test('relatorio','')"><i class="ti ti-plug" style="font-size:12px"></i> Testar</button>
+      <button class="btn-save" onclick="save('relatorio')"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+      <span class="tag-saved" id="sv-relatorio"><i class="ti ti-check" style="font-size:11px"></i> Salvo!</span>
     </div>
   </div>
 
@@ -190,9 +214,8 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;
 // Mapa: id -> chaves localStorage que cada módulo lê
 var KEYS = {
   usuarios: ['login_webapp_url', 'barretos_usuarios_url'],
-  jira:     ['barretos_jira_url',
-             'jira_url_PINHEIRO','jira_url_INFRA','jira_url_BARRETOS','jira_url_GONCALVES',
-             'relatorio_webapp_url'],
+  kanbans:  ['barretos_jira_url', 'jira_url_PINHEIRO','jira_url_INFRA','jira_url_BARRETOS','jira_url_GONCALVES'],
+  relatorio:['barretos_relatorio_url','relatorio_webapp_url'],
   cotacao:  ['barretos_cotacao_url','sheets_webapp_url'],
   frota:    ['barretos_frota_url','frota_webapp_url'],
   lab:      ['barretos_lab_url','mc_webapp_url'],
@@ -201,7 +224,8 @@ var KEYS = {
 // Primary read key for each group (what conexoes saves as "canonical")
 var PRIMARY = {
   usuarios: 'login_webapp_url',
-  jira:     'barretos_jira_url',
+  kanbans:  'barretos_jira_url',
+  relatorio:'barretos_relatorio_url',
   cotacao:  'barretos_cotacao_url',
   frota:    'barretos_frota_url',
   lab:      'barretos_lab_url',
