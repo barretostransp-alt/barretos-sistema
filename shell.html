@@ -943,8 +943,7 @@ function aplicarCor(hex) {
 
 function selecionarCor(hex) {
   aplicarCor(hex);
-  // Update UI
-  document.querySelectorAll('.cor-btn').forEach(function(el) {
+  document.querySelectorAll('.cor-btn[data-cor]').forEach(function(el) {
     el.classList.toggle('ativa', el.dataset.cor && el.dataset.cor.toLowerCase() === hex.toLowerCase());
   });
   var inp = document.getElementById('cor-custom-inp');
@@ -953,17 +952,59 @@ function selecionarCor(hex) {
   if (txt) txt.textContent = hex.toUpperCase();
 }
 
+function hexToRgbVals(hex) {
+  var h = hex.replace('#','');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+
+function lighten(hex, amount) {
+  var rgb = hexToRgbVals(hex);
+  var r = Math.min(255, rgb[0] + amount);
+  var g = Math.min(255, rgb[1] + amount);
+  var b = Math.min(255, rgb[2] + amount);
+  return '#'+[r,g,b].map(function(v){return ('0'+Math.round(v).toString(16)).slice(-2);}).join('');
+}
+
+var _fundoAtual = '#090A0D';
+
+function aplicarFundo(hex) {
+  if (!hex || hex.length < 4) return;
+  var root = document.documentElement;
+  root.style.setProperty('--bg',      hex);
+  root.style.setProperty('--surface', lighten(hex, 10));
+  root.style.setProperty('--card',    lighten(hex, 18));
+  root.style.setProperty('--border',  lighten(hex, 32));
+  _fundoAtual = hex;
+}
+
+function selecionarFundo(hex) {
+  aplicarFundo(hex);
+  document.querySelectorAll('.cor-btn[data-fundo]').forEach(function(el) {
+    el.classList.toggle('ativa', el.dataset.fundo && el.dataset.fundo.toLowerCase() === hex.toLowerCase());
+  });
+  var inp = document.getElementById('fundo-custom-inp');
+  var txt = document.getElementById('fundo-preview-txt');
+  if (inp) inp.value = hex;
+  if (txt) txt.textContent = hex.toUpperCase();
+}
+
 function carregarCorSalva() {
   var login = localStorage.getItem('barretos_login') || '';
-  var cor = localStorage.getItem('barretos_cor_' + login) || localStorage.getItem('barretos_cor') || '#F5B800';
+  var cor   = localStorage.getItem('barretos_cor_'   + login) || localStorage.getItem('barretos_cor')   || '#F5B800';
+  var fundo = localStorage.getItem('barretos_fundo_' + login) || localStorage.getItem('barretos_fundo') || '#090A0D';
   aplicarCor(cor);
   selecionarCor(cor);
+  aplicarFundo(fundo);
+  selecionarFundo(fundo);
 }
 
 function salvarCorLocal() {
   var login = localStorage.getItem('barretos_login') || '';
-  localStorage.setItem('barretos_cor_' + login, _corAtual);
-  localStorage.setItem('barretos_cor', _corAtual);
+  localStorage.setItem('barretos_cor_'   + login, _corAtual);
+  localStorage.setItem('barretos_cor',   _corAtual);
+  localStorage.setItem('barretos_fundo_' + login, _fundoAtual);
+  localStorage.setItem('barretos_fundo', _fundoAtual);
 }
 
 function openPerfilModal(){
@@ -1130,7 +1171,7 @@ async function savePerfilModal(){
 
       <!-- Cor do tema -->
       <div class="tema-section">
-        <span class="tema-label"><i class="ti ti-palette" style="font-size:12px;margin-right:5px"></i>Cor do sistema</span>
+        <span class="tema-label"><i class="ti ti-palette" style="font-size:12px;margin-right:5px"></i>Cor de destaque</span>
         <div class="cores-grid" id="cores-grid">
           <div class="cor-btn" style="background:#F5B800" data-cor="#F5B800" onclick="selecionarCor('#F5B800')"></div>
           <div class="cor-btn" style="background:#EF4444" data-cor="#EF4444" onclick="selecionarCor('#EF4444')"></div>
@@ -1142,11 +1183,25 @@ async function savePerfilModal(){
           <div class="cor-btn" style="background:#06B6D4" data-cor="#06B6D4" onclick="selecionarCor('#06B6D4')"></div>
         </div>
         <div class="cor-custom-row">
-          <label>Cor personalizada:</label>
+          <label>Personalizada:</label>
           <input type="color" class="cor-custom-inp" id="cor-custom-inp" value="#F5B800" oninput="selecionarCor(this.value)">
           <span class="cor-preview-txt" id="cor-preview-txt">#F5B800</span>
         </div>
-      </div>
+
+        <span class="tema-label" style="margin-top:14px"><i class="ti ti-moon" style="font-size:12px;margin-right:5px"></i>Tema de fundo</span>
+        <div class="cores-grid" id="fundos-grid" style="grid-template-columns:repeat(5,1fr)">
+          <div class="cor-btn" style="background:#090A0D;border:1px solid #333" data-fundo="#090A0D" onclick="selecionarFundo('#090A0D')" title="Preto padrão"></div>
+          <div class="cor-btn" style="background:#0D1117;border:1px solid #333" data-fundo="#0D1117" onclick="selecionarFundo('#0D1117')" title="GitHub Dark"></div>
+          <div class="cor-btn" style="background:#0F172A;border:1px solid #333" data-fundo="#0F172A" onclick="selecionarFundo('#0F172A')" title="Azul Noite"></div>
+          <div class="cor-btn" style="background:#1A0A2E;border:1px solid #333" data-fundo="#1A0A2E" onclick="selecionarFundo('#1A0A2E')" title="Roxo Escuro"></div>
+          <div class="cor-btn" style="background:#0A1628;border:1px solid #333" data-fundo="#0A1628" onclick="selecionarFundo('#0A1628')" title="Azul Profundo"></div>
+        </div>
+        <div class="cor-custom-row">
+          <label>Personalizado:</label>
+          <input type="color" class="cor-custom-inp" id="fundo-custom-inp" value="#090A0D" oninput="selecionarFundo(this.value)">
+          <span class="cor-preview-txt" id="fundo-preview-txt">#090A0D</span>
+        </div>
+      </div></div>
       <div class="perfil-actions">
         <button class="btn-perfil-cancel" onclick="closePerfilModal()">Cancelar</button>
         <button class="btn-perfil-save" onclick="savePerfilModal()">
