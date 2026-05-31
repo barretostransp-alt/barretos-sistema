@@ -221,6 +221,7 @@ body{display:flex;align-items:stretch}
       <div class="fg">
         <label>URL do Apps Script — Gestão de Usuários</label>
         <input class="fi" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
+    <div id="cfg-hint" style="display:none;font-size:10px;color:#F59E0B;margin-top:6px;line-height:1.5;">⚠ Cole aqui a URL do <b>Apps Script de Gestão de Usuários</b> (não a URL dos kanbans)</div>
         <p class="help">Implante o Apps Script na planilha de usuários e cole a URL aqui.</p>
       </div>
     </div>
@@ -359,7 +360,12 @@ var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('script-code').value = document.getElementById('gas-src').value;
-  document.getElementById('cfg-url').value = WEBAPP_URL;
+  // Clear any polluted value from Jira URL
+  var cur = localStorage.getItem('login_webapp_url')||'';
+  document.getElementById('cfg-url').value = cur;
+  // If it looks like it might be wrong, show hint
+  var hint = document.getElementById('cfg-hint');
+  if(hint) hint.style.display = 'block';
   if (!WEBAPP_URL) setTimeout(openConfig, 400);
 });
 
