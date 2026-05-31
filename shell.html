@@ -808,14 +808,18 @@ async function aplicarPermissoes(login){
     var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
     var j=await r.json();
     if(j.success&&j.ferramentas&&j.ferramentas.length>0){
-      // Salva em cache
       sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(j.ferramentas));
-      aplicarMenuPermissoes(j.ferramentas);
+      var _perfil=localStorage.getItem("barretos_perfil")||"";
+      if(_perfil==="gestor") mostrarTudo();
+      else aplicarMenuPermissoes(j.ferramentas);
     } else { mostrarTudo(); }
   } catch(e){
     var cached=sessionStorage.getItem("barretos_perms_"+login);
-    if(cached){ aplicarMenuPermissoes(JSON.parse(cached)); }
-    else{ mostrarTudo(); }
+    if(cached){
+      var _cp=localStorage.getItem("barretos_perfil")||"";
+      if(_cp==="gestor") mostrarTudo();
+      else aplicarMenuPermissoes(JSON.parse(cached));
+    } else{ mostrarTudo(); }
   }
 }
 
@@ -824,7 +828,7 @@ function aplicarMenuPermissoes(p){
     var el=document.getElementById("nav-"+k);
     if(el) el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={comercial:["cotacao","relatorio"],operacional:["frota"],melhoria:["ideias"]};
+  var sm={comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -878,6 +882,7 @@ function logout(){
 }
 
 document.addEventListener("DOMContentLoaded", function(){
+  carregarCorSalva();
   var saved=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
   if(saved){ WEBAPP_URL=saved; localStorage.setItem("login_webapp_url",saved); sessionStorage.setItem("login_webapp_url",saved); }
   var cfgEl=document.getElementById("cfg-url"); if(cfgEl) cfgEl.value=WEBAPP_URL;
