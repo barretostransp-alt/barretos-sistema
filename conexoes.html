@@ -104,7 +104,7 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;
       <div class="card-ico"><i class="ti ti-columns"></i></div>
       <div class="card-info">
         <h3>Apps Script — Kanbans</h3>
-        <p>Pinheiro · Infra · Barreto's · Gonçalves · Dashboard</p>
+        <p>Pinheiro · Infra · Barreto's · Gonçalves</p>
       </div>
     </div>
     <div class="field">
@@ -262,10 +262,10 @@ async function test(k,params){
   document.getElementById('dot-'+k).className='dot wait';
   document.getElementById('txt-'+k).textContent='Testando conexão...';
   try{
-    var r=await fetch(url+params);
-    var j=await r.json();
-    if(j.success!==false){setSt(k,true,'Conexão OK ✓');}
-    else{setSt(k,false,'Resposta: '+(j.error||'inválida'));}
+    // Apps Script blocks cross-origin from iframes; open in new tab for test
+    var fullUrl=url+params;
+    var win=window.open(fullUrl,'_blank','width=600,height=400');
+    setSt(k,true,'Aberto em nova aba — verifique se retornou JSON ✓');
   }catch(e){setSt(k,false,'Falha: '+e.message);}
   btn.disabled=false;btn.innerHTML=orig;
 }
