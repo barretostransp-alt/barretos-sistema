@@ -144,7 +144,11 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 
 
 
-.hide-margem .tc-margem,.hide-margem .ec-m-lbl,.hide-margem .ec-m-val,.hide-margem [data-margem]{ display:none !important; }
+/* Hide margem líquida top card for colaborador */
+.hide-margem .tc-margem{ display:none !important; }
+/* Hide margem columns in empresa cards - only 2nd and 3rd metric */
+.hide-margem .ec-metrics .ec-metric:nth-child(2),
+.hide-margem .ec-metrics .ec-metric:nth-child(3){ display:none !important; }
 </style>
 </head>
 <body>
@@ -286,13 +290,13 @@ function populateMes() {
 }
 
 function applyFilter() {
-  // Filter by allowed companies for colaborador
+  // Filter by allowed companies for colaborador (do NOT mutate rawData)
   var _allowed = getEmpresasPermitidas();
-  if (_allowed) {
-    rawData = rawData.filter(function(r){ return _allowed.indexOf(String(r['Origem']||'').trim()) !== -1; });
-  }
+  var _source = _allowed
+    ? rawData.filter(function(r){ return _allowed.indexOf(String(r['Origem']||'').trim()) !== -1; })
+    : _source;
   const mes = document.getElementById('f-mes').value;
-  filtered = mes ? rawData.filter(r => (r['Mes'] || '') === mes) : rawData;
+  filtered = mes ? _source.filter(r => (r['Mes'] || '') === mes) : rawData;
   const mesLabel = mes || 'todos os meses';
   document.getElementById('tb-sub').textContent =
     filtered.length + ' fretes · ' + mesLabel;
@@ -414,16 +418,16 @@ function renderEmpresas(empresas, totFat) {
           </div>
           <div class="ec-metrics">
             <div class="ec-metric">
-              <div class="ec-m-lbl" data-margem="1">Faturamento</div>
-              <div class="ec-m-val" data-margem="1" class="ec-m-val" style="color:${cfg.color}">${fmtK(m.fat)}</div>
+              <div class="ec-m-lbl">Faturamento</div>
+              <div class="ec-m-val" style="color:${cfg.color}">${fmtK(m.fat)}</div>
             </div>
             <div class="ec-metric">
-              <div class="ec-m-lbl" data-margem="1">Margem Líq.</div>
-              <div class="ec-m-val" data-margem="1" class="ec-m-val ${marg>=0?'green':'red'}">${fmtK(marg)}</div>
+              <div class="ec-m-lbl">Margem Líq.</div>
+              <div class="ec-m-val ${marg>=0?'green':'red'}">${fmtK(marg)}</div>
             </div>
             <div class="ec-metric">
-              <div class="ec-m-lbl" data-margem="1">% Margem</div>
-              <div class="ec-m-val" data-margem="1" class="ec-m-val ${parseFloat(margPct)>=20?'green':parseFloat(margPct)>=0?'':'red'}">${margPct}%</div>
+              <div class="ec-m-lbl">% Margem</div>
+              <div class="ec-m-val ${parseFloat(margPct)>=20?'green':parseFloat(margPct)>=0?'':'red'}">${margPct}%</div>
             </div>
           </div>
           <div class="ec-bar">
