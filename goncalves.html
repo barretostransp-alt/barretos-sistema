@@ -288,7 +288,7 @@ function fromDateInp(s){
   return s;
 }
 
-var WEBAPP_URL=localStorage.getItem(SK)||"";
+var WEBAPP_URL=localStorage.getItem('barretos_jira_url')||localStorage.getItem('jira_url_GONCALVES')||localStorage.getItem('login_webapp_url')||'';
 var allCards=[],editKey=null,vendedores=[],pendAtt=[];
 
 document.addEventListener("DOMContentLoaded",function(){
