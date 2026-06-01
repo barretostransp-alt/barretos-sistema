@@ -360,24 +360,7 @@ var WEBAPP_URL=localStorage.getItem('login_webapp_url')||localStorage.getItem('b
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('script-code').value = document.getElementById('gas-src').value;
-  if (!WEBAPP_URL) {
-    // No URL — open config immediately
-    setTimeout(openConfig, 400);
-  } else {
-    // Validate URL is the correct Users script (not Jira)
-    fetch(WEBAPP_URL + '?action=ping')
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if (!j.pong) {
-          // Wrong URL (probably Jira) — clear and ask again
-          localStorage.removeItem('login_webapp_url');
-          localStorage.removeItem('barretos_usuarios_url');
-          WEBAPP_URL = '';
-          setTimeout(openConfig, 400);
-        }
-      })
-      .catch(function(){ /* URL unreachable but keep it */ });
-  }
+  if (!WEBAPP_URL) setTimeout(openConfig, 400);
 });
 
 function openConfig() {
