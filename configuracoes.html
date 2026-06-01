@@ -161,7 +161,7 @@ const TOOLS_LIST = [
 // Estado local de permissões (login -> Set de ferramentas)
 let permissoes = {};
 let usuarios   = [];
-let loginUrl   = localStorage.getItem("login_webapp_url") || "";
+let loginUrl   = localStorage.getItem("login_webapp_url") || localStorage.getItem("barretos_usuarios_url") || "";
 
 // ── Verifica acesso ──
 document.addEventListener("DOMContentLoaded", function(){
@@ -190,7 +190,8 @@ async function carregarUsuarios(){
     const res  = await fetch(loginUrl + "?action=list_users");
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
-    usuarios = json.users;
+    usuarios = Array.isArray(json.users) ? json.users : [];
+    if (usuarios.length === 0) throw new Error('Nenhum usuário encontrado na planilha USUARIOS');
     // Carrega permissões salvas
     const resPerm = await fetch(loginUrl + "?action=get_permissoes");
     const jsonPerm = await resPerm.json();
@@ -198,9 +199,9 @@ async function carregarUsuarios(){
       permissoes = jsonPerm.permissoes;
     }
     // Para usuários sem permissões salvas, define acesso total como padrão
-    usuarios.forEach(u => {
-      if (!permissoes[u.login]) {
-        permissoes[u.login] = TOOLS_LIST.map(t => t.key);
+    (usuarios || []).forEach(u => {
+      if (u && u.login && !permissoes[u.login.toLowerCase().trim()]) {
+        permissoes[u.login.toLowerCase().trim()] = TOOLS_LIST.map(t => t.key);
       }
     });
         renderUsuarios();
