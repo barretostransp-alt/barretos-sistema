@@ -862,6 +862,17 @@ function navigate(key){
   bc.innerHTML = tool.cat
     ? '<span class="topbar-cat">'+tool.cat+'</span><span style="color:var(--border);margin:0 4px"><i class="ti ti-chevron-right" style="font-size:10px"></i></span><span class="topbar-page">'+tool.label+'</span>'
     : '<span class="topbar-page">'+tool.label+'</span>';
+  // Sync URL keys so iframes find their config in localStorage
+  var _relUrl=localStorage.getItem("barretos_relatorio_url")||"";
+  var _jiraUrl=localStorage.getItem("barretos_jira_url")||"";
+  if(key==="dashboard" && !_relUrl && _jiraUrl){
+    localStorage.setItem("barretos_relatorio_url",_jiraUrl);
+    localStorage.setItem("relatorio_webapp_url",_jiraUrl);
+  }
+  if(key==="relatorio" && !_relUrl && _jiraUrl){
+    localStorage.setItem("barretos_relatorio_url",_jiraUrl);
+    localStorage.setItem("relatorio_webapp_url",_jiraUrl);
+  }
   document.getElementById("iframe-loading").classList.remove("hidden");
   document.getElementById("main-frame").src=tool.src;
 }
