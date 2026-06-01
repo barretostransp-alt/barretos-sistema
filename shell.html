@@ -808,6 +808,8 @@ function applyUser(user){
   if(cnx) cnx.style.display=(perfil==="gestor")?"flex":"none";
   // Busca e aplica permissões
   setTimeout(function(){ aplicarPermissoes(login); }, 200);
+  // Restore user colors after login
+  setTimeout(carregarCorSalva, 100);
 }
 
 async function aplicarPermissoes(login){
@@ -1005,20 +1007,54 @@ function selecionarFundo(hex) {
 
 function carregarCorSalva() {
   var login = localStorage.getItem('barretos_login') || '';
-  var cor   = localStorage.getItem('barretos_cor_'   + login) || localStorage.getItem('barretos_cor')   || '#F5B800';
-  var fundo = localStorage.getItem('barretos_fundo_' + login) || localStorage.getItem('barretos_fundo') || '#090A0D';
+  // Try localStorage first, then cookies as fallback
+  var cor = localStorage.getItem('barretos_cor_' + login)
+    || localStorage.getItem('barretos_cor')
+    || getCookie('b_cor_'+(login||'g'))
+    || getCookie('b_cor')
+    || '#F5B800';
+  var fundo = localStorage.getItem('barretos_fundo_' + login)
+    || localStorage.getItem('barretos_fundo')
+    || getCookie('b_fundo_'+(login||'g'))
+    || getCookie('b_fundo')
+    || '#090A0D';
   aplicarCor(cor);
-  selecionarCor(cor);
   aplicarFundo(fundo);
-  selecionarFundo(fundo);
 }
 
+function setCookie(name,value,days){
+  var d=new Date(); d.setTime(d.getTime()+(days*24*60*60*1000));
+  document.cookie=name+'='+encodeURIComponent(value)+';expires='+d.toUTCString()+';path=/';
+}
+function getCookie(name){
+  var n=name+'=', ca=document.cookie.split(';');
+  for(var i=0;i<ca.length;i++){
+    var c=ca[i].trim();
+    if(c.indexOf(n)===0) return decodeURIComponent(c.substring(n.length));
+  } return '';
+}
 function salvarCorLocal() {
   var login = localStorage.getItem('barretos_login') || '';
+  // Save to localStorage
   localStorage.setItem('barretos_cor_'   + login, _corAtual);
   localStorage.setItem('barretos_cor',   _corAtual);
   localStorage.setItem('barretos_fundo_' + login, _fundoAtual);
   localStorage.setItem('barretos_fundo', _fundoAtual);
+  // Also save to cookies (survives browser close)
+  setCookie('b_cor_'+(login||'g'),   _corAtual,   365);
+  setCookie('b_fundo_'+(login||'g'), _fundoAtual, 365);
+  setCookie('b_cor',   _corAtual,   365);
+  setCookie('b_fundo', _fundoAtual, 365);
+  // Save to server if URL is available
+  var usuUrl = localStorage.getItem('login_webapp_url')||'';
+  if (usuUrl && login) {
+    var payload = {};
+    payload['barretos_cor_'+login]   = _corAtual;
+    payload['barretos_fundo_'+login] = _fundoAtual;
+    fetch(usuUrl, {method:'POST',
+      body:JSON.stringify({action:'set_urls',urls:payload})
+    }).catch(function(){});
+  }
 }
 
 function openPerfilModal(){
