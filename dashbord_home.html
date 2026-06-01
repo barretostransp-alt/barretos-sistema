@@ -202,7 +202,13 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 /* ════════════════════════════════════
    STATE
 ════════════════════════════════════ */
-var WEBAPP_URL=localStorage.getItem('barretos_relatorio_url')||localStorage.getItem('relatorio_webapp_url')||'';
+var WEBAPP_URL=(function(){
+  return localStorage.getItem('barretos_relatorio_url')
+    || localStorage.getItem('relatorio_webapp_url')
+    || localStorage.getItem('barretos_jira_url')
+    || localStorage.getItem('login_webapp_url')
+    || '';
+})();
 let rawData = [];
 let filtered = [];
 
@@ -229,8 +235,23 @@ function isGestor(){ return getPerfil()==='gestor'; }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!isGestor()) document.body.classList.add('hide-margem');
-  if (WEBAPP_URL) { setConn(true); loadData(); }
-  else { setConn(false); setTimeout(openConfig, 500); }
+  if (WEBAPP_URL) {
+    setConn(true);
+    loadData();
+  } else {
+    setConn(false);
+    // Show message pointing to Conexoes instead of local modal
+    var main = document.getElementById('main-content') || document.querySelector('.main') || document.body;
+    var msg = document.createElement('div');
+    msg.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;font-family:DM Sans,sans-serif;color:#6B7280;';
+    msg.innerHTML='<i class="ti ti-plug-off" style="font-size:48px;color:#EF4444"></i>'
+      +'<b style="font-size:16px;color:#E8EAF0">Dashboard não configurado</b>'
+      +'<span style="font-size:13px">Configure a URL em <b style="color:#F5B800">Conexões → Relatório de Vendedor</b></span>'
+      +'<button onclick="openConfig()" style="background:#F5B800;color:#111;border:none;'
+      +'border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px">'
+      +'Configurar agora</button>';
+    setTimeout(function(){ document.body.appendChild(msg); }, 300);
+  }
 });
 
 /* ════════════════════════════════════
@@ -244,7 +265,7 @@ function saveConfig() {
   const u = document.getElementById('cfg-url').value.trim();
   if (!u) return alert('Informe a URL');
   WEBAPP_URL = u;
-  localStorage.setItem('barretos_relatorio_url',u);localStorage.setItem('relatorio_webapp_url',u);
+  localStorage.setItem('barretos_relatorio_url',u);localStorage.setItem('relatorio_webapp_url',u);WEBAPP_URL=u;
   document.getElementById('modal-cfg').classList.remove('open');
   setConn(true);
   loadData();
