@@ -228,8 +228,8 @@ function getEmpresasPermitidas(){
 function isGestor(){ return getPerfil()==='gestor'; }
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (WEBAPP_URL) { setConn(true); loadData(); }
   if (!isGestor()) document.body.classList.add('hide-margem');
+  if (WEBAPP_URL) { setConn(true); loadData(); }
   else { setConn(false); setTimeout(openConfig, 500); }
 });
 
