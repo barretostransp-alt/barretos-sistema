@@ -291,6 +291,15 @@ async function loadData() {
       populateMes();
       applyFilter();
       setConn(true);
+    } else if (!j.success) {
+      // Wrong URL (probably kanbans URL) — show clear message
+      document.getElementById('content').innerHTML =
+        '<div class="empty-msg" style="flex-direction:column;gap:10px">'
+        +'<i class="ti ti-alert-circle" style="font-size:32px;color:#EF4444"></i>'
+        +'<b>URL incorreta para o Dashboard</b>'
+        +'<span style="font-size:12px;color:var(--txt-dim)">Configure em <b style="color:var(--gold)">Conexões → Relatório de Vendedor</b> com a URL do Apps Script de Relatórios</span>'
+        +'<button onclick="openConfig()" style="background:var(--gold);color:#111;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer">Configurar URL</button>'
+        +'</div>';
     }
   } catch(e) {
     document.getElementById('content').innerHTML =
