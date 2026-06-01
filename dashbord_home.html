@@ -317,13 +317,12 @@ function populateMes() {
 }
 
 function applyFilter() {
-  // Filter by allowed companies for colaborador (do NOT mutate rawData)
   var _allowed = getEmpresasPermitidas();
   var _source = _allowed
     ? rawData.filter(function(r){ return _allowed.indexOf(String(r['Origem']||'').trim()) !== -1; })
-    : _source;
+    : rawData;
   const mes = document.getElementById('f-mes').value;
-  filtered = mes ? _source.filter(r => (r['Mes'] || '') === mes) : rawData;
+  filtered = mes ? _source.filter(r => (r['Mes'] || '') === mes) : _source;
   const mesLabel = mes || 'todos os meses';
   document.getElementById('tb-sub').textContent =
     filtered.length + ' fretes · ' + mesLabel;
