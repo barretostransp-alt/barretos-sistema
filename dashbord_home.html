@@ -204,6 +204,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 ════════════════════════════════════ */
 var WEBAPP_URL = localStorage.getItem('barretos_relatorio_url')
   || localStorage.getItem('relatorio_webapp_url') || '';
+console.log('[Dashboard] WEBAPP_URL at load:', WEBAPP_URL || '(VAZIO)');
 let rawData = [];
 let filtered = [];
 
@@ -277,8 +278,10 @@ async function loadData() {
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
   try {
+    console.log('[Dashboard] Fetching:', WEBAPP_URL);
     const r = await fetch(WEBAPP_URL);
     const j = await r.json();
+    console.log('[Dashboard] Response:', JSON.stringify(j).slice(0,200));
     if (j.success && j.data) {
       rawData = j.data;
       populateMes();
@@ -290,7 +293,8 @@ async function loadData() {
         '<div class="empty-msg" style="flex-direction:column;gap:10px">'
         +'<i class="ti ti-alert-circle" style="font-size:32px;color:#EF4444"></i>'
         +'<b>URL incorreta para o Dashboard</b>'
-        +'<span style="font-size:12px;color:var(--txt-dim)">Configure em <b style="color:var(--gold)">Conexões → Relatório de Vendedor</b> com a URL do Apps Script de Relatórios</span>'
+        +'<span style="font-size:11px;color:#EF4444;word-break:break-all">URL atual: '+WEBAPP_URL+'</span>'
+        +'<span style="font-size:12px;color:var(--txt-dim)">Configure em <b style="color:var(--gold)">Conexões → Relatório de Vendedor</b></span>'
         +'<button onclick="openConfig()" style="background:var(--gold);color:#111;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer">Configurar URL</button>'
         +'</div>';
     }
