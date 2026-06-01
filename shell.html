@@ -251,7 +251,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
   font-size:18px;line-height:1;padding:2px;transition:color .15s;
 }
 .perfil-close:hover{color:var(--txt);}
-.perfil-body{padding:20px 18px;}
+.perfil-body{padding:20px 18px;overflow-y:auto;max-height:calc(90vh - 80px);}
 .perfil-avatar-wrap{
   display:flex;flex-direction:column;align-items:center;gap:10px;
   margin-bottom:20px;
@@ -634,6 +634,7 @@ function respErr(e) {
       <div class="iframe-loading" id="iframe-loading">
         <div class="spinner-lg"></div><span>Carregando ferramenta…</span>
       </div>
+      <script>function _onFrameLoad(){var f=document.getElementById("main-frame");if(f&&f.src&&f.src!==window.location.href)_onFrameLoad();}</script>
       <iframe id="main-frame" src="" onload="onFrameLoad()"></iframe>
     </div>
   </div>
@@ -897,6 +898,8 @@ function logout(){
 
 document.addEventListener("DOMContentLoaded", function(){
   carregarCorSalva();
+  // Re-apply color after user session loads (login might not be set yet)
+  setTimeout(carregarCorSalva, 800);
   var saved=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
   if(saved){ WEBAPP_URL=saved; localStorage.setItem("login_webapp_url",saved); sessionStorage.setItem("login_webapp_url",saved); }
   var cfgEl=document.getElementById("cfg-url"); if(cfgEl) cfgEl.value=WEBAPP_URL;
@@ -957,6 +960,7 @@ function selecionarCor(hex) {
   var txt = document.getElementById('cor-preview-txt');
   if (inp) inp.value = hex;
   if (txt) txt.textContent = hex.toUpperCase();
+  salvarCorLocal();
 }
 
 function hexToRgbVals(hex) {
@@ -994,6 +998,7 @@ function selecionarFundo(hex) {
   var txt = document.getElementById('fundo-preview-txt');
   if (inp) inp.value = hex;
   if (txt) txt.textContent = hex.toUpperCase();
+  salvarCorLocal();
 }
 
 function carregarCorSalva() {
