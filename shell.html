@@ -1001,7 +1001,7 @@ function selecionarFundo(hex) {
 
 function carregarCorSalva() {
   var login = localStorage.getItem('barretos_login') || '';
-  // Try localStorage first, then cookies as fallback
+  // 1. Apply from localStorage/cookie immediately (no flicker)
   var cor = localStorage.getItem('barretos_cor_' + login)
     || localStorage.getItem('barretos_cor')
     || getCookie('b_cor_'+(login||'g'))
@@ -1014,6 +1014,24 @@ function carregarCorSalva() {
     || '#090A0D';
   aplicarCor(cor);
   aplicarFundo(fundo);
+  // 2. Also fetch from server for persistence across devices/browser clears
+  var usuUrl = localStorage.getItem('login_webapp_url') || '';
+  if (usuUrl && login) {
+    fetch(usuUrl + '?action=get_urls')
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (!j.success || !j.urls) return;
+        // Save all URLs to localStorage
+        Object.keys(j.urls).forEach(function(k){
+          if(j.urls[k]) localStorage.setItem(k, j.urls[k]);
+        });
+        // Apply colors if found on server
+        var svrCor   = j.urls['barretos_cor_'+login] || j.urls['barretos_cor'] || '';
+        var svrFundo = j.urls['barretos_fundo_'+login] || j.urls['barretos_fundo'] || '';
+        if (svrCor)   { aplicarCor(svrCor);     setCookie('b_cor',svrCor,365); }
+        if (svrFundo) { aplicarFundo(svrFundo);  setCookie('b_fundo',svrFundo,365); }
+      }).catch(function(){});
+  }
 }
 
 function setCookie(name,value,days){
@@ -1045,6 +1063,8 @@ function salvarCorLocal() {
     var payload = {};
     payload['barretos_cor_'+login]   = _corAtual;
     payload['barretos_fundo_'+login] = _fundoAtual;
+    payload['barretos_cor']   = _corAtual;
+    payload['barretos_fundo'] = _fundoAtual;
     fetch(usuUrl, {method:'POST',
       body:JSON.stringify({action:'set_urls',urls:payload})
     }).catch(function(){});
