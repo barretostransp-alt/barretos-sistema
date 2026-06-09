@@ -200,7 +200,30 @@
 
   .hist-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
   .hist-toolbar h2 { font-size:16px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
-  .hist-filter { display:flex; gap:6px; }
+  .hist-filter-drop { position:relative; }
+  .hist-filter-drop-btn {
+    display:flex;align-items:center;gap:5px;padding:5px 10px;
+    background:none;border:1px solid var(--charcoal-border);border-radius:6px;
+    color:var(--txt-dim,#888);font-size:12px;cursor:pointer;white-space:nowrap;
+    transition:border-color .15s,color .15s;
+  }
+  .hist-filter-drop-btn:hover, .hist-filter-drop-btn.active {
+    border-color:rgba(245,197,24,.4);color:var(--gold);
+  }
+  .hist-drop-menu {
+    display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;
+    background:var(--charcoal-mid,#1E2029);border:1px solid var(--charcoal-border);
+    border-radius:8px;min-width:160px;max-height:220px;overflow-y:auto;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);padding:4px;
+  }
+  .hist-drop-menu.open { display:block; }
+  .hist-drop-item {
+    padding:7px 10px;font-size:12px;border-radius:5px;cursor:pointer;
+    color:var(--txt,#E8E9F0);transition:background .1s;
+  }
+  .hist-drop-item:hover { background:rgba(255,255,255,.06); }
+  .hist-drop-item.active { color:var(--gold);font-weight:600; }
+
   .hist-filter-btn {
     padding:5px 14px; border-radius:5px; font-size:12px; font-weight:600;
     cursor:pointer; border:1px solid var(--charcoal-border); background:transparent;
@@ -1340,6 +1363,26 @@
       <button class="hist-filter-btn" onclick="filterHist('Pendente',this)" style="color:#9A9DAA">Pendente</button>
       <button class="hist-filter-btn" onclick="filterHist('Aceita',this)" style="color:#2EBD85">Aceita</button>
       <button class="hist-filter-btn" onclick="filterHist('Recusada',this)" style="color:#E24B4A">Recusada</button>
+    </div>
+    <div class="hist-filter-drop" id="drop-vend-wrap">
+      <button class="hist-filter-drop-btn" onclick="toggleDrop('drop-vend')">
+        <i class="ti ti-user" style="font-size:12px"></i>
+        <span id="drop-vend-label">Vendedor</span>
+        <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      </button>
+      <div class="hist-drop-menu" id="drop-vend">
+        <div class="hist-drop-item active" onclick="setFilterVend('all',this)">Todos</div>
+      </div>
+    </div>
+    <div class="hist-filter-drop" id="drop-mes-wrap">
+      <button class="hist-filter-drop-btn" onclick="toggleDrop('drop-mes')">
+        <i class="ti ti-calendar" style="font-size:12px"></i>
+        <span id="drop-mes-label">Mês</span>
+        <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      </button>
+      <div class="hist-drop-menu" id="drop-mes">
+        <div class="hist-drop-item active" onclick="setFilterMes('all',this)">Todos</div>
+      </div>
     </div>
     <button onclick="loadHistory()" style="background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:5px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px" title="Recarregar">
       <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
@@ -2666,33 +2709,11 @@ const SHEETS_WEBAPP_URL = '';
 
 let currentQuoteNum = null; // número da cotação atual
 
-async function saveToSheets() {
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) return null;
-  const totalEl = document.querySelector('.result-total-val');
-  const origem  = document.getElementById('addr-origem')?.value?.trim() || '';
-  const destino = document.getElementById('addr-destino')?.value?.trim() || '';
-  const data = {
-    vendedor: document.getElementById('vendedor')?.value?.trim() || '',
-    cliente:  document.getElementById('cliente')?.value?.trim() || '',
-    origem,
-    destino,
-    valor: totalEl ? totalEl.innerText.trim() : ''
-  };
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(data)
-    });
-    const json = await res.json();
-    if (json.success) return json.num;
-  } catch(e) { console.error('Sheets:', e); }
-  return null;
-}
 
 let histData = [];
 let histFilter = 'all';
+let histFilterVend = 'all';
+let histFilterMes  = 'all';
 
 function switchTab(tab) {
   const isHist = tab === 'hist';
@@ -3241,6 +3262,7 @@ async function loadHistory() {
     const json = await res.json();
     if (!json.rows) throw new Error('Resposta inválida do Apps Script');
     histData = json.rows;
+    popularFiltrosVendMes();
     errEl.style.display = 'none';
   } catch(e) {
     errEl.innerHTML = '<i class="ti ti-alert-triangle" style="margin-right:6px"></i>' +
@@ -3279,6 +3301,70 @@ function filterHist(f, btn) {
   document.querySelectorAll('.hist-filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   renderHistory();
+}
+
+function toggleDrop(id) {
+  const menu = document.getElementById(id);
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.hist-drop-menu.open').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.hist-filter-drop')) {
+    document.querySelectorAll('.hist-drop-menu.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+function setFilterVend(val, el) {
+  histFilterVend = val;
+  document.querySelectorAll('#drop-vend .hist-drop-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const lbl = document.getElementById('drop-vend-label');
+  if (lbl) lbl.textContent = val === 'all' ? 'Vendedor' : val.split(' ')[0];
+  const btn = document.querySelector('#drop-vend-wrap .hist-filter-drop-btn');
+  if (btn) btn.classList.toggle('active', val !== 'all');
+  document.getElementById('drop-vend').classList.remove('open');
+  renderHistory();
+}
+
+function setFilterMes(val, el) {
+  histFilterMes = val;
+  document.querySelectorAll('#drop-mes .hist-drop-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const lbl = document.getElementById('drop-mes-label');
+  if (lbl) lbl.textContent = val === 'all' ? 'Mês' : el ? el.textContent : val;
+  const btn = document.querySelector('#drop-mes-wrap .hist-filter-drop-btn');
+  if (btn) btn.classList.toggle('active', val !== 'all');
+  document.getElementById('drop-mes').classList.remove('open');
+  renderHistory();
+}
+
+function popularFiltrosVendMes() {
+  // Vendedores
+  const vends = [...new Set(histData.map(r => r['Vendedor']||'').filter(Boolean))].sort();
+  const menuV = document.getElementById('drop-vend');
+  if (menuV) {
+    menuV.innerHTML = '<div class="hist-drop-item active" onclick="setFilterVend(\'all\',this)">Todos</div>' +
+      vends.map(v => `<div class="hist-drop-item" onclick="setFilterVend('${v.replace(/'/g,"\\'")}',this)">${v}</div>`).join('');
+  }
+  // Meses
+  const mesesMap = {};
+  const nomeMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  histData.forEach(r => {
+    const d = String(r['Data']||'');
+    const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) {
+      const key = m[3] + '-' + m[2];
+      const label = nomeMes[parseInt(m[2])-1] + '/' + m[3].slice(-2);
+      mesesMap[key] = label;
+    }
+  });
+  const meses = Object.keys(mesesMap).sort().reverse();
+  const menuM = document.getElementById('drop-mes');
+  if (menuM) {
+    menuM.innerHTML = '<div class="hist-drop-item active" onclick="setFilterMes(\'all\',this)">Todos</div>' +
+      meses.map(k => `<div class="hist-drop-item" onclick="setFilterMes('${k}',this)">${mesesMap[k]}</div>`).join('');
+  }
 }
 
 function statusClass(s) {
@@ -3350,10 +3436,22 @@ async function changeStatus(btn, rowKey, newStatus) {
   btn.className = 'status-btn ' + sc;
   btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></span>${labels[sc]||newStatus}<i class="ti ti-chevron-down"></i>`;
   refreshStatsOnly();
-  // Sync to Sheets
+  // Salva na planilha
+  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
+  if (!url) { console.warn('[changeStatus] URL não configurada'); return; }
   showSaveBadge(btn, 'saving');
-  const ok = await pushUpdateToSheets(rowKey, { status: newStatus });
-  showSaveBadge(btn, ok ? 'saved' : 'error');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', numero: rowKey, status: newStatus })
+    });
+    const json = await res.json();
+    console.log('[changeStatus] rowKey:', rowKey, '| status:', newStatus, '| resposta:', JSON.stringify(json));
+    showSaveBadge(btn, json.success ? 'saved' : 'error');
+  } catch(e) {
+    console.error('[changeStatus] erro:', e);
+    showSaveBadge(btn, 'error');
+  }
 }
 
 function toggleStatusMenu(e, menuId) {
@@ -3373,13 +3471,23 @@ async function syncObs(input, rowKey) {
   const obsVal = input.value;
   if (!localOverrides[rowKey]) localOverrides[rowKey] = {};
   localOverrides[rowKey].obs = obsVal;
-  // Sync to Sheets on blur
   const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) return;
+  if (!url) { console.warn('[syncObs] URL não configurada'); return; }
   input.style.borderColor = 'var(--gold)';
-  const ok = await pushUpdateToSheets(rowKey, { obs: obsVal });
-  input.style.borderColor = ok ? '#2EBD85' : '#E24B4A';
-  setTimeout(() => { input.style.borderColor = ''; }, 1800);
+  console.log('[syncObs] salvando obs para rowKey:', rowKey, '| obs:', obsVal);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'update', numero: rowKey, obs: obsVal })
+    });
+    const json = await res.json();
+    console.log('[syncObs] resposta:', JSON.stringify(json));
+    input.style.borderColor = json.success ? '#2EBD85' : '#E24B4A';
+    setTimeout(() => { input.style.borderColor = ''; }, 1800);
+  } catch(e) {
+    console.error('[syncObs] erro fetch:', e);
+    input.style.borderColor = '#E24B4A';
+  }
 }
 
 function refreshStatsOnly() {
@@ -3427,7 +3535,7 @@ function buildStatusCell(r, rowKey, idx) {
 function buildObsCell(r, rowKey) {
   const override = localOverrides[rowKey] || {};
   const obs = override.obs !== undefined ? override.obs : (r['Observacao'] || r['Observação'] || '');
-  return `<td class="obs-cell"><textarea class="obs-input" rows="1" placeholder="Observação…" oninput="saveObs(this,'${rowKey}')" onblur="syncObs(this,'${rowKey}')" onfocus="this.rows=3" onfocusout="this.rows=1">${obs}</textarea></td>`;
+  return `<td class="obs-cell"><textarea class="obs-input" rows="1" placeholder="Observação…" oninput="saveObs(this,'${rowKey}')" onblur="syncObs(this,'${rowKey}')" onchange="syncObs(this,'${rowKey}')" onfocus="this.rows=3" onfocusout="this.rows=1">${obs}</textarea></td>`;
 }
 
 function renderHistory() {
@@ -3442,11 +3550,26 @@ function renderHistory() {
     else if (sc === 'recusada') nR++;
   });
   const nP = total - nA - nR;
-  const filtered = histFilter === 'all' ? histData : histData.filter(r => {
+
+  const filtered = histData.filter(r => {
     const key = getLocalKey(r);
     const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
-    return String(st).toLowerCase().includes(histFilter.toLowerCase());
+    // Filtro status
+    if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
+    // Filtro vendedor
+    if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
+    // Filtro mês — compara com Data dd/MM/yyyy
+    if (histFilterMes !== 'all') {
+      const d = String(r['Data']||'');
+      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (!m) return false;
+      const mesKey = m[3] + '-' + m[2];
+      if (mesKey !== histFilterMes) return false;
+    }
+    return true;
   });
+  // Ordem decrescente (mais recente primeiro)
+  const sortedData = filtered.slice().reverse();
   const keys = histData.length ? Object.keys(histData[0]) : [];
   /* Inclui Cliente logo após Vendedor */
   const colsAll = ['Data','Numero','Vendedor','Cliente','Modalidade','Cidade Origem','Cidade Destino','Valor'];
@@ -3454,7 +3577,7 @@ function renderHistory() {
   const tableHTML = filtered.length ? `<div style="overflow-x:auto">
     <table class="hist-table">
       <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Observação</th></tr></thead>
-      <tbody>${filtered.map((r, i) => {
+      <tbody>${sortedData.map((r, i) => {
         const key = getLocalKey(r);
         return `<tr>${cols.map(c => `<td>${r[c]||'—'}</td>`).join('')}${buildStatusCell(r,key,i)}${buildObsCell(r,key)}</tr>`;
       }).join('')}</tbody>
@@ -3517,6 +3640,7 @@ async function saveToSheets(){
   const pisoVal = (getOverridePiso() || (pisoEl ? parseFloat(pisoEl.innerText.replace(/[^\d,]/g,'').replace(',','.')) : null));
   const data = {
     vendedor:    document.getElementById('vendedor')?.value?.trim()||'',
+    cliente:     document.getElementById('cliente')?.value?.trim()||'',
     modalidade:  modo==='fracionado'?'Fracionado':'Dedicado',
     origem:      document.getElementById('addr-origem')?.value?.trim()||'',
     destino:     document.getElementById('addr-destino')?.value?.trim()||'',
