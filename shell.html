@@ -336,8 +336,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
   background:var(--card);cursor:pointer;padding:1px 2px;}
 .cor-preview-txt{font-size:11px;color:var(--txt-dim);}
 
-/* Kanbans always visible by default, JS hides if no permission */
-#nav-kanban_pin,#nav-kanban_inf,#nav-kanban_bar,#nav-kanban_gon{display:flex;}
+/* Todos os itens do menu visíveis por padrão — JS oculta se sem permissão */
+#nav-kanban_pin,#nav-kanban_inf,#nav-kanban_bar,#nav-kanban_gon,
+#nav-ideias,#nav-helpdesk,#nav-diarias,#nav-cotacao,#nav-relatorio,
+#nav-frota{display:flex;}
 </style>
 </head>
 <body>
@@ -481,6 +483,18 @@ function getOrCreateUsuarios() {
   return sh;
 }
 
+function getOrCreatePermissoes() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(&#x27;PERMISSOES&#x27;);
+  if (!sh) {
+    sh = ss.insertSheet(&#x27;PERMISSOES&#x27;);
+    sh.appendRow([&#x27;Login&#x27;,&#x27;Ferramentas&#x27;]);
+    sh.setFrozenRows(1);
+    sh.getRange(1,1,1,2).setBackground(&#x27;#F5B800&#x27;).setFontWeight(&#x27;bold&#x27;).setFontColor(&#x27;#111&#x27;);
+  }
+  return sh;
+}
+
 function doGet(e) {
   try {
     if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;login&#x27;) {
@@ -505,6 +519,52 @@ function doGet(e) {
       }
       return respErr(&#x27;Login ou senha incorretos.&#x27;);
     }
+
+    // Retorna todas as permissões
+    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_permissoes&#x27;) {
+      var sh = getOrCreatePermissoes();
+      if (sh.getLastRow() &lt;= 1) return respOk({ permissoes: {} });
+      var data = sh.getDataRange().getValues();
+      var obj = {};
+      for (var i = 1; i &lt; data.length; i++) {
+        var login = String(data[i][0]).toLowerCase().trim();
+        var ferr  = String(data[i][1]||&#x27;&#x27;);
+        if (login) obj[login] = ferr ? ferr.split(&#x27;,&#x27;).map(function(s){return s.trim();}) : [];
+      }
+      return respOk({ permissoes: obj });
+    }
+
+    // Retorna permissões de um usuário específico
+    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_permissoes_user&#x27;) {
+      var login = String(e.parameter.login || &#x27;&#x27;).toLowerCase().trim();
+      var sh = getOrCreatePermissoes();
+      if (sh.getLastRow() &lt;= 1) return respOk({ ferramentas: [] });
+      var data = sh.getDataRange().getValues();
+      for (var i = 1; i &lt; data.length; i++) {
+        if (String(data[i][0]).toLowerCase().trim() === login) {
+          var ferr = String(data[i][1]||&#x27;&#x27;);
+          var lista = ferr ? ferr.split(&#x27;,&#x27;).map(function(s){return s.trim();}) : [];
+          return respOk({ ferramentas: lista });
+        }
+      }
+      return respOk({ ferramentas: [] });
+    }
+
+    // Lista usuários
+    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_users&#x27;) {
+      var sh = getOrCreateUsuarios();
+      if (sh.getLastRow() &lt;= 1) return respOk({ users: [] });
+      var data = sh.getDataRange().getValues();
+      var h = data[0].map(String);
+      var users = [];
+      for (var i = 1; i &lt; data.length; i++) {
+        var row = {};
+        h.forEach(function(k,j){ row[k] = String(data[i][j]||&#x27;&#x27;); });
+        users.push(row);
+      }
+      return respOk({ users: users });
+    }
+
     return respErr(&#x27;Acao nao reconhecida.&#x27;);
   } catch(err) { return respErr(err); }
 }
@@ -512,6 +572,23 @@ function doGet(e) {
 function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
+
+    if (d.action === &#x27;set_permissoes&#x27;) {
+      var login = String(d.login || &#x27;&#x27;).toLowerCase().trim();
+      var ferr  = Array.isArray(d.ferramentas) ? d.ferramentas.join(&#x27;,&#x27;) : String(d.ferramentas||&#x27;&#x27;);
+      var sh = getOrCreatePermissoes();
+      var data = sh.getLastRow() &gt; 1 ? sh.getDataRange().getValues() : null;
+      if (data) {
+        for (var i = 1; i &lt; data.length; i++) {
+          if (String(data[i][0]).toLowerCase().trim() === login) {
+            sh.getRange(i+1, 2).setValue(ferr);
+            return respOk({ ok: true });
+          }
+        }
+      }
+      sh.appendRow([login, ferr]);
+      return respOk({ ok: true });
+    }
 
     if (d.action === &#x27;update_password&#x27;) {
       var sh = getOrCreateUsuarios();
@@ -525,7 +602,9 @@ function doPost(e) {
         }
       }
       return respErr(&#x27;Usuário não encontrado.&#x27;);
-    } else if (d.action === &#x27;register_user&#x27;) {
+    }
+
+    if (d.action === &#x27;register_user&#x27;) {
       var sh = getOrCreateUsuarios();
       var data = sh.getLastRow() &gt; 1 ? sh.getDataRange().getValues() : [sh.getRange(1,1,1,7).getValues()[0]];
       var h = data[0].map(String);
@@ -587,6 +666,10 @@ function respErr(e) {
           <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
         </div>
       </div>
+      <div class="sb-section" id="section-rh">RH</div>
+      <div class="sb-item" id="nav-diarias" onclick="navigate('diarias')">
+        <i class="ti ti-calendar-check"></i><span>Diárias de Motoristas</span>
+      </div>
       <div class="sb-section" id="section-comercial">Comercial</div>
       <div class="sb-item" id="nav-cotacao" onclick="navigate('cotacao')">
         <i class="ti ti-calculator"></i><span>Cotação Comercial</span>
@@ -614,6 +697,9 @@ function respErr(e) {
       <div class="sb-item" id="nav-ideias" onclick="navigate('ideias')">
         <i class="ti ti-bulb"></i><span>Laboratório de Ideias</span>
       </div>
+      <div class="sb-item" id="nav-helpdesk" onclick="navigate('helpdesk')">
+        <i class="ti ti-headset"></i><span>Helpdesk</span>
+      </div>
     </nav>
     <div class="sb-footer">
       <div class="sb-item" id="nav-conexoes" onclick="navigate('conexoes')">
@@ -637,7 +723,7 @@ function respErr(e) {
       <div class="iframe-loading" id="iframe-loading">
         <div class="spinner-lg"></div><span>Carregando ferramenta…</span>
       </div>
-      <script>function _onFrameLoad(){var f=document.getElementById("main-frame");if(f&&f.src&&f.src!==window.location.href)_onFrameLoad();}</script>
+      <script>function onFrameLoad(){var il=document.getElementById("iframe-loading");if(il)il.style.display="none";}</script>
       <iframe id="main-frame" src="" onload="onFrameLoad()"></iframe>
     </div>
   </div>
@@ -763,6 +849,7 @@ async function doRegister() {
 <script>
 var TOOLS = {
   dashboard: { src:"dashbord_home.html",       cat:"",            label:"Dashboard",             icon:"ti-layout-dashboard" },
+  diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
@@ -771,6 +858,7 @@ var TOOLS = {
   kanban_bar: { src:"barretos.html",              cat:"Operacional", label:"Barreto's",            icon:"ti-columns"          },
   kanban_gon: { src:"goncalves.html",             cat:"Operacional", label:"Gonçalves",             icon:"ti-columns"          },
   ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
+  helpdesk:  { src:"helpdesk.html",              cat:"Melhoria",    label:"Helpdesk",              icon:"ti-headset"          },
     conexoes:  { src:"conexoes.html",              cat:"Admin",      label:"Conexões",              icon:"ti-plug"            },
   config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
 };
@@ -809,32 +897,51 @@ function applyUser(user){
 }
 
 async function aplicarPermissoes(login){
-  // Busca URL em localStorage e sessionStorage
   var url=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
   if(!url){ mostrarTudo(); return; }
   try{
     var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
     var j=await r.json();
-    if(j.success&&j.ferramentas&&j.ferramentas.length>0){
-      sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(j.ferramentas));
-      // Todos os perfis seguem as permissões configuradas
-      aplicarMenuPermissoes(j.ferramentas);
-    } else { mostrarTudo(); }
+    if(j.success && j.ferramentas){
+      // Garante array — pode vir como string "a,b,c" ou array ["a","b","c"]
+      var p = Array.isArray(j.ferramentas)
+        ? j.ferramentas
+        : String(j.ferramentas).split(',').map(function(s){return s.trim();}).filter(Boolean);
+      if(p.length>0){
+        sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(p));
+        aplicarMenuPermissoes(p);
+        return;
+      }
+    }
+    mostrarTudo();
   } catch(e){
     var cached=sessionStorage.getItem("barretos_perms_"+login);
     if(cached){
-      // Todos os perfis seguem as permissões configuradas
-      aplicarMenuPermissoes(JSON.parse(cached));
+      try{
+        var p = JSON.parse(cached);
+        if(!Array.isArray(p)) p = String(p).split(',').map(function(s){return s.trim();}).filter(Boolean);
+        aplicarMenuPermissoes(p);
+      } catch(e2){ mostrarTudo(); }
     } else{ mostrarTudo(); }
   }
 }
 
 function aplicarMenuPermissoes(p){
-  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","config","conexoes"].forEach(function(k){
+  // Ferramentas controláveis por permissão
+  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
-    if(el) el.style.display=p.includes(k)?"flex":"none";
+    if(!el) return;
+    // Se a lista de permissões veio do servidor E tem itens, respeita
+    // Se helpdesk não está na lista MAS a lista é antiga (não tem diarias nem helpdesk),
+    // considera que foi salvo antes dessas ferramentas existirem e mostra
+    var listaAntiga = !p.includes("helpdesk") && !p.includes("diarias");
+    if(listaAntiga){
+      el.style.display="flex";
+    } else {
+      el.style.display=p.includes(k)?"flex":"none";
+    }
   });
-  var sm={comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias"],admin:["config","conexoes"]};
+  var sm={rh:["diarias"],comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","conexoes"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -842,10 +949,10 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias"].forEach(function(k){
+  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
-  ["section-comercial","section-operacional","section-melhoria"].forEach(function(s){
+  ["section-rh","section-comercial","section-operacional","section-melhoria"].forEach(function(s){
     var el=document.getElementById(s); if(el) el.style.display="flex";
   });
 }
