@@ -244,9 +244,10 @@
     letter-spacing:.06em; text-transform:uppercase; cursor:pointer; border:none;
     white-space:nowrap;
   }
-  .hist-status.pendente  { background:rgba(154,157,170,.15); color:#9A9DAA; }
-  .hist-status.aceita    { background:rgba(46,189,133,.15);  color:#2EBD85; }
-  .hist-status.recusada  { background:rgba(226,75,74,.15);   color:#E24B4A; }
+  .hist-status.pendente       { background:rgba(154,157,170,.15); color:#9A9DAA; }
+  .hist-status.aceita         { background:rgba(46,189,133,.15);  color:#2EBD85; }
+  .hist-status.recusada       { background:rgba(226,75,74,.15);   color:#E24B4A; }
+  .hist-status.desconsiderar  { background:rgba(245,197,24,.12);  color:#9A8A3A; }
 
   /* ---- STATUS DROPDOWN INLINE ---- */
   .status-cell { position:relative; white-space:nowrap; }
@@ -258,9 +259,10 @@
     white-space:nowrap; transition:opacity .15s;
   }
   .status-btn:hover { opacity:.8; }
-  .status-btn.pendente { background:rgba(154,157,170,.18); color:#9A9DAA; }
-  .status-btn.aceita   { background:rgba(46,189,133,.18);  color:#2EBD85; }
-  .status-btn.recusada { background:rgba(226,75,74,.18);   color:#E24B4A; }
+  .status-btn.pendente       { background:rgba(154,157,170,.18); color:#9A9DAA; }
+  .status-btn.aceita         { background:rgba(46,189,133,.18);  color:#2EBD85; }
+  .status-btn.recusada       { background:rgba(226,75,74,.18);   color:#E24B4A; }
+  .status-btn.desconsiderar  { background:rgba(245,197,24,.12);  color:#9A8A3A; }
   .status-btn i { font-size:9px; margin-left:2px; }
   .status-menu {
     display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:200;
@@ -277,12 +279,14 @@
   .status-menu-item:last-child { border-bottom:none; }
   .status-menu-item:hover { background:rgba(255,255,255,.05); }
   .status-menu-item .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .status-menu-item.opt-pendente .dot { background:#9A9DAA; }
-  .status-menu-item.opt-aceita .dot   { background:#2EBD85; }
-  .status-menu-item.opt-recusada .dot { background:#E24B4A; }
-  .status-menu-item.opt-pendente { color:#9A9DAA; }
-  .status-menu-item.opt-aceita   { color:#2EBD85; }
-  .status-menu-item.opt-recusada { color:#E24B4A; }
+  .status-menu-item.opt-pendente      .dot { background:#9A9DAA; }
+  .status-menu-item.opt-aceita        .dot { background:#2EBD85; }
+  .status-menu-item.opt-recusada      .dot { background:#E24B4A; }
+  .status-menu-item.opt-desconsiderar .dot { background:#9A8A3A; }
+  .status-menu-item.opt-pendente      { color:#9A9DAA; }
+  .status-menu-item.opt-aceita        { color:#2EBD85; }
+  .status-menu-item.opt-recusada      { color:#E24B4A; }
+  .status-menu-item.opt-desconsiderar { color:#9A8A3A; }
 
   /* ---- SAVE INDICATOR ---- */
   .save-badge {
@@ -1363,6 +1367,7 @@
       <button class="hist-filter-btn" onclick="filterHist('Pendente',this)" style="color:#9A9DAA">Pendente</button>
       <button class="hist-filter-btn" onclick="filterHist('Aceita',this)" style="color:#2EBD85">Aceita</button>
       <button class="hist-filter-btn" onclick="filterHist('Recusada',this)" style="color:#E24B4A">Recusada</button>
+      <button class="hist-filter-btn" onclick="filterHist('Desconsiderar',this)" style="color:#9A8A3A">Desconsiderar</button>
     </div>
     <div class="hist-filter-drop" id="drop-vend-wrap">
       <button class="hist-filter-drop-btn" onclick="toggleDrop('drop-vend')">
@@ -3371,19 +3376,20 @@ function statusClass(s) {
   const v = String(s).toLowerCase();
   if (v.includes('aceita') || v.includes('aceito')) return 'aceita';
   if (v.includes('recusa')) return 'recusada';
+  if (v.includes('desconsider')) return 'desconsiderar';
   return 'pendente';
 }
 
-function buildDonut(aceita, recusada, pendente, total) {
+function buildDonut(aceita, recusada, pendente, desconsiderar, total) {
   if (total === 0) return '<div class="donut-wrap"><svg width="140" height="140" viewBox="0 0 140 140"><circle cx="70" cy="70" r="54" fill="none" stroke="var(--charcoal-border,#2E3038)" stroke-width="14"/><text x="70" y="62" text-anchor="middle" font-size="22" font-weight="700" fill="var(--gold)">0</text><text x="70" y="80" text-anchor="middle" font-size="10" fill="var(--txt-dim,#888)">cotações</text></svg></div>';
   const r=54,cx=70,cy=70,sw=14,circ=2*Math.PI*r;
-  const dA=aceita/total*circ,dR=recusada/total*circ,dP=pendente/total*circ;
+  const dA=aceita/total*circ,dR=recusada/total*circ,dP=pendente/total*circ,dD=desconsiderar/total*circ;
   const seg=(d,col,off)=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-dasharray="${d.toFixed(2)} ${(circ-d).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
   const pct=v=>Math.round(v/total*100)+'%';
   return `<div class="donut-wrap">
     <svg width="140" height="140" viewBox="0 0 140 140">
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--charcoal-border,#2E3038)" stroke-width="${sw}"/>
-      ${seg(dA,'#2EBD85',0)}${seg(dR,'#E24B4A',dA)}${seg(dP,'#5A5D6B',dA+dR)}
+      ${seg(dA,'#2EBD85',0)}${seg(dR,'#E24B4A',dA)}${seg(dD,'#9A8A3A',dA+dR)}${seg(dP,'#5A5D6B',dA+dR+dD)}
       <text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--gold)">${total}</text>
       <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="10" fill="var(--txt-dim,#888)">cotações</text>
     </svg>
@@ -3391,6 +3397,7 @@ function buildDonut(aceita, recusada, pendente, total) {
       <div class="donut-item"><span class="donut-dot" style="background:#2EBD85"></span><span class="donut-lbl">Aceita</span><strong style="color:#2EBD85">${pct(aceita)}</strong><span class="donut-n">(${aceita})</span></div>
       <div class="donut-item"><span class="donut-dot" style="background:#E24B4A"></span><span class="donut-lbl">Recusada</span><strong style="color:#E24B4A">${pct(recusada)}</strong><span class="donut-n">(${recusada})</span></div>
       <div class="donut-item"><span class="donut-dot" style="background:#5A5D6B"></span><span class="donut-lbl">Pendente</span><strong style="color:var(--txt-dim,#888)">${pct(pendente)}</strong><span class="donut-n">(${pendente})</span></div>
+      ${desconsiderar > 0 ? `<div class="donut-item"><span class="donut-dot" style="background:#9A8A3A"></span><span class="donut-lbl">Desconsid.</span><strong style="color:#9A8A3A">${pct(desconsiderar)}</strong><span class="donut-n">(${desconsiderar})</span></div>` : ''}
     </div>
   </div>`;
 }
@@ -3432,7 +3439,7 @@ async function changeStatus(btn, rowKey, newStatus) {
   if (!localOverrides[rowKey]) localOverrides[rowKey] = {};
   localOverrides[rowKey].status = newStatus;
   const sc = statusClass(newStatus);
-  const labels = { pendente:'Pendente', aceita:'Aceita', recusada:'Recusada' };
+  const labels = { pendente:'Pendente', aceita:'Aceita', recusada:'Recusada', desconsiderar:'Desconsiderar' };
   btn.className = 'status-btn ' + sc;
   btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></span>${labels[sc]||newStatus}<i class="ti ti-chevron-down"></i>`;
   refreshStatsOnly();
@@ -3491,22 +3498,41 @@ async function syncObs(input, rowKey) {
 }
 
 function refreshStatsOnly() {
-  const total = histData.length;
-  let nA = 0, nR = 0;
-  histData.forEach(r => {
+  // Respeita os filtros ativos (igual ao renderHistory)
+  const base = histData.filter(r => {
+    const key = getLocalKey(r);
+    const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
+    if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
+    if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
+    if (histFilterMes !== 'all') {
+      const d = String(r['Data']||'');
+      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (!m) return false;
+      if (m[3] + '-' + m[2] !== histFilterMes) return false;
+    }
+    return true;
+  });
+  const total = base.length;
+  const totalGeral = histData.length;
+  let nA = 0, nR = 0, nD = 0;
+  base.forEach(r => {
     const key = getLocalKey(r);
     const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
     const sc = statusClass(st);
     if (sc === 'aceita') nA++;
     else if (sc === 'recusada') nR++;
+    else if (sc === 'desconsiderar') nD++;
   });
-  const nP = total - nA - nR;
+  const nP = total - nA - nR - nD;
+  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all');
   const statsEl = document.getElementById('hist-stats-fixed');
-  if (statsEl) statsEl.innerHTML = buildDonut(nA, nR, nP, total) + `<div class="hist-kpis">
-    <div class="hist-kpi"><span class="hist-kpi-val">${total}</span><span class="hist-kpi-lbl">Total</span></div>
+  if (statsEl) statsEl.innerHTML = buildDonut(nA, nR, nP, nD, total) + `<div class="hist-kpis">
+    <div class="hist-kpi"><span class="hist-kpi-val">${total}</span><span class="hist-kpi-lbl">${isFiltered ? 'Filtradas' : 'Total'}</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:#2EBD85">${nA}</span><span class="hist-kpi-lbl">Aceitas</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:#E24B4A">${nR}</span><span class="hist-kpi-lbl">Recusadas</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:var(--txt-dim,#888)">${nP}</span><span class="hist-kpi-lbl">Pendentes</span></div>
+    <div class="hist-kpi"><span class="hist-kpi-val" style="color:#9A8A3A">${nD}</span><span class="hist-kpi-lbl">Desconsid.</span></div>
+    ${isFiltered ? `<div class="hist-kpi" style="opacity:.5"><span class="hist-kpi-val" style="font-size:11px">${totalGeral}</span><span class="hist-kpi-lbl">Total geral</span></div>` : ''}
   </div>`;
 }
 
@@ -3514,7 +3540,7 @@ function buildStatusCell(r, rowKey, idx) {
   const override = localOverrides[rowKey] || {};
   const st = override.status || r['Status'] || 'Pendente';
   const sc = statusClass(st);
-  const labels = { pendente:'Pendente', aceita:'Aceita', recusada:'Recusada' };
+  const labels = { pendente:'Pendente', aceita:'Aceita', recusada:'Recusada', desconsiderar:'Desconsiderar' };
   const label = labels[sc] || st;
   const menuId = `smenu-${idx}`;
   return `<td class="status-cell">
@@ -3524,9 +3550,10 @@ function buildStatusCell(r, rowKey, idx) {
         ${label}<i class="ti ti-chevron-down"></i>
       </button>
       <div class="status-menu" id="${menuId}">
-        <div class="status-menu-item opt-aceita"   onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Aceita');  document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Aceita</div>
-        <div class="status-menu-item opt-pendente" onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Pendente');document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Pendente</div>
-        <div class="status-menu-item opt-recusada" onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Recusada');document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Recusada</div>
+        <div class="status-menu-item opt-aceita"         onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Aceita');         document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Aceita</div>
+        <div class="status-menu-item opt-pendente"       onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Pendente');       document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Pendente</div>
+        <div class="status-menu-item opt-recusada"       onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Recusada');       document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Recusada</div>
+        <div class="status-menu-item opt-desconsiderar"  onclick="changeStatus(this.closest('.status-dropdown-wrap').querySelector('.status-btn'),'${rowKey}','Desconsiderar');  document.getElementById('${menuId}').classList.remove('open')"><span class="dot"></span>Desconsiderar</div>
       </div>
     </div>
   </td>`;
@@ -3540,34 +3567,37 @@ function buildObsCell(r, rowKey) {
 
 function renderHistory() {
   const el = document.getElementById('hist-content');
-  const total = histData.length;
-  let nA = 0, nR = 0;
-  histData.forEach(r => {
+  const totalGeral = histData.length;
+
+  // Aplica filtros — mesmo critério para tabela E dashboard
+  const filtered = histData.filter(r => {
+    const key = getLocalKey(r);
+    const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
+    if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
+    if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
+    if (histFilterMes !== 'all') {
+      const d = String(r['Data']||'');
+      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (!m) return false;
+      if (m[3] + '-' + m[2] !== histFilterMes) return false;
+    }
+    return true;
+  });
+
+  // Contagens sobre os dados FILTRADOS (dashboard sincronizado)
+  const total = filtered.length;
+  let nA = 0, nR = 0, nD = 0;
+  filtered.forEach(r => {
     const key = getLocalKey(r);
     const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
     const sc = statusClass(st);
     if (sc === 'aceita') nA++;
     else if (sc === 'recusada') nR++;
+    else if (sc === 'desconsiderar') nD++;
   });
-  const nP = total - nA - nR;
+  const nP = total - nA - nR - nD;
+  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all');
 
-  const filtered = histData.filter(r => {
-    const key = getLocalKey(r);
-    const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
-    // Filtro status
-    if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
-    // Filtro vendedor
-    if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
-    // Filtro mês — compara com Data dd/MM/yyyy
-    if (histFilterMes !== 'all') {
-      const d = String(r['Data']||'');
-      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if (!m) return false;
-      const mesKey = m[3] + '-' + m[2];
-      if (mesKey !== histFilterMes) return false;
-    }
-    return true;
-  });
   // Ordem decrescente (mais recente primeiro)
   const sortedData = filtered.slice().reverse();
   const keys = histData.length ? Object.keys(histData[0]) : [];
@@ -3583,17 +3613,20 @@ function renderHistory() {
       }).join('')}</tbody>
     </table>
     <p style="font-size:11px;color:var(--txt-dim,#888);margin-top:10px;text-align:right">
-      ${filtered.length} cotaç${filtered.length===1?'ão':'ões'} ·
+      ${filtered.length} cotaç${filtered.length===1?'ão':'ões'}${isFiltered ? ' (filtradas de ' + totalGeral + ')' : ''} ·
       <a href="${SHEETS_URL}" target="_blank" style="color:var(--gold);text-decoration:none">Abrir planilha <i class="ti ti-external-link" style="font-size:10px"></i></a>
     </p></div>` :
-    `<div class="hist-empty"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4"></i>${histData.length?'Nenhuma cotação com esse status.':'Nenhuma cotação registrada ainda.'}</div>`;
-  /* update fixed stats bar */
+    `<div class="hist-empty"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4"></i>${histData.length?'Nenhuma cotação com esse filtro.':'Nenhuma cotação registrada ainda.'}</div>`;
+
+  /* Dashboard sincronizado com os filtros */
   const statsEl = document.getElementById('hist-stats-fixed');
-  if (statsEl) statsEl.innerHTML = buildDonut(nA,nR,nP,total) + `<div class="hist-kpis">
-    <div class="hist-kpi"><span class="hist-kpi-val">${total}</span><span class="hist-kpi-lbl">Total</span></div>
+  if (statsEl) statsEl.innerHTML = buildDonut(nA,nR,nP,nD,total) + `<div class="hist-kpis">
+    <div class="hist-kpi"><span class="hist-kpi-val">${total}</span><span class="hist-kpi-lbl">${isFiltered ? 'Filtradas' : 'Total'}</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:#2EBD85">${nA}</span><span class="hist-kpi-lbl">Aceitas</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:#E24B4A">${nR}</span><span class="hist-kpi-lbl">Recusadas</span></div>
     <div class="hist-kpi"><span class="hist-kpi-val" style="color:var(--txt-dim,#888)">${nP}</span><span class="hist-kpi-lbl">Pendentes</span></div>
+    <div class="hist-kpi"><span class="hist-kpi-val" style="color:#9A8A3A">${nD}</span><span class="hist-kpi-lbl">Desconsid.</span></div>
+    ${isFiltered ? `<div class="hist-kpi" style="opacity:.5"><span class="hist-kpi-val" style="font-size:11px">${totalGeral}</span><span class="hist-kpi-lbl">Total geral</span></div>` : ''}
   </div>`;
   el.innerHTML = tableHTML;
   /* close menus on outside click */
