@@ -132,10 +132,10 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .chamados-grid{display:flex;flex-direction:column;gap:1px;margin-top:12px}
 .chamado-row{
   background:var(--card);border:1px solid var(--border);border-radius:var(--r);
-  padding:14px 16px;display:grid;gap:12px;cursor:pointer;
+  padding:12px 16px;display:grid;gap:8px;cursor:pointer;
   transition:background .15s,border-color .15s;
-  grid-template-columns: 80px 1fr 120px 100px 110px 100px 40px;
-  align-items:center;
+  grid-template-columns: 110px minmax(0,1fr) 120px 130px 110px 95px 28px;
+  align-items:center;min-width:0;
 }
 .chamado-row:hover{background:var(--card-hover);border-color:var(--border-light)}
 .chamado-row.header{
@@ -144,8 +144,9 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 }
 .chamado-row.header:hover{background:var(--surface)}
 .col-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-dim)}
-.chamado-id{font-size:11px;color:var(--txt-dim);font-family:"Barlow",sans-serif}
-.chamado-titulo{font-weight:600;font-size:13px}
+.chamado-col-titulo{min-width:0;overflow:hidden}
+.chamado-id{font-size:11px;color:var(--txt-dim);font-family:"Barlow",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chamado-titulo{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chamado-titulo span{font-size:11px;color:var(--txt-dim);font-weight:400;margin-left:6px}
 .chamado-desc{font-size:12px;color:var(--txt-dim);margin-top:3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -483,13 +484,19 @@ var USUARIO_NOME = '';
 
 // ── INIT ────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
-  // Lê usuário do sessionStorage/localStorage (vem do shell)
-  var nome = sessionStorage.getItem('barretos_nome') || localStorage.getItem('barretos_nome') || '';
-  var perfil = sessionStorage.getItem('barretos_perfil') || localStorage.getItem('barretos_perfil') || '';
+  // Lê o objeto completo do usuário (salvo pelo shell no login)
+  var rawUser = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || '';
+  var user = {};
+  try { if (rawUser) user = JSON.parse(rawUser); } catch(e) {}
+
+  // Fallbacks individuais para compatibilidade
+  var nome   = user.nome   || sessionStorage.getItem('barretos_nome')   || localStorage.getItem('barretos_nome')   || '';
+  var perfil = user.perfil || sessionStorage.getItem('barretos_perfil') || localStorage.getItem('barretos_perfil') || '';
+
   USUARIO_NOME = nome || 'Convidado';
 
-  // Alex Sandro é o atendente
-  IS_ATENDENTE = (nome === 'Alex Sandro' || perfil === 'gestor' || perfil === 'admin');
+  // Atendente = perfil gestor ou admin (independente do nome)
+  IS_ATENDENTE = (perfil === 'gestor' || perfil === 'admin');
 
   document.getElementById('sb-user').textContent = USUARIO_NOME;
   document.getElementById('sb-role').textContent = IS_ATENDENTE ? 'Atendente' : 'Solicitante';
@@ -524,8 +531,17 @@ function setStatusFilter(s) {
 
 // ── CARREGAR ────────────────────────────────────────────────
 async function carregarDados() {
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('lista').innerHTML = '';
+  var loadEl = document.getElementById('loading');
+  var listaEl = document.getElementById('lista');
+  loadEl.style.display = 'block';
+  loadEl.innerHTML = '<span class="spinner"></span> Carregando chamados…';
+  listaEl.innerHTML = '';
+
+  if (!WEBAPP_URL) {
+    loadEl.innerHTML = '<div style="color:var(--red)"><i class="ti ti-alert-circle"></i> URL do Apps Script não configurada.</div>';
+    return;
+  }
+
   try {
     var url = WEBAPP_URL + (currentView === 'meus' && !IS_ATENDENTE
       ? '?solicitante=' + encodeURIComponent(USUARIO_NOME) : '');
@@ -534,11 +550,12 @@ async function carregarDados() {
     allData = (json.rows || []).sort(function(a,b) {
       return String(b.DataAbertura).localeCompare(String(a.DataAbertura));
     });
+    loadEl.style.display = 'none';
     atualizarBadges();
     renderLista();
   } catch(e) {
-    document.getElementById('loading').innerHTML =
-      '<div style="color:var(--red)"><i class="ti ti-wifi-off"></i> Erro ao carregar dados</div>';
+    loadEl.innerHTML =
+      '<div style="color:var(--red)"><i class="ti ti-wifi-off"></i> Erro ao carregar: ' + e.message + '</div>';
   }
 }
 
@@ -612,17 +629,19 @@ function renderLista() {
 
   html += '<div class="chamados-grid">';
   dados.forEach(function(r) {
-    html += '<div class="chamado-row" onclick="abrirDetalhe(\'' + esc(r.ID) + '\')">'+
-      '<div class="chamado-id">' + esc(r.ID).replace('HD-','').slice(0,12) + '</div>'+
-      '<div><div class="chamado-titulo">' + esc(r.Titulo) +
-        '<span>' + esc(r.Solicitante) + '</span></div>'+
-        '<div class="chamado-desc">' + esc(r.Descricao||'—') + '</div></div>'+
-      '<div>' + catPill(r.Categoria) + '</div>'+
-      '<div>' + statusPill(r.Status) + '</div>'+
-      '<div>' + priorPill(r.Prioridade) + '</div>'+
-      '<div style="font-size:11px;color:var(--txt-dim)">' + esc(r.DataAbertura||'') + '</div>'+
-      '<div style="text-align:right"><i class="ti ti-chevron-right" style="color:var(--txt-muted)"></i></div>'+
-      '</div>';
+    var rowHtml = '<div class="chamado-row" onclick="abrirDetalhe(this.dataset.id)" data-id="' + esc(r.ID) + '">';
+    rowHtml += '<div class="chamado-id">' + esc(r.ID) + '</div>';
+    rowHtml += '<div class="chamado-col-titulo">';
+    rowHtml += '<div class="chamado-titulo">' + esc(r.Titulo) + '<span>' + esc(r.Solicitante) + '</span></div>';
+    rowHtml += '<div class="chamado-desc">' + esc(r.Descricao||'—') + '</div>';
+    rowHtml += '</div>';
+    rowHtml += '<div>' + catPill(r.Categoria) + '</div>';
+    rowHtml += '<div>' + statusPill(r.Status) + '</div>';
+    rowHtml += '<div>' + priorPill(r.Prioridade) + '</div>';
+    rowHtml += '<div style="font-size:11px;color:var(--txt-dim);white-space:nowrap">' + esc(r.DataAbertura||'') + '</div>';
+    rowHtml += '<div style="text-align:right"><i class="ti ti-chevron-right" style="color:var(--txt-muted)"></i></div>';
+    rowHtml += '</div>';
+    html += rowHtml;
   });
   html += '</div>';
   el.innerHTML = html;
