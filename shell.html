@@ -677,6 +677,9 @@ function respErr(e) {
       <div class="sb-item" id="nav-relatorio" onclick="navigate('relatorio')">
         <i class="ti ti-chart-bar"></i><span>Relatório de Vendedor</span>
       </div>
+      <div class="sb-item" id="nav-clientes" onclick="navigate('clientes')">
+        <i class="ti ti-users"></i><span>Clientes</span>
+      </div>
       <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
@@ -852,6 +855,7 @@ var TOOLS = {
   diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
+  clientes:  { src:"clientes.html",              cat:"Comercial",   label:"Clientes",               icon:"ti-users"            },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
   kanban_pin: { src:"pinheiro.html",              cat:"Operacional", label:"Pinheiro",              icon:"ti-columns"          },
   kanban_inf: { src:"infra.html",                 cat:"Operacional", label:"Infra",                 icon:"ti-columns"          },
@@ -928,7 +932,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
@@ -941,7 +945,7 @@ function aplicarMenuPermissoes(p){
       el.style.display=p.includes(k)?"flex":"none";
     }
   });
-  var sm={rh:["diarias"],comercial:["cotacao","relatorio"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","conexoes"]};
+  var sm={rh:["diarias"],comercial:["cotacao","relatorio","clientes"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","conexoes"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -949,7 +953,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-rh","section-comercial","section-operacional","section-melhoria"].forEach(function(s){
