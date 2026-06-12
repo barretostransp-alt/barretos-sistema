@@ -147,8 +147,9 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 
 <script>
 const TOOLS_LIST = [
-  { key:"dashboard", label:"Dashboard",             icon:"ti-layout-dashboard", cat:"" },
-  { key:"diarias",   label:"Diárias de Motoristas", icon:"ti-calendar-check",   cat:"RH" },
+  { key:"dashboard",  label:"Dashboard",             icon:"ti-layout-dashboard", cat:"" },
+  { key:"calendario", label:"Calendário",             icon:"ti-calendar",         cat:"Geral" },
+  { key:"diarias",    label:"Diárias de Motoristas",  icon:"ti-calendar-check",   cat:"RH" },
   { key:"cotacao",   label:"Cotação Comercial",     icon:"ti-calculator",       cat:"Comercial" },
   { key:"relatorio", label:"Relatório de Vendedor", icon:"ti-chart-bar",        cat:"Comercial" },
   { key:"clientes",  label:"Clientes",              icon:"ti-users",            cat:"Comercial" },
@@ -192,7 +193,7 @@ async function carregarUsuarios(){
     return;
   }
   try {
-    const res  = await fetch(loginUrl + "?action=list_users");
+    const res  = await fetch(loginUrl + "?action=get_users");
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
     usuarios = Array.isArray(json.users) ? json.users : [];
