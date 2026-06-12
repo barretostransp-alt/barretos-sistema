@@ -662,9 +662,16 @@ function respErr(e) {
     </div>
     <nav class="sb-nav">
       <div class="sb-dashboard-wrap">
-        <div class="sb-item active" id="nav-dashboard" onclick="navigate('dashboard')">
-          <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
+        <div class="sb-item active" id="nav-inicio" onclick="navigate('inicio')">
+          <i class="ti ti-home"></i><span>Início</span>
         </div>
+      </div>
+      <div class="sb-section" id="section-geral">Geral</div>
+      <div class="sb-item" id="nav-dashboard" onclick="navigate('dashboard')">
+        <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
+      </div>
+      <div class="sb-item" id="nav-calendario" onclick="navigate('calendario')">
+        <i class="ti ti-calendar"></i><span>Calendário</span>
       </div>
       <div class="sb-section" id="section-rh">RH</div>
       <div class="sb-item" id="nav-diarias" onclick="navigate('diarias')">
@@ -851,7 +858,9 @@ async function doRegister() {
 
 <script>
 var TOOLS = {
-  dashboard: { src:"dashbord_home.html",       cat:"",            label:"Dashboard",             icon:"ti-layout-dashboard" },
+  inicio:    { src:"inicio.html",               cat:"",            label:"Início",                icon:"ti-home"             },
+  dashboard: { src:"dashbord_home.html",         cat:"Geral",       label:"Dashboard",             icon:"ti-layout-dashboard" },
+  calendario:{ src:"calendario.html",            cat:"Geral",       label:"Calendário",            icon:"ti-calendar"         },
   diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
@@ -932,7 +941,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","clientes","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
@@ -953,10 +962,10 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","clientes","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
-  ["section-rh","section-comercial","section-operacional","section-melhoria"].forEach(function(s){
+  ["section-geral","section-rh","section-comercial","section-operacional","section-melhoria"].forEach(function(s){
     var el=document.getElementById(s); if(el) el.style.display="flex";
   });
 }
@@ -1016,7 +1025,7 @@ document.addEventListener("DOMContentLoaded", function(){
   if(sc&&gs) sc.value=gs.value;
   if(!WEBAPP_URL){ setTimeout(function(){ if(typeof openConfig==="function") openConfig(); },600); }
   var raw=sessionStorage.getItem("barretos_user")||localStorage.getItem("barretos_user");
-  if(raw){ try{ applyUser(JSON.parse(raw)); showShell(); navigate("dashboard"); return; }catch(e){} }
+  if(raw){ try{ var u=JSON.parse(raw); applyUser(u); showShell(); navigate("inicio"); setTimeout(function(){ mostrarAgendaDia(u); },1200); return; }catch(e){} }
   showLogin();
 });
 
@@ -1024,7 +1033,8 @@ document.addEventListener("DOMContentLoaded", function(){
 window._shellLoginSuccess = function(user){
   applyUser(user);
   showShell();
-  navigate("dashboard");
+  navigate("inicio");
+  setTimeout(function(){ mostrarAgendaDia(user); }, 1200);
 };
 
 function toggleSidebar(){
@@ -1371,5 +1381,131 @@ async function savePerfilModal(){
   </div>
 </div>
 
+<!-- MODAL AGENDA DO DIA -->
+<div id="agenda-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="agenda-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="agenda-titulo">Sua agenda de hoje</div>
+        <div style="font-size:11px;color:#6B7280" id="agenda-data"></div>
+      </div>
+      <button onclick="fecharAgenda()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="agenda-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAgenda()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAgenda();navigate('calendario')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Calendário</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var CAL_URL = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
+
+var TYPE_LABEL = { evento:'Evento', reuniao:'Reunião', alerta:'Alerta', lembrete:'Lembrete' };
+var TYPE_COLOR = { evento:'#3B82F6', reuniao:'#8B5CF6', alerta:'#F97316', lembrete:'#F5B800' };
+var TYPE_ICON  = { evento:'📌', reuniao:'👥', alerta:'⚠️', lembrete:'🔔' };
+
+function toISOLocal(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function normDateShell(s) {
+  if (!s) return '';
+  s = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) { var p=s.split('/'); return p[2].substring(0,4)+'-'+p[1]+'-'+p[0]; }
+  try { var d=new Date(s); if(!isNaN(d.getTime())) return toISOLocal(d); } catch(e){}
+  return s;
+}
+
+function normHoraShell(s) {
+  if (!s) return '';
+  s = String(s).trim();
+  if (/^\d{1,2}:\d{2}/.test(s)) return s.substring(0,5);
+  if (s.indexOf('1899') !== -1) return '';
+  try { var d=new Date(s); if(!isNaN(d.getTime())) return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); } catch(e){}
+  return '';
+}
+
+async function mostrarAgendaDia(user) {
+  var hoje = toISOLocal(new Date());
+  var loginAtual = (user.login||'').trim().toLowerCase();
+
+  // Só mostra uma vez por sessão
+    // Sempre mostra ao logar
+
+  try {
+    var r = await fetch(CAL_URL + '?action=cal_listar');
+    var j = await r.json();
+    var eventos = (j.rows||[]).filter(function(ev) {
+      var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
+      var dataFim = normDateShell(ev.DataFim||ev.dataFim||dataIni);
+      if (hoje < dataIni || hoje > dataFim) return false;
+      // Filtra pelo usuário logado
+      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
+      var criador = (ev.Criador||ev.criador||'').trim().toLowerCase();
+      return parts.indexOf(loginAtual) >= 0 || criador === loginAtual;
+    });
+
+    // Mesmo sem eventos mostra (agenda vazia)
+    var meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    var agora = new Date();
+    document.getElementById('agenda-data').textContent =
+      agora.getDate()+' de '+meses[agora.getMonth()]+' de '+agora.getFullYear();
+
+    if (!eventos.length) {
+      document.getElementById('agenda-titulo').textContent = 'Nenhum evento hoje';
+      document.getElementById('agenda-body').innerHTML =
+        '<div style="text-align:center;padding:20px 0;color:#6B7280;font-size:13px">'+
+        '<div style="font-size:32px;margin-bottom:8px">🗓️</div>Sua agenda está livre hoje!</div>';
+    } else {
+      var contagem = {};
+      eventos.forEach(function(ev){ var t=ev.Tipo||ev.tipo||'evento'; contagem[t]=(contagem[t]||0)+1; });
+      var resumo = Object.keys(contagem).map(function(t){
+        return contagem[t]+' '+(contagem[t]>1 ? (t==='reuniao'?'reuniões':TYPE_LABEL[t]+'s') : TYPE_LABEL[t]).toLowerCase();
+      }).join(', ');
+      document.getElementById('agenda-titulo').textContent = 'Você tem '+resumo+' hoje';
+
+      var html = eventos.map(function(ev) {
+        var tipo  = ev.Tipo||ev.tipo||'evento';
+        var color = TYPE_COLOR[tipo]||'#6B7280';
+        var icon  = TYPE_ICON[tipo]||'📌';
+        var hora  = normHoraShell(ev.HoraIni||ev.horaIni||'');
+        var horaFim = normHoraShell(ev.HoraFim||ev.horaFim||'');
+        var horaTxt = hora ? hora+(horaFim?' – '+horaFim:'') : 'Dia inteiro';
+        return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
+          '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
+            '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+horaTxt+
+              (ev.Local||ev.local ? ' · '+(ev.Local||ev.local) : '')+
+            '</div>'+
+          '</div>'+
+          '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+TYPE_LABEL[tipo]+'</div>'+
+        '</div>';
+      }).join('');
+      document.getElementById('agenda-body').innerHTML = html;
+    }
+
+    document.getElementById('agenda-overlay').style.display = 'flex';
+  } catch(e) {
+    // Falha silenciosa — não bloqueia o sistema
+  }
+}
+
+function fecharAgenda() {
+  document.getElementById('agenda-overlay').style.display = 'none';
+}
+</script>
 </body>
 </html>
