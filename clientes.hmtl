@@ -677,8 +677,8 @@ select.fi{
 ══════════════════════════════════════ -->
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-var WEBAPP_URL  = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
-var COTACAO_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
+var WEBAPP_URL = '';   // URL do Apps Script — preenchida pelo shell ou localStorage
+var COTACAO_URL = '';  // URL do Apps Script de cotações (para histórico)
 
 // ── ESTADO ──────────────────────────────────────────────────
 var allClientes = [];
@@ -700,6 +700,11 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sb-role').textContent = (perfil.charAt(0).toUpperCase() + perfil.slice(1)) || 'Colaborador';
   document.getElementById('tb-user').textContent = nome;
 
+  // URL do Apps Script (hardcoded)
+  var _SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
+  WEBAPP_URL  = _SCRIPT_URL;
+  COTACAO_URL = _SCRIPT_URL;
+
   carregarDados();
 });
 
@@ -707,6 +712,14 @@ window.addEventListener('DOMContentLoaded', function() {
 async function carregarDados() {
   document.getElementById('loading-state').style.display = 'flex';
   document.getElementById('lista-wrap').style.display    = 'none';
+
+  if (!WEBAPP_URL) {
+    document.getElementById('loading-state').innerHTML =
+      '<i class="ti ti-alert-circle" style="font-size:32px;color:var(--red)"></i>' +
+      '<span>URL do Apps Script não configurada.</span>' +
+      '<span style="font-size:11px;color:var(--txt-muted)">Configure em localStorage: clientes_webapp_url</span>';
+    return;
+  }
 
   try {
     var res  = await fetch(WEBAPP_URL + '?action=listar');
@@ -1080,10 +1093,17 @@ async function salvarCliente() {
   btn.innerHTML = '<span class="spinner"></span> Salvando…';
   document.getElementById('form-status').textContent = '';
 
+  if (!WEBAPP_URL) {
+    showMsg('URL do Apps Script não configurada.', 'err');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-device-floppy"></i> Salvar Cliente';
+    return;
+  }
+
   try {
     var payload = editandoId
-      ? { action:'cliente_update', id: editandoId, dados: dados }
-      : { action:'cliente_create', dados: dados };
+      ? { action:'update', id: editandoId, dados: dados }
+      : { action:'create', dados: dados };
     var res  = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify(payload) });
     var json = await res.json();
     if (json.success) {
