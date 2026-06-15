@@ -32,11 +32,11 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
   padding:5px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;
   transition:all .15s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
 .bsm:hover{border-color:var(--gold);color:var(--gold);}
-.cdot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;}
-.cdot.on{background:var(--green);}
 .board-wrap{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;height:calc(100vh - 52px);padding:12px;gap:10px;}
-.board-wrap::-webkit-scrollbar{height:5px;}
-.board-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.board-wrap::-webkit-scrollbar{height:10px;}
+.board-wrap::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:5px;}
+.board-wrap::-webkit-scrollbar-thumb{background:#4B5160;border-radius:5px;border:2px solid var(--bg);}
+.board-wrap::-webkit-scrollbar-thumb:hover{background:#6B7280;}
 .col{min-width:268px;max-width:268px;background:var(--surface);border:1px solid var(--border);
   border-radius:10px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:border-color .15s,background .15s;}
 .col.dov{border-color:var(--gold);background:rgba(245,184,0,.05);}
@@ -161,11 +161,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
     <option value="">Todos os vendedores</option>
   </select>
   <div class="tb-r">
-    <button class="bsm" onclick="openCfg()">
-      <div class="cdot" id="cdot"></div>
-      <span id="clbl">Configurar</span>
-      <i class="ti ti-settings" style="font-size:12px"></i>
-    </button>
+
     <button class="bsm" id="btn-ref" onclick="loadData()">
       <i class="ti ti-refresh" style="font-size:12px"></i> Atualizar
     </button>
@@ -206,19 +202,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
   </div>
 </div>
 
-<div class="mov" id="cfg-modal" onclick="if(event.target===this)closeCfg()">
-  <div class="cfg-box">
-    <h3><i class="ti ti-plug" style="font-size:13px;color:var(--gold);margin-right:6px"></i>Configurar Apps Script</h3>
-    <div class="cfgr">
-      <label>URL do Web App</label>
-      <input id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec">
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button class="bgh" onclick="closeCfg()">Cancelar</button>
-      <button class="bprim" onclick="saveCfg()"><i class="ti ti-check" style="font-size:12px"></i> Salvar</button>
-    </div>
-  </div>
-</div>
+
 
 <script>
 var ABA="INFRA", PFX="S", SK="jira_url_INFRA", ATK="att_INF_", EXTK="extra_INF_";
@@ -288,7 +272,7 @@ function fromDateInp(s){
   return s;
 }
 
-var WEBAPP_URL=localStorage.getItem(SK)||localStorage.getItem("login_webapp_url")||"";
+var WEBAPP_URL="https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
 var allCards=[],editKey=null,vendedores=[],pendAtt=[],driveAtts=[];
 // ── getExtra / saveExtra — compatibilidade com dados antigos
 function getExtra(key) {
@@ -300,14 +284,10 @@ function saveExtra(key, dados) {
 
 
 document.addEventListener("DOMContentLoaded",function(){
-  document.getElementById("cfg-url").value=WEBAPP_URL;
-  if(WEBAPP_URL)loadData();else{setConn(false);setTimeout(openCfg,400);}
+  loadData();
 });
 
-function setConn(on){
-  document.getElementById("cdot").className="cdot"+(on?" on":"");
-  document.getElementById("clbl").textContent=on?"Conectado":"Configurar";
-}
+
 
 async function loadData(){
   var btn=document.getElementById("btn-ref");
@@ -325,12 +305,12 @@ async function loadData(){
     var sel=document.getElementById("f-vend"),cur=sel.value;
     sel.innerHTML="<option value=\"\">Todos os vendedores</option>"+
       vendedores.map(function(v){return "<option value=\""+e(v)+"\""+(v===cur?" selected":"")+">"+v+"</option>";}).join("");
-    setConn(true);renderBoard();
+    renderBoard();
   }catch(ex){
-    setConn(false);
+    
     document.getElementById("board").innerHTML="<div style=\"padding:40px;color:var(--red);font-size:13px;margin:auto;text-align:center\">"+
       "<i class=\"ti ti-plug-off\" style=\"font-size:32px;display:block;margin-bottom:12px\"></i>"+
-      "Erro: "+ex.message+"<br><br><button onclick=\"openCfg()\" style=\"background:var(--gold);border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer;font-weight:700\">Configurar URL</button></div>";
+      "Erro: "+ex.message+"</div>";
   }
   btn.innerHTML="<i class=\"ti ti-refresh\" style=\"font-size:12px\"></i> Atualizar";
 }
@@ -383,7 +363,7 @@ function rCard(c){
   return "<div class=\"kcard\" draggable=\"true\""
     +" data-key=\""+e(key)+"\" data-s=\""+srch+"\" data-v=\""+e(vend)+"\""+
     " ondragstart=\"dstart(event,event.currentTarget)\" ondragend=\"dend(event)\">"+
-    "<div class=\"kcard-top\"><span class=\"kcard-code\">"+key+"</span>"+
+    "<div class=\"kcard-top\"><span class=\"kcard-code\">"+key+(c["CTE"]?" · CTE "+e(c["CTE"])+"":"")+"</span>"+
     (acomp?"<span class=\"kcard-acomp\">"+acomp+"</span>":"")+
     "</div>"+
     "<div class=\"kcard-cli\">"+e(titulo||"(sem título)")+"</div>"+
@@ -638,9 +618,9 @@ async function deleteCard(){
   }catch(ex){msg.textContent="Erro: "+ex.message;msg.className="mmsg err";}
 }
 
-function openCfg(){document.getElementById("cfg-url").value=WEBAPP_URL;document.getElementById("cfg-modal").classList.add("open");}
-function closeCfg(){document.getElementById("cfg-modal").classList.remove("open");}
-function saveCfg(){var u=document.getElementById("cfg-url").value.trim();if(!u)return;WEBAPP_URL=u;localStorage.setItem(SK,u);localStorage.setItem("login_webapp_url",u);closeCfg();loadData();}
+
+
+
 function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
 // ── ANEXOS VIA GOOGLE DRIVE ─────────────────────────────────
@@ -650,7 +630,8 @@ function carregarAnexosDrive(chave) {
   fetch(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
     .then(function(r) { return r.json(); })
     .then(function(j) {
-      if (j.success) { driveAtts = j.anexos || []; renderAttList(); }
+      if (j.success) { driveAtts = j.anexos || []; renderAttList();
+        try { localStorage.setItem("attcnt_"+chave, JSON.stringify(driveAtts)); } catch(e) {} }
     }).catch(function() {});
 }
 
@@ -667,7 +648,7 @@ function renderAttList() {
          + "<i class=\"ti "+ico+"\" style=\"font-size:14px;color:var(--gold);flex-shrink:0\"></i>"
          + "<span class=\"aname\">" + e(nm) + "</span>"
          + "<span class=\"asz\">" + sz + "</span>"
-         + "<a href=\""+a.url+"\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\"><i class=\"ti ti-eye\"></i></a>"
+         + "<a href=\"https://drive.google.com/file/d/"+a.id+"/view\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\" rel=\"noopener\"><i class=\"ti ti-eye\"></i></a>"
          + "<a href=\""+a.url+"\" download=\""+e(nm)+"\" class=\"adl\"><i class=\"ti ti-download\"></i></a>"
          + "<button class=\"arm\" onclick=\"rmAttDrive(\""+a.id+"\","+i+")\" title=\"Excluir\"><i class=\"ti ti-x\"></i></button>"
          + "</div>";
@@ -690,8 +671,8 @@ function renderAttList() {
 }
 
 function getAtt(key) {
-  // Compatibilidade: retorna driveAtts para contagem nos cards
-  return driveAtts;
+  // Lê contagem cacheada por card (salva após carregarAnexosDrive)
+  try { return JSON.parse(localStorage.getItem("attcnt_"+key)||"[]"); } catch(e) { return []; }
 }
 
 function handleFiles(files) {
@@ -714,44 +695,56 @@ function rmAttDrive(fileId, i) {
     body: JSON.stringify({ action: "excluir_anexo", fileId: fileId })
   }).catch(function() {});
   driveAtts.splice(i, 1);
+  try { localStorage.setItem("attcnt_"+editKey, JSON.stringify(driveAtts)); } catch(e) {}
   renderAttList();
 }
 
 async function saveAtt(key) {
   console.log("[saveAtt] chamado com key:", key, "pendAtt:", pendAtt.length);
   if (!pendAtt.length) { console.log("[saveAtt] nenhum pendente, pulando"); return; }
+  if (!key) { console.error("[saveAtt] chave vazia — upload cancelado"); return; }
   var btn = document.getElementById("btn-sv");
   var orig = btn ? btn.innerHTML : "";
-  if (btn) btn.innerHTML = "<span class=\"spinner\"></span> Enviando anexos…";
-  var promises = pendAtt.map(function(f) {
-    return new Promise(function(resolve) {
-      var reader = new FileReader();
-      reader.onload = function(ev) {
-        var base64 = ev.target.result.split(",")[1];
-        fetch(WEBAPP_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "upload_anexo",
-            chave: key,
-            nome: f.name,
-            data: base64,
-            mimeType: f.type || "application/octet-stream"
-          })
-        }).then(function(r) { return r.json(); })
-          .then(function(j) {
-            console.log('[saveAtt] resposta Drive:', JSON.stringify(j));
-            if (j.success && j.anexo) driveAtts.push(j.anexo);
-            else if (!j.success) console.error('[saveAtt] erro:', j.error);
-            resolve();
-          }).catch(function(err) { console.error('[saveAtt] fetch erro:', err); resolve(); });
-      };
-      reader.readAsDataURL(f);
-    });
-  });
-  await Promise.all(promises);
+  var total = pendAtt.length;
+  var erros = [];
+
+  // Envia sequencialmente — Apps Script não suporta chamadas paralelas
+  for (var i = 0; i < pendAtt.length; i++) {
+    var f = pendAtt[i];
+    if (btn) btn.innerHTML = "<span class=\"spinner\"></span> Enviando anexo " + (i + 1) + "/" + total + "…";
+    try {
+      var base64 = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(ev) { resolve(ev.target.result.split(",")[1]); };
+        reader.onerror = function() { reject(new Error("Falha ao ler " + f.name)); };
+        reader.readAsDataURL(f);
+      });
+      var r = await fetch(WEBAPP_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "upload_anexo",
+          chave: key,
+          nome: f.name,
+          data: base64,
+          mimeType: f.type || "application/octet-stream"
+        })
+      });
+      var j = await r.json();
+      console.log('[saveAtt] resposta Drive:', JSON.stringify(j));
+      if (j.success && j.anexo) { driveAtts.push(j.anexo);
+        try { localStorage.setItem("attcnt_"+key, JSON.stringify(driveAtts)); } catch(e) {} }
+      else { console.error('[saveAtt] erro:', j.error); erros.push(f.name); }
+    } catch(err) {
+      console.error('[saveAtt] erro:', err);
+      erros.push(f.name);
+    }
+    renderAttList();
+  }
+
   pendAtt = [];
   if (btn) btn.innerHTML = orig;
   renderAttList();
+  if (erros.length) alert("⚠ Falha ao enviar " + erros.length + " anexo(s): " + erros.join(", "));
 }
 
 function closePrev(){var ov=document.getElementById("prev-ov");if(ov)ov.style.display="none";}
