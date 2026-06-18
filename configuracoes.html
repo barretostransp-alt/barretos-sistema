@@ -110,6 +110,13 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 .acesso-negado h2{font-family:'Syne',sans-serif;font-size:18px;}
 .acesso-negado p{font-size:13px;color:var(--txt-dim);}
 </style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar,body.tema-claro .top-bar,body.tema-claro [class*="topbar"],body.tema-claro .tb,body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .tb *,body.tema-claro header *{color:#E5E7EB!important;}
+</style>
 </head>
 <body>
 
@@ -167,7 +174,7 @@ const TOOLS_LIST = [
 // Estado local de permissões (login -> Set de ferramentas)
 let permissoes = {};
 let usuarios   = [];
-let loginUrl   = localStorage.getItem("login_webapp_url") || localStorage.getItem("barretos_usuarios_url") || "";
+let loginUrl   = "https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec";
 
 // ── Verifica acesso ──
 document.addEventListener("DOMContentLoaded", function(){
@@ -305,6 +312,27 @@ async function salvarPermissoes(login){
   btn.disabled = false;
   btn.innerHTML = '<i class="ti ti-device-floppy" style="font-size:13px"></i> Salvar permissões';
 }
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
 </script>
 </body>
 </html>

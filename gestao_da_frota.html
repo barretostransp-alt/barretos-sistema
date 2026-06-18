@@ -127,7 +127,7 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;overflo
   padding:8px 12px;font-size:13px;color:var(--txt);font-family:inherit;transition:all .15s;width:100%}
 .form-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,184,0,.1)}
 .form-input::placeholder{color:var(--txt-muted)}
-select.form-input option{background:var(--surface2)}
+select.form-input option{background:var(--surface2);color:var(--txt)}
 /* ── MODAL ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;
   display:none;align-items:center;justify-content:center;padding:20px}
@@ -216,9 +216,43 @@ select.form-input option{background:var(--surface2)}
   .resumo-tbl tr:last-child td{border-bottom:none}
   .resumo-tbl tr:hover td{background:rgba(255,255,255,.02)}
   .resumo-tbl .total-row td{border-top:2px solid var(--border);font-weight:700;background:var(--surface2)}
+  body.tema-claro .resumo-tbl .total-row td{background:#F0FDF4!important;border-top:2px solid #86EFAC!important;}
+  body.tema-claro .resumo-tbl .total-row .txt-green,
+  body.tema-claro .resumo-tbl .total-row td.txt-green{color:#15803D!important;font-weight:800!important;}
+  body.tema-claro .resumo-tbl .total-row .txt-red,
+  body.tema-claro .resumo-tbl .total-row td.txt-red{color:#DC2626!important;font-weight:800!important;}
+  body.tema-claro .resumo-tbl .total-row td:last-child{color:#15803D!important;font-weight:800!important;}
+  body.tema-claro .resumo-tbl .total-row td:last-child.txt-red{color:#DC2626!important;}
+  body.tema-claro .resumo-tbl .total-row td:first-child{color:#374151!important;}
   /* Clickable viagem row */
   #tbody-viagens tr{cursor:pointer}
   #tbody-viagens tr:hover td{background:rgba(245,184,0,.04)!important}
+</style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar,body.tema-claro .top-bar,body.tema-claro [class*="topbar"],body.tema-claro .tb,body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .tb *,body.tema-claro header *{color:#E5E7EB!important;}
+body.tema-claro .alert-item{background:#FFF7ED!important;border-color:#FB923C!important;}
+body.tema-claro .alert-item *{color:#1C1917!important;}
+body.tema-claro table th{background:#F8FAFC!important;color:#374151!important;border-color:#E5E7EB!important;}
+body.tema-claro table td{background:#FFFFFF!important;color:#111827!important;border-color:#F1F5F9!important;}
+body.tema-claro table tr:hover td{background:#F8FAFC!important;}
+body.tema-claro .table-wrap,body.tema-claro .resumo-card,body.tema-claro .card{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .placa{background:#D9D9D9!important;color:#1E293B!important;border-color:#C0C0C0!important;}
+body.tema-claro .badge-gray{background:#E2E8F0!important;color:#475569!important;}
+body.tema-claro .panel{background:#FFFFFF!important;border-color:#E2E8F0!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important;}
+body.tema-claro .kpi-card{background:#F8FAFC!important;border:1px solid #E2E8F0!important;}
+body.tema-claro .filter-input{background:#FFFFFF!important;border-color:#E2E8F0!important;color:#111827!important;}
+body.tema-claro .form-input{background:#F8FAFC!important;border-color:#E2E8F0!important;color:#111827!important;}
+body.tema-claro select.form-input{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro select.form-input option{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro .d-motorista-sel,body.tema-claro #d-motorista-sel option{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro .modal{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .modal-header{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .modal-footer{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
 </style>
 </head>
 <body>
@@ -399,6 +433,7 @@ select.form-input option{background:var(--surface2)}
         <input class="filter-input" placeholder="Placa…" id="f-viagem-placa" oninput="filterViagens()">
         <input class="filter-input" placeholder="Motorista…" id="f-viagem-motor" oninput="filterViagens()">
         <input class="filter-input" placeholder="Cliente…" id="f-viagem-cli" oninput="filterViagens()">
+        <input class="filter-input" placeholder="Nº Embarque…" id="f-viagem-emb" oninput="filterViagens()">
         <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">De</span>
         <input class="filter-input" type="date" id="f-viagem-ini" onchange="filterViagens()" style="min-width:135px">
         <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Até</span>
@@ -420,7 +455,7 @@ select.form-input option{background:var(--surface2)}
           <table class="tbl" id="tbl-viagens">
             <thead><tr>
               <th>Data</th><th>Placa</th><th>Motorista</th><th>Rota</th><th>Cliente</th>
-              <th>Nº Embarque</th><th>F.Empresa</th><th>Combustível</th><th>Pedágio</th><th>Comissão</th>
+              <th>Nº Embarque</th><th>Peso</th><th>F.Empresa</th><th>Combustível</th><th>Pedágio</th><th>Comissão</th>
               <th>Líquido</th><th>Status</th>
             </tr></thead>
             <tbody id="tbody-viagens"><tr><td colspan="11" class="tbl-empty">
@@ -495,7 +530,7 @@ select.form-input option{background:var(--surface2)}
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl">
             <thead><tr>
-              <th>Data</th><th>Veículo / Placa</th><th>Motorista</th><th>Descrição</th><th>Fornecedor</th><th>Pagamento</th><th>Categoria</th><th>Valor</th><th>Status</th><th></th>
+              <th>Data</th><th>Placa</th><th>Motorista</th><th>Descrição</th><th>Fornecedor</th><th>Pagamento</th><th>Categoria</th><th>Valor</th><th>Status</th><th></th><th></th>
             </tr></thead>
             <tbody id="tbody-despesas"><tr><td colspan="9" class="tbl-empty">
               <div class="loading-row"><span class="spinner"></span> Carregando…</div>
@@ -525,7 +560,7 @@ select.form-input option{background:var(--surface2)}
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl">
             <thead><tr>
-              <th>Data</th><th>Veículo / Placa</th><th>Motorista</th><th>Tipo</th><th>Descrição</th><th>Fornecedor</th><th>KM</th><th>Valor</th><th>Próx. KM</th><th>Status</th><th></th>
+              <th>Data</th><th>Placa</th><th>Motorista</th><th>Tipo</th><th>Descrição</th><th>Fornecedor</th><th>KM</th><th>Valor</th><th>Próx. KM</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="tbody-manutencao"><tr><td colspan="10" class="tbl-empty">
               <div class="loading-row"><span class="spinner"></span> Carregando…</div>
@@ -856,8 +891,11 @@ select.form-input option{background:var(--surface2)}
       <div class="form-group"><label class="form-label">Placa</label>
         <select class="form-input" id="d-placa" onchange="despAutoFill(this)"><option value="">Geral / Sem placa</option></select></div>
       <div class="form-group"><label class="form-label">Motorista</label>
-        <input class="form-input" id="d-motorista-txt" placeholder="Auto-preenchido pela placa" readonly style="background:var(--surface3)">
-        <input type="hidden" id="d-motorista"></div>
+        <select class="form-input" id="d-motorista-sel" onchange="despAutoFillMotorista(this)">
+          <option value="">Selecionar motorista...</option>
+        </select>
+        <input type="hidden" id="d-motorista">
+        <input type="hidden" id="d-motorista-txt"></div>
       <div class="form-group"><label class="form-label">Forma de Pagamento</label>
         <select class="form-input" id="d-pagamento">
           <option>Pix</option><option>DDA</option><option>Crédito</option>
@@ -865,9 +903,13 @@ select.form-input option{background:var(--surface2)}
         </select>
       </div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descrição <span class="req">*</span></label>
-        <input class="form-input" id="d-desc" placeholder="Ex: Borracharia — pneu traseiro direito"></div>
+        <input class="form-input" id="d-desc" placeholder="Ex: Borracharia — pneu traseiro direito"
+          list="dl-desc" autocomplete="off" oninput="saveCustomAC('desc',this.value)"></div>
+      <datalist id="dl-desc"></datalist>
       <div class="form-group"><label class="form-label">Fornecedor</label>
-        <input class="form-input" id="d-forn" placeholder="Nome do fornecedor / prestador"></div>
+        <input class="form-input" id="d-forn" placeholder="Nome do fornecedor / prestador"
+          list="dl-forn" autocomplete="off" oninput="saveCustomAC('forn',this.value)"></div>
+      <datalist id="dl-forn"></datalist>
       <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label>
         <input class="form-input" id="d-valor" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Status</label>
@@ -990,7 +1032,7 @@ select.form-input option{background:var(--surface2)}
    CONFIG & STATE
 ════════════════════════════════════════ */
 const SHEETS_ID = '1bFAxTfvZqzK4ZY14lMQaCHKcbyD5dvVLk_TVSJ2InWU';
-var WEBAPP_URL=localStorage.getItem('barretos_frota_url')||localStorage.getItem('frota_webapp_url')||'';
+var WEBAPP_URL='https://script.google.com/macros/s/AKfycbxotPbQ44MYstDRfLGq1fhRk_gCq4oYHfc0uMQ-k8l5jJVKa8nC7D5f1rw7RtlW4ueI/exec';
 let currentView = 'dashboard';
 let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[] };
 
@@ -1043,12 +1085,23 @@ function openAddModal() {
       document.getElementById('v-status').value='Ativo';
     }
     if(currentView==='multas'){
-      // Reset multas modal for new entry
       document.getElementById('modal-multa').querySelector('.modal-title').innerHTML='<i class="ti ti-alert-octagon" style="color:var(--gold);margin-right:6px"></i>Lançar Multa';
       document.getElementById('modal-multa').querySelectorAll('input,textarea').forEach(el=>{ el.value=''; });
       document.getElementById('mt-orgao').value='DETRAN SP';
       document.getElementById('mt-resp').value='Empresa';
       document.getElementById('mt-status').value='A Vencer';
+    }
+    if(currentView==='despesas'){
+      editingDespesaIdx = null;
+      document.getElementById('modal-despesa').querySelector('.modal-title').innerHTML='<i class="ti ti-receipt" style="color:var(--gold);margin-right:6px"></i>Lançar Despesa';
+      const dp=document.getElementById('d-placa'); if(dp) dp.value='';
+      const dm=document.getElementById('d-motorista-sel'); if(dm) dm.value='';
+      const dmt=document.getElementById('d-motorista-txt'); if(dmt) dmt.value='';
+      const dmh=document.getElementById('d-motorista'); if(dmh) dmh.value='';
+      const dc=document.getElementById('d-cat'); if(dc) dc.value=dc.options[0]?.value||'';
+      const dpg=document.getElementById('d-pagamento'); if(dpg) dpg.value='Pix';
+      const ds=document.getElementById('d-status'); if(ds) ds.value='Pago';
+      document.getElementById('modal-despesa').querySelectorAll('input[type=text],input[type=number],input:not([type])').forEach(el=>{ el.value=''; });
     }
     populateSelects(); document.getElementById(m).classList.add('open'); setTodayDates();
   }
@@ -1110,6 +1163,8 @@ function renderAll() {
   renderDespesas();
   renderMultas();
   updateBadges();
+  // Populate selects after data is loaded so dropdowns have content
+  populateSelects();
 }
 
 function showNoConfig() {
@@ -1191,8 +1246,8 @@ function renderDashboard() {
 
   // Integrar despesas e manutenção no resultado
   const despMes = db.despesas.filter(r=>{const d=parseDate(r['Data']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
-  const manutMes= db.manutencao.filter(r=>{const d=parseDate(r['Data']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
-  const multasMes=(db.multas||[]).filter(r=>{const d=parseDate(r['Data']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
+  const manutMes= db.manutencao.filter(r=>{const d=parseDate(r['Data']||r['DATA']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
+  const multasMes=(db.multas||[]).filter(r=>{const rawD=r['Prazo Pagamento']||r['Prazo de Pagamento']||r['Data']||'';const d=parseDate(rawD);return d&&!isNaN(d)&&monthStr(d)===mes;});
   const totDesp = despMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
   const totManut= manutMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
   const totMultas= multasMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
@@ -1400,6 +1455,7 @@ function filterViagens() {
   const qP=(document.getElementById('f-viagem-placa')?.value||'').toLowerCase();
   const qM=(document.getElementById('f-viagem-motor')?.value||'').toLowerCase();
   const qC=(document.getElementById('f-viagem-cli')?.value||'').toLowerCase();
+  const qE=(document.getElementById('f-viagem-emb')?.value||'').toLowerCase();
   const qIni=document.getElementById('f-viagem-ini')?.value||'';
   const qFim=document.getElementById('f-viagem-fim')?.value||'';
   const qSt=document.getElementById('f-viagem-status')?.value||'';
@@ -1413,12 +1469,13 @@ function filterViagens() {
     const d=parseDate(r['DATA']||r['Data']||'');
     const st=(r['SITUAÇÃO DE PAGAMENTO']||r['Situacao Pagamento']||'').toUpperCase();
     const inRange=(!dIni&&!dFim)||(d&&(!dIni||d>=dIni)&&(!dFim||d<=dFim));
+    const emb=(r['NUMEDO DO EMBARQUE']||'').toLowerCase();
     return (!qP||pl.includes(qP))&&(!qM||mo.includes(qM))&&(!qC||cl.includes(qC))
-      &&inRange&&(!qSt||st.includes(qSt));
+      &&(!qE||emb.includes(qE))&&inRange&&(!qSt||st.includes(qSt));
   });
   window.filteredViagens = rows;
 
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="11" class="tbl-empty">Nenhuma viagem encontrada</td></tr>';
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="12" class="tbl-empty">Nenhuma viagem encontrada</td></tr>';
     document.getElementById('viagens-totais').style.display='none'; return; }
 
   const totFat=rows.reduce((s,r)=>s+parseBRL(r['F.EMPRESA']||r['F.Empresa']),0);
@@ -1437,6 +1494,7 @@ function filterViagens() {
       <td>${r['ORGIEM']||r['Origem']||'?'} → ${r['ROTA']||r['Rota']||'?'}</td>
       <td>${r['CLIENTE']||r['Cliente']||'—'}</td>
       <td class="txt-dim" style="font-size:11px">${r['NUMEDO DO EMBARQUE']||'—'}</td>
+      <td class="txt-dim" style="font-size:11px">${r['PESO']||r['Peso']||'—'}</td>
       <td class="txt-mono">${fmtBRL(parseBRL(r['F.EMPRESA']||r['F.Empresa']))}</td>
       <td class="txt-mono txt-red">${fmtBRL(parseBRL(r['ABASTECIMENTO']||r['Abastecimento']))}</td>
       <td class="txt-mono txt-dim">${fmtBRL(parseBRL(r['PEDAGIO']||r['Pedagio']))}</td>
@@ -1647,7 +1705,7 @@ function filterDespesas() {
     const pag     = r['Pagamento']||'—';
     return `<tr>
       <td style="white-space:nowrap">${fmtDate(r['Data']||'')}</td>
-      <td><span style="font-size:11px;color:var(--txt-dim)">${veiculo}</span>${placa?`<br><span class="placa" style="font-size:10px">${placa}</span>`:''}</td>
+      <td>${placa?`<span class="placa" style="font-size:10px">${placa}</span>`:'—'}</td>
       <td style="font-size:11px">${motor}</td>
       <td style="max-width:200px;font-size:11px">${r['Descricao']||r['Descrição']||r['Descrição']||'—'}</td>
       <td style="font-size:11px;color:var(--txt-dim)">${forn!=='—'?forn:'—'}</td>
@@ -1659,6 +1717,7 @@ function filterDespesas() {
         ${statusOpts.map(o=>`<option${o===st?' selected':''}>${o}</option>`).join('')}
       </select></td>
       <td>${r['Comprovante']?`<a href="${r['Comprovante']}" target="_blank" class="btn btn-ghost btn-sm"><i class="ti ti-paperclip" style="font-size:12px"></i></a>`:'—'}</td>
+      <td>${!isManut?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editDespesa(${i})" title="Editar"><i class="ti ti-pencil" style="font-size:12px"></i></button>`:'—'}</td>
     </tr>`;
   }).join('');
 
@@ -1696,7 +1755,7 @@ function filterManutencao() {
     const placa=r['Placa']||r['PLACA']||'';
     return `<tr>
     <td style="white-space:nowrap">${fmtDate(r['Data']||'')}</td>
-    <td><span style="font-size:11px;color:var(--txt-dim)">${veiculo}</span>${placa?`<br><span class="placa" style="font-size:10px">${placa}</span>`:''}</td>
+    <td>${placa?`<span class="placa" style="font-size:10px">${placa}</span>`:'—'}</td>
     <td style="font-size:11px">${r['Motorista']||'—'}</td>
     <td><span class="badge badge-gray" style="font-size:9px">${r['Tipo']||'—'}</span></td>
     <td style="max-width:180px;font-size:11px">${r['Descricao']||r['Descrição']||'—'}</td>
@@ -1834,21 +1893,34 @@ async function saveCombustivel() {
   if(!data.Placa||!data.Total){alert('Preencha placa e valor total');return;}
   await postAndRefresh(data,'modal-combustivel');
 }
+let _editingDespesaData = null; // stores original row data when editing
+
 async function saveDespesa() {
   const placa=(document.getElementById('d-placa')?.value||'').toUpperCase();
-  const motorista=document.getElementById('d-motorista')?.value||document.getElementById('d-motorista-txt')?.value||'';
-  const data={action:'despesa',Data:document.getElementById('d-data').value,
+  const motSel=document.getElementById('d-motorista-sel')?.value||'';
+  const motHid=document.getElementById('d-motorista')?.value||'';
+  const motTxt=document.getElementById('d-motorista-txt')?.value||'';
+  const motorista=motSel||motHid||motTxt;
+  // Save to autocomplete memory
+  const descVal=document.getElementById('d-desc')?.value||'';
+  const fornVal=document.getElementById('d-forn')?.value||'';
+  if(descVal.length>=3) saveCustomAC('desc',descVal);
+  if(fornVal.length>=3) saveCustomAC('forn',fornVal);
+  const action = _editingDespesaData ? 'updateDespesa' : 'despesa';
+  const data={action,Data:document.getElementById('d-data').value,
     Veiculo:'',
     Placa:placa,
     Motorista:motorista,
-    Descricao:document.getElementById('d-desc').value,
-    Fornecedor:document.getElementById('d-forn')?.value||'',
+    Descricao:descVal,
+    Fornecedor:fornVal,
     Pagamento:document.getElementById('d-pagamento').value,
     Categoria:document.getElementById('d-cat').value,
     Valor:document.getElementById('d-valor').value,
     Status:document.getElementById('d-status').value,
     Comprovante:document.getElementById('d-comp').value};
+  if(_editingDespesaData) data._originalData = _editingDespesaData;
   if(!data.Descricao||!data.Valor){alert('Preencha descrição e valor');return;}
+  _editingDespesaData = null;
   await postAndRefresh(data,'modal-despesa');
 }
 async function saveManutencao() {
@@ -1951,6 +2023,20 @@ function populateSelects() {
     db.veiculos.map(v=>`<option value="${v['Placa']||''}">${v['Placa']||''} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
   const dpEl=document.getElementById('d-placa');
   if(dpEl){ const cur=dpEl.value; dpEl.innerHTML=placaOpts; if(cur) dpEl.value=cur; }
+  // Motorista select no modal de despesa
+  const dMotSel=document.getElementById('d-motorista-sel');
+  if(dMotSel){
+    const curMot=dMotSel.value;
+    const allMots=[...new Set([
+      ...db.veiculos.map(v=>v['Motorista']||'').filter(Boolean),
+      ...db.motoristas.map(m=>m['Nome']||'').filter(Boolean)
+    ])].sort();
+    dMotSel.innerHTML='<option value="">Selecionar motorista...</option>'+
+      allMots.map(m=>`<option value="${m}"${m===curMot?' selected':''}>${m}</option>`).join('');
+  }
+  // Autocomplete datalists
+  populateDatalist('desc');
+  populateDatalist('forn');
 }
 function calcFuelTotal() {
   const l=parseFloat(document.getElementById('c-litros').value||0);
@@ -2163,7 +2249,9 @@ function renderResumoPorPlaca() {
   };
 
   viMes.forEach(r=>{
-    const k=normPlaca(r['PLACA']||r['Placa']||''); if(!k) return;
+    // Viagens sem placa vão para GERAL para não perder do faturamento total
+    const rawPlaca=r['PLACA']||r['Placa']||'';
+    const k=normPlaca(rawPlaca)||'GERAL';
     const pp=gp(k); pp.display=k;
     pp.fat+=parseBRL(r['F.EMPRESA']||r['F.Empresa']);
     pp.aba+=parseBRL(r['ABASTECIMENTO']||r['Abastecimento']);
@@ -2366,12 +2454,26 @@ function exportViagensExcel() {
 }
 /* ── Auto-fill Veículo → Placa + Motorista ── */
 function despAutoFill(sel) {
-  // Placa select selected → auto-fill motorista
   const placa=sel.value;
   const v=db.veiculos.find(x=>(x['Placa']||'').toUpperCase()===placa.toUpperCase());
   const motorista=v?v['Motorista']||'':'';
   const mt=document.getElementById('d-motorista-txt'); if(mt) mt.value=motorista;
   const mh=document.getElementById('d-motorista'); if(mh) mh.value=motorista;
+  // Sync motorista select
+  const ms=document.getElementById('d-motorista-sel');
+  if(ms) ms.value=motorista;
+}
+
+function despAutoFillMotorista(sel) {
+  const motorista=sel.value;
+  const mt=document.getElementById('d-motorista-txt'); if(mt) mt.value=motorista;
+  const mh=document.getElementById('d-motorista'); if(mh) mh.value=motorista;
+  // Try to find placa linked to this motorista and auto-fill
+  const v=db.veiculos.find(x=>(x['Motorista']||'')===motorista);
+  if(v && v['Placa']){
+    const dp=document.getElementById('d-placa');
+    if(dp) dp.value=v['Placa'].toUpperCase();
+  }
 }
 function manutAutoFill(sel) {
   const v=db.veiculos.find(x=>(x['Modelo']||x['Tipo']||'')===sel.value||(x['Placa']||'')===sel.value);
@@ -2750,6 +2852,95 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   ['f-fuel-mes','f-desp-mes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=mes;});
 });
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════
+   AUTOCOMPLETE — DESCRIÇÃO E FORNECEDOR
+════════════════════════════════════════ */
+const AC_DEFAULTS = {
+  desc: ['Diesel S500','Diesel S10','Serviço','Lava Rápido','Gasolina comum',
+         'Balde de óleo','Frete pago para outro motorista','Freela Ajudante','Adiantamento'],
+  forn: ['Borracharia Arujá','Auto Posto Arujazinho LTDA','Auto Posto Lavorare LTDA',
+         'Mercado Livre','PIQUERI AUTO PECAS','FIX Implementos rodoviários',
+         'Comercial Rei do Óleo III','JULIMAR TEIXEIRA DE CASTRO','Auto Posto São Cristóvão']
+};
+function getACItems(key){
+  try{
+    const saved=JSON.parse(localStorage.getItem('frota_ac_'+key)||'[]');
+    const merged=[...AC_DEFAULTS[key]];
+    saved.forEach(v=>{if(v&&!merged.includes(v))merged.push(v);});
+    return merged;
+  }catch(e){return AC_DEFAULTS[key]||[];}
+}
+function saveCustomAC(key,value){
+  if(!value||value.length<3)return;
+  try{
+    const saved=JSON.parse(localStorage.getItem('frota_ac_'+key)||'[]');
+    if(!saved.includes(value)&&!AC_DEFAULTS[key].includes(value)){
+      saved.unshift(value);
+      if(saved.length>30)saved.pop();
+      localStorage.setItem('frota_ac_'+key,JSON.stringify(saved));
+      populateDatalist(key);
+    }
+  }catch(e){}
+}
+function populateDatalist(key){
+  const dl=document.getElementById('dl-'+key);
+  if(!dl)return;
+  dl.innerHTML=getACItems(key).map(v=>`<option value="${v.replace(/"/g,'&quot;')}"></option>`).join('');
+}
+
+/* ═══════════════════════════════════════
+   EDITAR DESPESA
+════════════════════════════════════════ */
+function editDespesa(idx){
+  const r=(window.filteredDespesas||[])[idx];
+  if(!r||r._src==='manutencao')return;
+  _editingDespesaData=r;
+  populateSelects();
+  // Fill fields
+  const sv=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val||'';};
+  sv('d-data',r['Data']||'');
+  sv('d-cat',r['Categoria']||'');
+  sv('d-placa',r['Placa']||'');
+  sv('d-desc',r['Descricao']||r['Descrição']||'');
+  sv('d-forn',r['Fornecedor']||'');
+  sv('d-pagamento',r['Pagamento']||'Pix');
+  sv('d-valor',r['Valor']||'');
+  sv('d-status',r['Status']||'Pago');
+  sv('d-comp',r['Comprovante']||'');
+  const motorista=r['Motorista']||'';
+  sv('d-motorista',motorista);
+  sv('d-motorista-txt',motorista);
+  const ms=document.getElementById('d-motorista-sel');
+  if(ms){
+    if([...ms.options].some(o=>o.value===motorista)){ms.value=motorista;}
+    else if(motorista){const o=document.createElement('option');o.value=motorista;o.textContent=motorista;ms.appendChild(o);ms.value=motorista;}
+  }
+  document.getElementById('modal-despesa').querySelector('.modal-title').innerHTML=
+    '<i class="ti ti-pencil" style="color:var(--gold);margin-right:6px"></i>Editar Despesa';
+  document.getElementById('modal-despesa').classList.add('open');
+}
 </script>
 </body>
 </html>

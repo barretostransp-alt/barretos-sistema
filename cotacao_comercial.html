@@ -969,6 +969,76 @@
   flex-shrink:0;display:flex;align-items:center;transition:all .15s;}
 .placa-remove:hover{background:rgba(239,68,68,.25);}
 </style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{
+  --bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;
+  --border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;
+  --txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;
+  --teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;
+  --gold-dim:rgba(217,119,6,.10);
+  /* Variáveis específicas da cotação */
+  --charcoal:#F8FAFC;
+  --charcoal-mid:#FFFFFF;
+  --charcoal-light:#F1F5F9;
+  --charcoal-border:#E2E8F0;
+  --text-primary:#111827;
+  --text-secondary:#6B7280;
+  --text-muted:#9CA3AF;
+}
+/* Topbar sempre escura */
+body.tema-claro .nav-bar,body.tema-claro .topbar,body.tema-claro [class*="topbar"],body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .nav-bar *,body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro header *{color:#E5E7EB!important;}
+/* Tabs de navegação (Calculadora / Histórico / Ordem de Coleta) — escuras */
+body.tema-claro .nav-tabs,body.tema-claro .nav-tab-bar{background:#111827!important;border-color:#1F2937!important;}
+body.tema-claro .nav-tab{color:#9CA3AF!important;}
+body.tema-claro .nav-tab.active{color:#F5B800!important;border-color:#F5B800!important;}
+/* Sidebar / painel esquerdo */
+body.tema-claro .calc-aside,body.tema-claro aside{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .sec-label{color:#6B7280!important;}
+/* Inputs, selects, textareas */
+body.tema-claro input,body.tema-claro select,body.tema-claro textarea{background:#F1F5F9!important;color:#111827!important;border-color:#CBD5E1!important;}
+body.tema-claro input::placeholder,body.tema-claro textarea::placeholder{color:#94A3B8!important;}
+body.tema-claro label,body.tema-claro .lbl,body.tema-claro .override-lbl,body.tema-claro .oc-lbl{color:#6B7280!important;}
+/* Result card — fundo levemente cinza, texto escuro */
+body.tema-claro .result-card{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .result-card *{color:#111827!important;}
+body.tema-claro .result-card .row-val{color:#111827!important;}
+body.tema-claro .result-card-header{border-color:#E2E8F0!important;}
+body.tema-claro .divider-row{border-color:#E2E8F0!important;}
+body.tema-claro .result-card-body .row-icon{opacity:.7!important;}
+/* Manter cores semânticas nos valores */
+body.tema-claro .result-card [style*="color:var(--gold)"],
+body.tema-claro .result-card [style*="color: var(--gold)"]{color:#D97706!important;}
+body.tema-claro .result-card [style*="color:var(--warn"],
+body.tema-claro .result-card [style*="color: var(--warn"]{color:#EA580C!important;}
+body.tema-claro .result-card [style*="color:var(--danger"],
+body.tema-claro .result-card [style*="color: var(--danger"]{color:#DC2626!important;}
+/* Total card */
+body.tema-claro .result-total-card{background:#1C1F2E!important;}
+body.tema-claro .result-total-card *{color:#F5B800!important;}
+/* Hist */
+body.tema-claro .hist-table-wrap,body.tema-claro .hist-wrap{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .hist-table th{background:#F8FAFC!important;color:#374151!important;border-color:#E2E8F0!important;}
+body.tema-claro .hist-table td{color:#111827!important;border-color:#F1F5F9!important;}
+body.tema-claro .hist-table tr:hover td{background:#F8FAFC!important;}
+body.tema-claro .hist-row,body.tema-claro .hist-item{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .hist-row:hover{background:#F8FAFC!important;}
+/* Override / ajuste manual */
+body.tema-claro .override-body{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .override-input{background:#FFFFFF!important;border-color:#CBD5E1!important;color:#111827!important;}
+body.tema-claro .override-prefix{color:#6B7280!important;}
+/* Modal */
+body.tema-claro .modal-overlay-inner,body.tema-claro .modal{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .status-badge{border-color:currentColor!important;}
+/* Toggle buttons */
+body.tema-claro .toggle-btn{background:#F1F5F9!important;color:#6B7280!important;border-color:#CBD5E1!important;}
+body.tema-claro .toggle-btn.active{background:#D97706!important;color:#FFFFFF!important;}
+/* Seções e textos gerais */
+body.tema-claro .result-panel,body.tema-claro .result-area{background:#F0F2F5!important;}
+body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!important;}
+</style>
 </head>
 <body>
 
@@ -1111,9 +1181,9 @@
         <option value="carreta5">Carreta Trucada / LS — 6 eixos (32.000 kg / 90 m³)</option>
         <option value="bitrem7">Bitrem / Rodotrem 7 eixos (42.000 kg / 180 m³)</option>
         <option value="bitrem9">Bitrem / Rodotrem 9 eixos (57.000 kg / 180 m³)</option>
-        <option value="guindaste_tm" class="opt-especial">── Guindaste TM</option>
-        <option value="munk" class="opt-especial">── Munk</option>
-        <option value="prancha" class="opt-especial">── Prancha</option>
+        <option value="guindaste_tm" class="opt-especial">Guindaste TM</option>
+        <option value="munk" class="opt-especial">Munk</option>
+        <option value="prancha" class="opt-especial">Prancha</option>
       </select>
     </div>
 
@@ -1307,6 +1377,14 @@
             <span class="override-prefix">R$</span>
             <input type="number" id="override-total" class="override-input" placeholder="Automático" min="0" step="0.01" oninput="onOverride()">
             <button class="override-clear" onclick="clearOverride('total')" id="clear-ov-total" style="display:none" aria-label="Limpar"><i class="ti ti-x" style="font-size:11px"></i></button>
+          </div>
+        </div>
+        <div class="override-field">
+          <label class="override-lbl" for="override-desconto"><i class="ti ti-tag" style="font-size:11px"></i> Desconto (R$)</label>
+          <div class="override-input-wrap">
+            <span class="override-prefix">R$</span>
+            <input type="number" id="override-desconto" class="override-input" placeholder="Sem desconto" min="0" step="0.01" oninput="onOverride()">
+            <button class="override-clear" onclick="clearOverride('desconto')" id="clear-ov-desconto" style="display:none" aria-label="Limpar"><i class="ti ti-x" style="font-size:11px"></i></button>
           </div>
         </div>
       </div>
@@ -2043,23 +2121,41 @@ function showBtnPDF(){
 
 /* ---- AJUSTE MANUAL ---- */
 function onOverride(){
-  const vPiso  = document.getElementById('override-piso').value.trim();
-  const vTotal = document.getElementById('override-total').value.trim();
-  document.getElementById('clear-ov-piso').style.display  = vPiso  ? 'flex' : 'none';
-  document.getElementById('clear-ov-total').style.display = vTotal ? 'flex' : 'none';
+  const vPiso     = document.getElementById('override-piso').value.trim();
+  const vTotal    = document.getElementById('override-total').value.trim();
+  const vDesconto = document.getElementById('override-desconto').value.trim();
+  document.getElementById('clear-ov-piso').style.display     = vPiso     ? 'flex' : 'none';
+  document.getElementById('clear-ov-total').style.display    = vTotal    ? 'flex' : 'none';
+  document.getElementById('clear-ov-desconto').style.display = vDesconto ? 'flex' : 'none';
 
   // Atualiza ao vivo no card de resultado
   if(vPiso){
     const pisoEl = document.querySelector('.result-card-body .row-piso-val');
     if(pisoEl) pisoEl.textContent = parseFloat(vPiso).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
   } else {
-    // restaura via recalc
     calc();
   }
-  if(vTotal){
+
+  // Desconto: subtrai do total calculado ou do override-total
+  const baseTotal = vTotal ? parseFloat(vTotal) : null;
+  const descVal   = vDesconto ? parseFloat(vDesconto) : 0;
+  if(vTotal || vDesconto){
     const totalEl = document.querySelector('.result-total-val');
-    if(totalEl) totalEl.textContent = parseFloat(vTotal).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+    if(totalEl){
+      // Se há override do total, aplica desconto sobre ele; senão pega o calculado
+      let base = baseTotal;
+      if(base === null){
+        // Pega o valor calculado do DOM (sem desconto)
+        const calcTotal = totalEl._baseTotal !== undefined ? totalEl._baseTotal : parseFloat((totalEl.textContent||'0').replace(/[^\d,]/g,'').replace(',','.')) || 0;
+        base = calcTotal;
+        totalEl._baseTotal = base;
+      }
+      const finalTotal = Math.max(0, base - descVal);
+      totalEl.textContent = finalTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+    }
   } else {
+    const totalEl = document.querySelector('.result-total-val');
+    if(totalEl) totalEl._baseTotal = undefined;
     calc();
   }
 
@@ -2073,7 +2169,11 @@ function onOverride(){
     badges.style.display='flex';
     badges.innerHTML += `<span class="override-badge"><i class="ti ti-pencil" style="font-size:10px"></i> Total: R$ ${parseFloat(vTotal).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`;
   }
-  if(!vPiso && !vTotal) badges.style.display='none';
+  if(vDesconto){
+    badges.style.display='flex';
+    badges.innerHTML += `<span class="override-badge" style="background:rgba(34,197,94,.15);color:#059669"><i class="ti ti-tag" style="font-size:10px"></i> Desconto: -R$ ${parseFloat(vDesconto).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`;
+  }
+  if(!vPiso && !vTotal && !vDesconto) badges.style.display='none';
 }
 
 function clearOverride(field){
@@ -2083,6 +2183,21 @@ function clearOverride(field){
 
 function getOverrideTotal(){
   const v = document.getElementById('override-total')?.value.trim();
+  const d = document.getElementById('override-desconto')?.value.trim();
+  const desc = d ? parseFloat(d) : 0;
+  if(v) return Math.max(0, parseFloat(v) - desc);
+  // Se só tem desconto, pega o total do DOM e subtrai
+  if(d && desc > 0){
+    const totalEl = document.querySelector('.result-total-val');
+    if(totalEl){
+      const base = totalEl._baseTotal || parseFloat((totalEl.textContent||'0').replace(/[^\d,]/g,'').replace(',','.')) || 0;
+      return Math.max(0, base - desc);
+    }
+  }
+  return null;
+}
+function getOverrideDesconto(){
+  const v = document.getElementById('override-desconto')?.value.trim();
   return v ? parseFloat(v) : null;
 }
 function getOverridePiso(){
@@ -2215,7 +2330,7 @@ async function gerarPDF(){
   const cargaEl=document.getElementById('carga');
   const cargaTxt=cargaEl.options[cargaEl.selectedIndex].text;
   const eixosEl=document.getElementById('eixos');
-  const veiculo=eixosEl.options[eixosEl.selectedIndex].text;
+  const _eixosKey=eixosEl.value; const veiculo=(capVeic[_eixosKey]&&capVeic[_eixosKey].nome)||eixosEl.options[eixosEl.selectedIndex].text;
   const km=parseFloat(document.getElementById('km').value)||0;
   const viagens=parseInt(document.getElementById('viagens').value)||1;
   const isFrac=modo==='fracionado';
@@ -2294,14 +2409,35 @@ async function gerarPDF(){
   /* ── TOTAL AO CLIENTE ── */
   const totalVal=document.querySelector('.result-total-val');
   const ovTotal=getOverrideTotal();
+  const ovDesconto=getOverrideDesconto();
   const ovPiso=getOverridePiso();
-  const totalDisplay = ovTotal
+
+  // Calcular valor bruto (sem desconto) para exibir no PDF
+  let valorBruto = null;
+  if(ovDesconto){
+    const d = document.getElementById('override-total')?.value.trim();
+    if(d) valorBruto = parseFloat(d);
+    else { const el=document.querySelector('.result-total-val'); if(el) valorBruto = el._baseTotal || parseFloat((el.innerText||'0').replace(/[^\d,]/g,'').replace(',','.')) || 0; }
+  }
+
+  const totalDisplay = ovTotal !== null
     ? ovTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2})
     : (totalVal ? totalVal.innerText.trim() : '');
   const totalSub=document.querySelector('.result-total-sub');
   if(totalDisplay){
     if(y>240){doc.addPage();y=20;}
     y+=4;
+    // Se há desconto, mostrar linha extra com valor original e desconto
+    if(ovDesconto){
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...dark);
+      doc.text('Valor do frete:',22,y+5);
+      doc.text(valorBruto !== null ? valorBruto.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}) : '',193,y+5,{align:'right'});
+      y+=8;
+      doc.setTextColor(220,38,38); // vermelho
+      doc.text('Desconto:',22,y+5);
+      doc.text('-'+ovDesconto.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}),193,y+5,{align:'right'});
+      y+=10;
+    }
     doc.setFillColor(...dark);doc.rect(15,y,180,22,'F');
     doc.setFillColor(...gold);doc.rect(15,y,4,22,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...gold);
@@ -3892,6 +4028,27 @@ setTimeout(()=>{
   const url=window._sheetsWebAppUrl||SHEETS_WEBAPP_URL;
   if(url) fetch(url).then(r=>r.json()).then(j=>{if(j.rows&&j.rows.length){histData=j.rows;const b=document.getElementById('hist-badge');if(b){b.textContent=j.rows.length;b.style.display='inline';}}}).catch(()=>{});
 },800);
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
 </script>
 </body>
 </html>

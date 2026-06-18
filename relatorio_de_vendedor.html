@@ -224,6 +224,17 @@ tbody tr:hover td{background:rgba(245,184,0,.03)}
 .help-txt{font-size:11px;color:var(--txt-dim);line-height:1.5;margin-top:8px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar,body.tema-claro .top-bar,body.tema-claro [class*="topbar"],body.tema-claro .tb,body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .tb *,body.tema-claro header *{color:#E5E7EB!important;}
+body.tema-claro .vend-card,body.tema-claro .seller-card,body.tema-claro [class*="vend"],body.tema-claro [class*="seller"]{background:#FFFFFF!important;border:1px solid #E2E6ED!important;box-shadow:0 1px 4px rgba(0,0,0,.06)!important;}
+body.tema-claro .vend-card *,body.tema-claro .seller-card *{color:#111827!important;}
+body.tema-claro .vend-card .metric-val,body.tema-claro [class*="margem"],[class*="green"]{color:var(--green)!important;}
+body.tema-claro .perf-grid>*{background:#FFFFFF!important;border:1px solid #E2E6ED!important;}
+</style>
 </head>
 <body>
 <div class="app">
@@ -237,7 +248,14 @@ tbody tr:hover td{background:rgba(245,184,0,.03)}
       </div>
     </div>
     <div class="header-divider"></div>
+    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openConfig()">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span class="conn-label" id="conn-label">Não configurado</span>
+    </div>
     <div class="header-right">
+      <button class="config-btn" onclick="openConfig()">
+        <i class="ti ti-settings" style="font-size:13px"></i> Configurar
+      </button>
       <button class="sync-btn" id="sync-btn" onclick="syncData()">
         <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
       </button>
@@ -331,6 +349,22 @@ tbody tr:hover td{background:rgba(245,184,0,.03)}
   </div>
 </div>
 
+<!-- CONFIG MODAL -->
+<div id="modal-config" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-link" style="color:var(--gold);margin-right:8px"></i>Configurar Conexão</div>
+    <div class="form-group">
+      <label class="form-label">URL do Apps Script</label>
+      <input class="form-input" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
+      <p class="help-txt">Cole aqui a URL do Web App após implantar o Apps Script fornecido abaixo.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="document.getElementById('modal-config').classList.remove('open')">Cancelar</button>
+      <button class="btn-primary" onclick="saveConfig()">Salvar e Conectar</button>
+    </div>
+  </div>
+</div>
+
 <!-- APPS SCRIPT CODE MODAL -->
 <div id="modal-script" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="width:700px;max-width:95vw">
@@ -367,24 +401,41 @@ function _getNome()  { return localStorage.getItem('barretos_nome')||sessionStor
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('script-code').value = document.getElementById('gas-source').value;
-  setConnected(true);
-  loadData();
-  if(_getPerfil()!=='gestor'){
-    var _nome=_getNome();
-    if(_nome){
-      setTimeout(function(){
-        var s=document.getElementById('f-vendedor');
-        if(s){s.value=_nome;s.disabled=true;}
-        applyFilters();
-      },1200);
+  if (WEBAPP_URL) {
+    setConnected(true);
+    loadData();
+    // Lock vendedor for colaborador after data loads
+    if(_getPerfil()!=='gestor'){
+      var _nome=_getNome();
+      if(_nome){
+        setTimeout(function(){
+          var s=document.getElementById('f-vendedor');
+          if(s){s.value=_nome;s.disabled=true;}
+          applyFilters();
+        },1200);
+      }
     }
+  } else {
+    setConnected(false);
   }
 });
 
 /* ════════════════════════════════════════
    CONFIG
 ════════════════════════════════════════ */
-
+function openConfig() {
+  document.getElementById('cfg-url').value = WEBAPP_URL;
+  document.getElementById('modal-config').classList.add('open');
+}
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  if (!url) return alert('Cole a URL do Apps Script');
+  WEBAPP_URL = url;
+  localStorage.setItem('relatorio_webapp_url', url);
+  document.getElementById('modal-config').classList.remove('open');
+  setConnected(true);
+  loadData();
+}
 function setConnected(on) {
   document.getElementById('conn-dot').className = 'conn-dot' + (on ? ' on' : '');
   document.getElementById('conn-label').textContent = on ? 'Planilha conectada' : 'Não configurado';
@@ -415,7 +466,7 @@ async function loadData() {
 }
 
 async function syncData() {
-  if (!WEBAPP_URL) return;
+  if (!WEBAPP_URL) { openConfig(); return; }
   const btn = document.getElementById('sync-btn');
   btn.innerHTML = '<span class="spinner"></span> Atualizando…';
   btn.disabled = true;
@@ -827,35 +878,11 @@ function sincronizar() {
   };
 
   var rel = ssDestino.getSheets()[0];
-
-  // ── Meses protegidos: preserva linhas inseridas manualmente ──────────────
-  var MESES_PROTEGIDOS = [&#x27;jan&#x27;,&#x27;fev&#x27;,&#x27;mar&#x27;,&#x27;abr&#x27;];
-  var linhasProtegidas = [];
-  if (rel.getLastRow() &gt; 1) {
-    var dadosAtuais = rel.getDataRange().getValues();
-    var hAtual = dadosAtuais[0].map(function(v){ return String(v).trim().toLowerCase(); });
-    var colMes = hAtual.indexOf(&#x27;mes&#x27;);
-    if (colMes &gt;= 0) {
-      for (var p = 1; p &lt; dadosAtuais.length; p++) {
-        var mesLinha = String(dadosAtuais[p][colMes]).trim().toLowerCase();
-        if (MESES_PROTEGIDOS.indexOf(mesLinha) &gt;= 0) {
-          linhasProtegidas.push(dadosAtuais[p]);
-        }
-      }
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   rel.clearContents();
 
   var newH = [&#x27;Mes&#x27;,&#x27;Data Coleta&#x27;,&#x27;Cidade Origem&#x27;,&#x27;UF Origem&#x27;,&#x27;Cidade Destino&#x27;,&#x27;UF Destino&#x27;,
     &#x27;Cliente&#x27;,&#x27;Contato Cliente&#x27;,&#x27;Vendedor&#x27;,&#x27;DT Codigo&#x27;,&#x27;Origem&#x27;,&#x27;Frete Cobrado&#x27;,&#x27;Custo Operacional&#x27;,&#x27;ICMS&#x27;];
   rel.appendRow(newH);
-
-  // Reinsere linhas protegidas antes dos dados novos
-  if (linhasProtegidas.length &gt; 0) {
-    rel.getRange(2, 1, linhasProtegidas.length, newH.length).setValues(linhasProtegidas);
-  }
 
   var rows = [];
   for (var i = 1; i &lt; tData.length; i++) {
@@ -865,18 +892,8 @@ function sincronizar() {
     var freteVal = parseBRL(r[C.frete]);
     var custoVal = parseBRL(r[C.custo]);
     var icmsVal  = C.icms &gt;= 0 ? parseBRL(r[C.icms]) : Math.round(freteVal * 0.12 * 100) / 100;
-
-    // ── Ignora linhas cujo mês já está protegido (vem da planilha fonte com mes preenchido)
-    var mesNovas = &#x27;&#x27;;
-    if (C.mes &gt;= 0 &amp;&amp; r[C.mes] &amp;&amp; String(r[C.mes]).trim() !== &#x27;&#x27;) {
-      mesNovas = String(r[C.mes]).trim().toLowerCase();
-    } else if (C.coleta &gt;= 0) {
-      mesNovas = getMes(r[C.coleta]);
-    }
-    if (MESES_PROTEGIDOS.indexOf(mesNovas) &gt;= 0) continue;
-
     rows.push([
-      mesNovas,
+      cellStr(r[C.mes]),
       r[C.coleta] instanceof Date ? Utilities.formatDate(r[C.coleta], Session.getScriptTimeZone(), &#x27;dd/MM/yyyy&#x27;) : cellStr(r[C.coleta]),
       route.cidadeOrigem, route.ufOrigem,
       route.cidadeDestino, route.ufDestino,
@@ -886,10 +903,7 @@ function sincronizar() {
       freteVal, custoVal, icmsVal
     ]);
   }
-  if (rows.length &gt; 0) {
-    var startRow = 2 + linhasProtegidas.length;
-    rel.getRange(startRow, 1, rows.length, newH.length).setValues(rows);
-  }
+  if (rows.length &gt; 0) rel.getRange(2, 1, rows.length, newH.length).setValues(rows);
 }
 
 function parseRoute(resumo) {
@@ -940,5 +954,26 @@ function parseBRL(val) {
   if (s.includes(&#x27;,&#x27;)) s = s.replace(/\./g,&#x27;&#x27;).replace(&#x27;,&#x27;,&#x27;.&#x27;);
   return parseFloat(s) || 0;
 }</textarea>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
+</script>
 </body>
 </html>

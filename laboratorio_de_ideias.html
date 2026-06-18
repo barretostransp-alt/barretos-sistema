@@ -154,6 +154,15 @@ tbody tr:hover td{background:rgba(245,184,0,.02);cursor:pointer}
 @keyframes spin{to{transform:rotate(360deg)}}
 .alert-info{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:7px;padding:10px 13px;font-size:11px;color:var(--blue);margin-bottom:14px}
 </style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar,body.tema-claro .top-bar,body.tema-claro [class*="topbar"],body.tema-claro .tb,body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .tb *,body.tema-claro header *{color:#E5E7EB!important;}
+body.tema-claro .logo-area,body.tema-claro .sidebar-logo,body.tema-claro [class*="logo-wrap"]{background:#1C1F2E!important;padding:8px!important;border-radius:8px!important;}
+body.tema-claro .logo-area img,body.tema-claro .sidebar-logo img{filter:none!important;}
+</style>
 </head>
 <body>
 
@@ -454,7 +463,7 @@ function err_(e)  { return ContentService.createTextOutput(JSON.stringify({succe
 /* ═══════════════════════════
    STATE
 ═══════════════════════════ */
-var WEBAPP_URL=localStorage.getItem('barretos_lab_url')||localStorage.getItem('mc_webapp_url')||'';
+var WEBAPP_URL='https://script.google.com/macros/s/AKfycbzboBXmOiM6a_eG5veYo7Dk8kqNL9FXT5bD57NXzEx9y5g6MoDoHMmYAf9ceXIkVybb/exec';
 // Lê sessão do shell
 let _barretos_user = null;
 try { _barretos_user = JSON.parse(sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || 'null'); } catch(e){}
@@ -979,6 +988,27 @@ async function mudarStatusReprovado(id) {
   if (just===null) return;
   await mudarStatus(id,'REPROVADA',{Justificativa:just});
 }
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
 </script>
 </body>
 </html>

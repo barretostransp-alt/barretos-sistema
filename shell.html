@@ -341,6 +341,57 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font
 #nav-ideias,#nav-helpdesk,#nav-diarias,#nav-cotacao,#nav-relatorio,
 #nav-frota{display:flex;}
 </style>
+
+<style>
+/* ── TEMA CLARO (shell) ──────────────────────────────────────── */
+/* Apenas a sidebar muda — topbar e logo ficam SEMPRE escuras     */
+body.tema-claro {
+  --bg:         #F0F2F5;
+  --surface:    #FFFFFF;
+  --card:       #FFFFFF;
+  --card-hover: #F5F7FA;
+  --border:     #E2E6ED;
+  --border-light:#EEF1F6;
+  --txt:        #111827;
+  --txt-dim:    #6B7280;
+  --txt-muted:  #9CA3AF;
+  --gold:       #D97706;
+  --green:      #059669;
+  --blue:       #2563EB;
+  --orange:     #EA580C;
+  --red:        #DC2626;
+  --purple:     #7C3AED;
+  --gold-dim:   rgba(217,119,6,.10);
+}
+/* Sidebar (menu lateral) → fundo claro */
+body.tema-claro .sidebar {
+  background: #FFFFFF !important;
+  border-right-color: #E2E6ED !important;
+}
+body.tema-claro .sb-user    { border-bottom-color: #E2E6ED !important; }
+body.tema-claro .sb-uname   { color: #111827 !important; }
+body.tema-claro .sb-urole   { color: #6B7280 !important; }
+body.tema-claro .sb-section { color: #9CA3AF !important; }
+body.tema-claro .sb-section::after { background: #E2E6ED !important; }
+body.tema-claro .sb-item    { color: #6B7280 !important; }
+body.tema-claro .sb-item:hover { background: #F5F7FA !important; color: #111827 !important; }
+body.tema-claro .sb-item.active { background: rgba(217,119,6,.10) !important; color: #D97706 !important; border-left-color: #D97706 !important; }
+body.tema-claro .sb-nav     { background: #FFFFFF !important; }
+body.tema-claro .sb-footer  { border-top-color: #E2E6ED !important; background: #FFFFFF !important; }
+body.tema-claro .sb-logout  { color: #6B7280 !important; border-color: #E2E6ED !important; }
+body.tema-claro .sb-logo    { border-bottom-color: #E2E6ED !important; background: #1C1F2E !important; }
+/* Logo: inverte para ficar visível no fundo claro */
+/* logo mantém visual natural — fundo da sidebar já fica claro */
+/* Menu hamburguer */
+body.tema-claro .btn-menu   { background: #FFFFFF !important; border-color: #E2E6ED !important; color: #111827 !important; }
+/* TOPBAR → SEMPRE ESCURA, nunca muda */
+body.tema-claro .topbar {
+  background: var(--surface-dark, #161922) !important;
+  border-bottom-color: #252837 !important;
+}
+body.tema-claro .topbar * { color: #E8E9F0 !important; }
+/* ─────────────────────────────────────────────────────────────── */
+</style>
 </head>
 <body>
 
@@ -712,9 +763,7 @@ function respErr(e) {
       </div>
     </nav>
     <div class="sb-footer">
-      <div class="sb-item" id="nav-conexoes" onclick="navigate('conexoes')">
-        <i class="ti ti-plug"></i><span>Conexões</span>
-      </div>
+
       <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
         <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
@@ -733,7 +782,7 @@ function respErr(e) {
       <div class="iframe-loading" id="iframe-loading">
         <div class="spinner-lg"></div><span>Carregando ferramenta…</span>
       </div>
-      <script>function onFrameLoad(){var il=document.getElementById("iframe-loading");if(il)il.style.display="none";}</script>
+      <script>function onFrameLoad(){var il=document.getElementById("iframe-loading");if(il)il.style.display="none";setTimeout(function(){broadcastTema(localStorage.getItem('barretos_tema')||'escuro');},300);}</script>
       <iframe id="main-frame" src="" onload="onFrameLoad()"></iframe>
     </div>
   </div>
@@ -744,7 +793,7 @@ function respErr(e) {
 /* ══════════════════════════════
    CONFIG
 ══════════════════════════════ */
-var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'';
+var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
 
 
 
@@ -795,7 +844,7 @@ async function doLogin() {
   const login = document.getElementById('lg-login').value.trim();
   const senha = document.getElementById('lg-senha').value;
   if (!login || !senha) { setMsg('Preencha login e senha.',''); return; }
-  if (!WEBAPP_URL) { setMsg('Configure a URL do Apps Script primeiro.',''); openConfig(); return; }
+  // URL sempre disponível via hardcode
   const btn = document.getElementById('btn-login');
   btn.innerHTML = '<span class="spinner"></span> Entrando…'; btn.disabled = true;
   setMsg('','');
@@ -831,7 +880,7 @@ async function doRegister() {
   if (!nome||!login||!senha||!conf) { setMsg('Preencha todos os campos.',''); return; }
   if (senha.length < 6)  { setMsg('Senha deve ter no mínimo 6 caracteres.',''); return; }
   if (senha !== conf)    { setMsg('As senhas não coincidem.',''); return; }
-  if (!WEBAPP_URL) { setMsg('Configure a URL do Apps Script primeiro.',''); openConfig(); return; }
+  // URL sempre disponível via hardcode
   const btn = document.getElementById('btn-reg');
   btn.innerHTML = '<span class="spinner"></span> Cadastrando…'; btn.disabled = true;
   setMsg('','');
@@ -872,7 +921,7 @@ var TOOLS = {
   kanban_gon: { src:"goncalves.html",             cat:"Operacional", label:"Gonçalves",             icon:"ti-columns"          },
   ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
   helpdesk:  { src:"helpdesk.html",              cat:"Melhoria",    label:"Helpdesk",              icon:"ti-headset"          },
-    conexoes:  { src:"conexoes.html",              cat:"Admin",      label:"Conexões",              icon:"ti-plug"            },
+
   config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
 };
 var currentTool = null;
@@ -899,10 +948,7 @@ function applyUser(user){
   // Esconde config/conexoes por padrão — aparecem só se tiver permissão
   var cn=document.getElementById("nav-config");
   if(cn) cn.style.display="none";
-  var cnx=document.getElementById("nav-conexoes");
-  if(cnx) cnx.style.display="none";
-  var cnx=document.getElementById("nav-conexoes");
-  if(cnx) cnx.style.display=(perfil==="gestor")?"flex":"none";
+
   // Busca e aplica permissões
   setTimeout(function(){ aplicarPermissoes(login); }, 200);
   // Restore user colors after login
@@ -941,7 +987,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","conexoes","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
@@ -954,7 +1000,7 @@ function aplicarMenuPermissoes(p){
       el.style.display=p.includes(k)?"flex":"none";
     }
   });
-  var sm={rh:["diarias"],comercial:["cotacao","relatorio","clientes"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","conexoes"]};
+  var sm={rh:["diarias"],comercial:["cotacao","relatorio","clientes"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -1151,7 +1197,14 @@ function getCookie(name){
 function salvarCorLocal() {
   var login = localStorage.getItem('barretos_login') || '';
   // Save to localStorage
-  localStorage.setItem('barretos_cor_'   + login, _corAtual);
+  localStorage.setItem('barretos_tema', _temaAtual);
+  // Apply tema to shell body too
+  document.body.classList.remove('tema-claro','tema-escuro');
+  if(_temaAtual==='claro') document.body.classList.add('tema-claro');
+  // Broadcast to iframes with delay to ensure they're ready
+  setTimeout(function(){ broadcastTema(_temaAtual); }, 100);
+  setTimeout(function(){ broadcastTema(_temaAtual); }, 600);
+    localStorage.setItem('barretos_cor_'   + login, _corAtual);
   localStorage.setItem('barretos_cor',   _corAtual);
   localStorage.setItem('barretos_fundo_' + login, _fundoAtual);
   localStorage.setItem('barretos_fundo', _fundoAtual);
@@ -1197,6 +1250,8 @@ function openPerfilModal(){
   document.getElementById("perfil-ov").classList.add("open");
   // Sync color picker with current color
   selecionarCor(_corAtual);
+  _temaAtual = localStorage.getItem('barretos_tema') || 'escuro';
+  initTemaButtons();
 }
 function closePerfilModal(){
   document.getElementById("perfil-ov").classList.remove("open");
@@ -1369,6 +1424,18 @@ async function savePerfilModal(){
           <input type="color" class="cor-custom-inp" id="fundo-custom-inp" value="#090A0D" oninput="selecionarFundo(this.value)">
           <span class="cor-preview-txt" id="fundo-preview-txt">#090A0D</span>
         </div>
+        <span class="tema-label" style="margin-top:14px"><i class="ti ti-contrast" style="font-size:12px;margin-right:5px"></i>Modo de interface</span>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="btn-tema-escuro" onclick="selecionarTema('escuro')"
+            style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--txt);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s">
+            <i class="ti ti-moon" style="font-size:13px"></i> Escuro
+          </button>
+          <button id="btn-tema-claro" onclick="selecionarTema('claro')"
+            style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--txt);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s">
+            <i class="ti ti-sun" style="font-size:13px"></i> Claro
+          </button>
+        </div>
+
       </div></div>
       <div class="perfil-actions">
         <button class="btn-perfil-cancel" onclick="closePerfilModal()">Cancelar</button>
@@ -1506,6 +1573,41 @@ async function mostrarAgendaDia(user) {
 function fecharAgenda() {
   document.getElementById('agenda-overlay').style.display = 'none';
 }
+
+/* ── TEMA CLARO/ESCURO ───────────────────────────────── */
+var _temaAtual = localStorage.getItem('barretos_tema') || 'escuro';
+// Apply saved tema to shell body on load
+(function(){
+  if(_temaAtual==='claro') document.body.classList.add('tema-claro');
+})();
+
+function selecionarTema(t) {
+  _temaAtual = t;
+  var btnE = document.getElementById('btn-tema-escuro');
+  var btnC = document.getElementById('btn-tema-claro');
+  if (btnE && btnC) {
+    // Reset ambos para estado neutro
+    var base = 'flex:1;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;border:1px solid var(--border);background:var(--surface);color:var(--txt);';
+    var active = 'flex:1;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;border:2px solid #F5B800;background:rgba(245,184,0,.12);color:#F5B800;';
+    btnE.style.cssText = (t==='escuro' ? active : base);
+    btnC.style.cssText = (t==='claro'  ? active : base);
+  }
+}
+
+function broadcastTema(t) {
+  localStorage.setItem('barretos_tema', t);
+  // Envia para todos os iframes ativos
+  var iframes = document.querySelectorAll('iframe');
+  iframes.forEach(function(f) {
+    try { f.contentWindow.postMessage({ type:'barretos_tema', tema:t }, '*'); } catch(e) {}
+  });
+  // Aplica no próprio shell se quiser (topbar fica sempre escura)
+}
+
+function initTemaButtons() {
+  selecionarTema(_temaAtual);
+}
+/* ─────────────────────────────────────────────────────── */
 </script>
 </body>
 </html>
