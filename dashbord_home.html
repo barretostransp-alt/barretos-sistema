@@ -108,9 +108,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 .ec-bar-track{height:3px;background:var(--border);border-radius:2px}
 .ec-bar-fill{height:3px;border-radius:2px;transition:width .5s ease}
 
-/* ─── FROTA SECTION ─── */
-.frota-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.frota-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+
 .fc-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:5px}
 .fc-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--txt)}
 .fc-sub{font-size:10px;color:var(--txt-dim);margin-top:2px}
@@ -150,6 +148,18 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
 /* Hide margem metrics in empresa cards — Faturamento stays visible */
 .hide-margem .ec-metric-margem{ display:none !important; }
 </style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--teal:#0D9488;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar,body.tema-claro .top-bar,body.tema-claro [class*="topbar"],body.tema-claro .tb,body.tema-claro header{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .tb *,body.tema-claro header *{color:#E5E7EB!important;}
+body.tema-claro .mes-select{background:#FFFFFF!important;color:#111827!important;border-color:#D97706!important;}
+body.tema-claro .mes-select option{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro .total-strip .total-card{background:#FFFFFF!important;border-color:#E2E6ED!important;}
+body.tema-claro .section-title{color:#111827!important;}
+body.tema-claro .section-line{background:#E2E6ED!important;}
+</style>
 </head>
 <body>
 
@@ -158,7 +168,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
   <!-- TOPBAR -->
   <div class="topbar">
     <div>
-      <div class="tb-title">Dashboard Executivo</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="tb-title">Dashboard Executivo</div><span id="mes-vigente-badge" style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:rgba(245,184,0,.15);color:var(--gold);display:none"></span></div>
       <div class="tb-sub" id="tb-sub">Carregando...</div>
     </div>
     <div class="tb-right">
@@ -168,11 +178,7 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
       <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
         <i class="ti ti-refresh" style="font-size:12px"></i> Atualizar
       </button>
-      <button class="refresh-btn" onclick="openConfig()" title="Configurar Apps Script" style="background:transparent;border:1px solid var(--border);gap:5px;">
-        <div class="conn-dot" id="conn-dot"></div>
-        <span id="conn-label" style="font-size:10px;color:var(--txt-dim)">Configurar</span>
-        <i class="ti ti-settings" style="font-size:12px"></i>
-      </button>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-dim)"><span class="conn-dot on" id="conn-dot"></span><span id="conn-label">Planilha conectada</span></span>
     </div>
   </div>
 
@@ -182,28 +188,12 @@ body{background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
   </div>
 </div>
 
-<!-- CONFIG MODAL -->
-<div id="modal-cfg" class="modal-ov" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <div class="modal-title"><i class="ti ti-link" style="color:var(--gold);margin-right:8px"></i>Configurar Conexão</div>
-    <div class="fg">
-      <label>URL do Apps Script (Relatório de Fretes)</label>
-      <input class="fi" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
-      <p class="help">Mesma URL usada no Relatório de Fretes.</p>
-    </div>
-    <div class="mf">
-      <button class="btn-g" onclick="document.getElementById('modal-cfg').classList.remove('open')">Cancelar</button>
-      <button class="btn-p" onclick="saveConfig()">Salvar</button>
-    </div>
-  </div>
-</div>
 
 <script>
 /* ════════════════════════════════════
    STATE
 ════════════════════════════════════ */
-var WEBAPP_URL = localStorage.getItem('barretos_relatorio_url')
-  || localStorage.getItem('relatorio_webapp_url') || '';
+var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx0b9geJN-50h8vQPMyAw5rAD5h4ghOFJrngeCgs29t3sqpaCGGC_b2ih99eYYnZdSDfg/exec';
 console.log('[Dashboard] WEBAPP_URL at load:', WEBAPP_URL || '(VAZIO)');
 let rawData = [];
 let filtered = [];
@@ -231,49 +221,25 @@ function isGestor(){ return getPerfil()==='gestor'; }
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!isGestor()) document.body.classList.add('hide-margem');
-  if (WEBAPP_URL) {
-    setConn(true);
-    loadData();
-  } else {
-    setConn(false);
-    document.getElementById('content').innerHTML =
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
-      +'height:60vh;gap:14px;font-family:DM Sans,sans-serif;">'
-      +'<i class="ti ti-plug-off" style="font-size:48px;color:#EF4444"></i>'
-      +'<b style="font-size:16px;color:#E8EAF0">Dashboard sem URL configurada</b>'
-      +'<span style="font-size:12px;color:#6B7280;text-align:center">'
-      +'Vá em <b style="color:#F5B800">Conexões → Relatório de Vendedor</b><br>'
-      +'e cole a URL do Apps Script de Relatórios</span></div>';
-  }
+  setConn(true);
+  loadData();
 });
 
 /* ════════════════════════════════════
    CONFIG
 ════════════════════════════════════ */
-function openConfig() {
-  document.getElementById('cfg-url').value = WEBAPP_URL;
-  document.getElementById('modal-cfg').classList.add('open');
-}
-function saveConfig() {
-  const u = document.getElementById('cfg-url').value.trim();
-  if (!u) return alert('Informe a URL');
-  WEBAPP_URL = u;
-  localStorage.setItem('barretos_relatorio_url', u);
-  localStorage.setItem('relatorio_webapp_url', u);
-  document.getElementById('modal-cfg').classList.remove('open');
-  setConn(true);
-  loadData();
-}
 function setConn(on) {
-  document.getElementById('conn-dot').className = 'conn-dot' + (on ? ' on' : '');
-  document.getElementById('conn-label').textContent = on ? 'Planilha conectada' : 'Clique para configurar';
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-label');
+  if (dot) dot.className = 'conn-dot' + (on ? ' on' : '');
+  if (lbl) lbl.textContent = on ? 'Planilha conectada' : 'Sem conexão';
 }
 
 /* ════════════════════════════════════
    DATA
 ════════════════════════════════════ */
 async function loadData() {
-  if (!WEBAPP_URL) { openConfig(); return; }
+  if (!WEBAPP_URL) return;
   const btn = document.getElementById('refresh-btn');
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
@@ -295,7 +261,7 @@ async function loadData() {
         +'<b>URL incorreta para o Dashboard</b>'
         +'<span style="font-size:11px;color:#EF4444;word-break:break-all">URL atual: '+WEBAPP_URL+'</span>'
         +'<span style="font-size:12px;color:var(--txt-dim)">Configure em <b style="color:var(--gold)">Conexões → Relatório de Vendedor</b></span>'
-        +'<button onclick="openConfig()" style="background:var(--gold);color:#111;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer">Configurar URL</button>'
+        
         +'</div>';
     }
   } catch(e) {
@@ -306,14 +272,45 @@ async function loadData() {
   btn.disabled = false;
 }
 
+// Ordem canônica dos meses para sort correto
+const MESES_ORD = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function mesSortIdx(m){ return MESES_ORD.indexOf(String(m||'').toLowerCase()); }
+
+function getMesVigente() {
+  // Último mês com dados (ordem cronológica)
+  const meses = [...new Set(rawData.map(r => r['Mes']||'').filter(Boolean))];
+  meses.sort((a,b) => mesSortIdx(a) - mesSortIdx(b));
+  return meses.length ? meses[meses.length - 1] : '';
+}
+
+function getMesAnterior(mes) {
+  const idx = mesSortIdx(mes);
+  if (idx <= 0) return '';
+  const alvo = MESES_ORD[idx - 1];
+  const exists = rawData.some(r => (r['Mes']||'').toLowerCase() === alvo);
+  return exists ? alvo : '';
+}
+
 function populateMes() {
-  const meses = [...new Set(rawData.map(r => r['Mes'] || '').filter(Boolean))].sort();
+  const meses = [...new Set(rawData.map(r => r['Mes'] || '').filter(Boolean))];
+  meses.sort((a,b) => mesSortIdx(a) - mesSortIdx(b));
   const sel = document.getElementById('f-mes');
   const cur = sel.value;
   sel.innerHTML = '<option value="">Todos os meses</option>' +
-    meses.map(m => `<option${m===cur?' selected':''}>${m}</option>`).join('');
-  // Auto-select last month
+    meses.map(m => `<option value="${m}"${m===cur?' selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('');
+  // Auto-select mes vigente (último com dados)
   if (!cur && meses.length) sel.value = meses[meses.length - 1];
+  // Show mes vigente badge
+  const vigente = getMesVigente();
+  const badge = document.getElementById('mes-vigente-badge');
+  if (badge && vigente) {
+    badge.textContent = vigente.charAt(0).toUpperCase() + vigente.slice(1) + ' · vigente';
+    badge.style.display = '';
+    // Highlight badge if selected month === vigente
+    const selVal = sel.value;
+    badge.style.background = (!selVal || selVal === vigente) ? 'rgba(245,184,0,.15)' : 'rgba(99,99,99,.15)';
+    badge.style.color = (!selVal || selVal === vigente) ? 'var(--gold)' : 'var(--txt-dim)';
+  }
 }
 
 function applyFilter() {
@@ -322,11 +319,30 @@ function applyFilter() {
     ? rawData.filter(function(r){ return _allowed.indexOf(String(r['Origem']||'').trim()) !== -1; })
     : rawData;
   const mes = document.getElementById('f-mes').value;
-  filtered = mes ? _source.filter(r => (r['Mes'] || '') === mes) : _source;
-  const mesLabel = mes || 'todos os meses';
-  document.getElementById('tb-sub').textContent =
-    filtered.length + ' fretes · ' + mesLabel;
-  renderDashboard(filtered);
+  filtered = mes ? _source.filter(r => (r['Mes']||'').toLowerCase() === mes.toLowerCase()) : _source;
+  const mesLabel = mes ? (mes.charAt(0).toUpperCase()+mes.slice(1)) : 'todos os meses';
+  document.getElementById('tb-sub').textContent = filtered.length + ' fretes · ' + mesLabel;
+
+  // Update badge highlight
+  const vigente = getMesVigente();
+  const badge = document.getElementById('mes-vigente-badge');
+  if (badge) {
+    badge.style.background = (!mes || mes === vigente) ? 'rgba(245,184,0,.15)' : 'rgba(99,99,99,.15)';
+    badge.style.color = (!mes || mes === vigente) ? 'var(--gold)' : 'var(--txt-dim)';
+  }
+
+  // Get previous month data for comparison (only when a specific month is selected)
+  let prevData = [], prev2Data = [];
+  if (mes) {
+    const mesPrev = getMesAnterior(mes);
+    if (mesPrev) {
+      prevData = _source.filter(r => (r['Mes']||'').toLowerCase() === mesPrev.toLowerCase());
+      const mesPrev2 = getMesAnterior(mesPrev);
+      if (mesPrev2) prev2Data = _source.filter(r => (r['Mes']||'').toLowerCase() === mesPrev2.toLowerCase());
+    }
+  }
+
+  renderDashboard(filtered, prevData, prev2Data, mes);
 }
 
 /* ════════════════════════════════════
@@ -357,76 +373,323 @@ function empresaCfg(nome) {
 /* ════════════════════════════════════
    RENDER
 ════════════════════════════════════ */
-function renderDashboard(rows) {
-  // Aggregate totals
+function aggData(rows) {
+  const byEmp = {};
+  rows.forEach(r => {
+    // Normalize key: uppercase + remove apostrophes/accents for consistent lookup
+    const emp = String(r['Origem'] || 'INFRA').trim().toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/'/g,'').replace(/'/g,'');
+    if (!byEmp[emp]) byEmp[emp] = { fat:0, custo:0, icms:0, qtd:0, label: String(r['Origem']||'').trim() };
+    byEmp[emp].fat   += parseBRL(r['Frete Cobrado']);
+    byEmp[emp].custo += parseBRL(r['Custo Operacional']);
+    byEmp[emp].icms  += parseBRL(r['ICMS']);
+    byEmp[emp].qtd++;
+  });
   const totFat  = rows.reduce((s,r) => s + parseBRL(r['Frete Cobrado']), 0);
   const totCust = rows.reduce((s,r) => s + parseBRL(r['Custo Operacional']), 0);
   const totIcms = rows.reduce((s,r) => s + parseBRL(r['ICMS']), 0);
   const totMarg = totFat - totCust - totIcms;
-  const totQtd  = rows.length;
+  return { byEmp, totFat, totCust, totIcms, totMarg, totQtd: rows.length };
+}
 
-  // Aggregate by company
-  const byEmp = {};
-  rows.forEach(r => {
-    const emp = String(r['Origem'] || 'INFRA').trim();
-    if (!byEmp[emp]) byEmp[emp] = { fat:0, custo:0, icms:0, qtd:0 };
-    byEmp[emp].fat  += parseBRL(r['Frete Cobrado']);
-    byEmp[emp].custo+= parseBRL(r['Custo Operacional']);
-    byEmp[emp].icms += parseBRL(r['ICMS']);
-    byEmp[emp].qtd++;
-  });
+function deltaHtml(cur, prev, pct) {
+  if (!prev) return '';
+  const diff = pct ? ((cur - prev) / Math.abs(prev || 1) * 100) : (cur - prev);
+  const up = diff >= 0;
+  const label = pct
+    ? (up?'+':'')+diff.toFixed(1)+'%'
+    : (up?'+':'')+diff.toFixed(1)+'pp';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px;margin-left:6px;background:${up?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};color:${up?'var(--green)':'var(--red)'}"><i class="ti ti-arrow-${up?'up':'down'}" style="font-size:9px"></i>${label}</span>`;
+}
 
-  const empresas = Object.entries(byEmp)
-    .sort((a,b) => b[1].fat - a[1].fat);
+function renderDashboard(rows, prevRows, prev2Rows, mes) {
+  const cur  = aggData(rows);
+  const prev  = prevRows  && prevRows.length  ? aggData(prevRows)  : null;
+  const prev2 = prev2Rows && prev2Rows.length ? aggData(prev2Rows) : null;
+  const hasPrev = !!prev;
+  const mesLabel = mes ? (mes.charAt(0).toUpperCase()+mes.slice(1)) : 'período';
+  const prevMes   = hasPrev ? getMesAnterior(mes) : '';
+  const prevLabel = prevMes ? (prevMes.charAt(0).toUpperCase()+prevMes.slice(1)) : '';
+  const prev2Mes  = prevMes ? getMesAnterior(prevMes) : '';
+  const prev2Label= prev2Mes ? (prev2Mes.charAt(0).toUpperCase()+prev2Mes.slice(1)) : '';
 
-  const margPct = totFat ? (totMarg/totFat*100).toFixed(1) : '0.0';
+  const margPct = cur.totFat ? (cur.totMarg/cur.totFat*100) : 0;
+  const prevMargPct = (hasPrev && prev.totFat) ? (prev.totMarg/prev.totFat*100) : 0;
+
+  // Union of all empresa keys across cur, prev, prev2 so no company is missing
+  var allEmpKeys = Object.keys(cur.byEmp);
+  if (prev)  Object.keys(prev.byEmp).forEach(function(k){ if (allEmpKeys.indexOf(k)<0) allEmpKeys.push(k); });
+  if (prev2) Object.keys(prev2.byEmp).forEach(function(k){ if (allEmpKeys.indexOf(k)<0) allEmpKeys.push(k); });
+  const empresas = allEmpKeys
+    .map(function(k){ return [k, cur.byEmp[k] || {fat:0,custo:0,icms:0,qtd:0}]; })
+    .sort(function(a,b){ return b[1].fat - a[1].fat; });
 
   document.getElementById('content').innerHTML = `
-    <!-- TOTAIS -->
+    <!-- KPIs -->
     <div class="total-strip">
       <div class="total-card">
         <div class="tc-lbl">Faturamento Total</div>
-        <div class="tc-val gold">${fmtK(totFat)}</div>
-        <div class="tc-delta">${totQtd} frete${totQtd!==1?'s':''} no período</div>
+        <div class="tc-val gold">${fmtK(cur.totFat)}${hasPrev ? deltaHtml(cur.totFat, prev.totFat, true) : ''}</div>
+        <div class="tc-delta">${cur.totQtd} frete${cur.totQtd!==1?'s':''} no período${hasPrev?' · '+prev.totQtd+' em '+prevLabel:''}</div>
       </div>
       <div class="total-card green tc-margem">
         <div class="tc-lbl">Margem Líquida</div>
-        <div class="tc-val green">${fmtK(totMarg)}</div>
-        <div class="tc-delta">${margPct}% sobre faturamento</div>
+        <div class="tc-val green">${fmtK(cur.totMarg)}${hasPrev ? deltaHtml(cur.totMarg, prev.totMarg, true) : ''}</div>
+        <div class="tc-delta">${margPct.toFixed(1)}% sobre faturamento${hasPrev ? deltaHtml(margPct, prevMargPct, false) : ''}</div>
       </div>
       <div class="total-card blue">
         <div class="tc-lbl">Custo Operacional</div>
-        <div class="tc-val" style="color:var(--blue)">${fmtK(totCust)}</div>
-        <div class="tc-delta">${totFat?((totCust/totFat)*100).toFixed(1):0}% do faturamento</div>
+        <div class="tc-val" style="color:var(--blue)">${fmtK(cur.totCust)}${hasPrev ? deltaHtml(cur.totCust, prev.totCust, true) : ''}</div>
+        <div class="tc-delta">${cur.totFat?((cur.totCust/cur.totFat)*100).toFixed(1):0}% do faturamento</div>
       </div>
       <div class="total-card purple">
         <div class="tc-lbl">ICMS</div>
-        <div class="tc-val" style="color:var(--purple)">${fmtK(totIcms)}</div>
+        <div class="tc-val" style="color:var(--purple)">${fmtK(cur.totIcms)}</div>
         <div class="tc-delta">12% aplicado</div>
       </div>
     </div>
 
-    <!-- EMPRESAS -->
+    ${hasPrev ? `
+    <!-- COMPARATIVO: BARRAS + MARGEM LADO A LADO -->
     <div>
-      <div class="section-hd"><span class="section-title">Por Empresa</span><div class="section-line"></div></div>
-      <div style="margin-top:12px" id="emp-grid">
-        ${empresas.length ? renderEmpresas(empresas, totFat) :
-          '<div class="empty-msg">Nenhum dado disponível para o período</div>'}
+      <div class="section-hd">
+        <span class="section-title">
+          <i class="ti ti-arrows-diff" style="font-size:13px;margin-right:6px;vertical-align:-1px"></i>
+          ${mesLabel} vs ${prevLabel}
+        </span>
+        <div class="section-line"></div>
       </div>
-    </div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${renderComparativo(empresas, cur, prev, prevLabel)}
+        ${renderMargemTrimestre(empresas, cur, prev, prev2, prevLabel, prev2Label, mesLabel)}
+      </div>
+    </div>` : ''}
 
-    <!-- FROTA -->
-    <div>
-      <div class="section-hd"><span class="section-title">Controle de Frota</span><div class="section-line"></div></div>
-      <div style="margin-top:12px">
-        <div class="frota-connect" onclick="window.open('frota.html','_blank')">
-          <i class="ti ti-truck" style="font-size:18px"></i>
-          <span>Abrir Controle de Frota</span>
-          <i class="ti ti-external-link" style="font-size:13px"></i>
-        </div>
-      </div>
-    </div>
+    <!-- INSIGHTS -->
+    ${renderInsights(cur, prev, prev2, empresas, mesLabel, prevLabel, prev2Label)}
   `;
+}
+
+
+function renderInsights(cur, prev, prev2, empresas, mesLabel, prevLabel, prev2Label) {
+  var insights = [];
+  var hasPrev  = !!prev;
+  var has2     = !!prev2;
+
+  // ── 1. Melhor empresa em margem %
+  var best = null, bestMarg = -Infinity;
+  empresas.forEach(function(e) {
+    var m = e[1];
+    var mg = m.fat ? ((m.fat - m.custo - m.icms) / m.fat * 100) : 0;
+    if (mg > bestMarg) { bestMarg = mg; best = e[0]; }
+  });
+  if (best) {
+    insights.push({
+      icon:'ti-award', type:'ok',
+      title: best + ' lidera com ' + bestMarg.toFixed(1) + '% de margem',
+      desc:  'Melhor resultado entre as empresas em ' + mesLabel + '.'
+    });
+  }
+
+  // ── 2. Empresa com margem em queda (vs mês anterior)
+  if (hasPrev) {
+    var piorNome = null, piorQueda = 0;
+    empresas.forEach(function(e) {
+      var nome = e[0]; var m = e[1];
+      var prevM = prev.byEmp[nome] || {fat:0,custo:0,icms:0};
+      var curMg  = m.fat     ? ((m.fat     - m.custo     - m.icms)     / m.fat     * 100) : 0;
+      var prevMg = prevM.fat ? ((prevM.fat - prevM.custo - prevM.icms) / prevM.fat * 100) : 0;
+      var queda  = prevMg - curMg;
+      if (queda > piorQueda) { piorQueda = queda; piorNome = nome; }
+    });
+    if (piorNome && piorQueda > 1) {
+      insights.push({
+        icon:'ti-trending-down', type:'warn',
+        title: piorNome + ' perdeu ' + piorQueda.toFixed(1) + 'pp de margem',
+        desc:  'Queda vs ' + prevLabel + '. Avaliar custo operacional.'
+      });
+    }
+  }
+
+  // ── 3. Faturamento total vs mês anterior
+  if (hasPrev && prev.totFat) {
+    var fatDiff = ((cur.totFat - prev.totFat) / prev.totFat * 100);
+    var fatUp   = fatDiff >= 0;
+    insights.push({
+      icon: fatUp ? 'ti-trending-up' : 'ti-trending-down',
+      type: fatUp ? 'ok' : 'warn',
+      title: 'Faturamento ' + (fatUp?'+':'') + fatDiff.toFixed(1) + '% vs ' + prevLabel,
+      desc:  fmtK(cur.totFat) + ' em ' + mesLabel + ' · ' + cur.totQtd + ' fretes (vs ' + prev.totQtd + ' em ' + prevLabel + ')'
+    });
+  }
+
+  // ── 4. Margem geral do período
+  var margGeral = cur.totFat ? (cur.totMarg / cur.totFat * 100) : 0;
+  var margWarn  = margGeral < 25;
+  if (hasPrev && prev.totFat) {
+    var margPrev = (prev.totMarg / prev.totFat * 100);
+    var margPP   = margGeral - margPrev;
+    var margUp   = margPP >= 0;
+    insights.push({
+      icon: margUp ? 'ti-chart-line' : 'ti-chart-line',
+      type: margWarn ? 'warn' : (margUp ? 'ok' : 'neutral'),
+      title: 'Margem geral: ' + margGeral.toFixed(1) + '% (' + (margUp?'+':'') + margPP.toFixed(1) + 'pp)',
+      desc:  has2 && prev2.totFat
+        ? 'Tendência no trimestre: ' + (prev2.totFat?(prev2.totMarg/prev2.totFat*100).toFixed(1):'—') + '% → ' + margPrev.toFixed(1) + '% → ' + margGeral.toFixed(1) + '%'
+        : 'vs ' + margPrev.toFixed(1) + '% em ' + prevLabel
+    });
+  }
+
+  // ── 5. Empresa com maior crescimento de faturamento
+  if (hasPrev) {
+    var topNome = null, topGrowth = -Infinity;
+    empresas.forEach(function(e) {
+      var nome = e[0]; var m = e[1];
+      var prevM = prev.byEmp[nome] || {fat:0};
+      if (!prevM.fat) return;
+      var growth = (m.fat - prevM.fat) / prevM.fat * 100;
+      if (growth > topGrowth) { topGrowth = growth; topNome = nome; }
+    });
+    if (topNome && topGrowth > 5) {
+      insights.push({
+        icon:'ti-rocket', type:'ok',
+        title: topNome + ' cresceu ' + topGrowth.toFixed(1) + '% vs ' + prevLabel,
+        desc:  'Maior crescimento de faturamento entre as empresas no mês.'
+      });
+    }
+  }
+
+  if (!insights.length) return '';
+
+  var COLORS = {
+    ok:      { bg:'rgba(34,197,94,.10)',  color:'var(--green)',  icon_bg:'rgba(34,197,94,.18)'  },
+    warn:    { bg:'rgba(249,115,22,.10)', color:'var(--orange)', icon_bg:'rgba(249,115,22,.18)' },
+    neutral: { bg:'rgba(99,102,241,.10)', color:'var(--blue)',   icon_bg:'rgba(99,102,241,.18)' }
+  };
+
+  var html = '';
+  html += '<div class="section-hd" style="margin-bottom:12px">';
+  html += '<span class="section-title"><i class="ti ti-sparkles" style="font-size:13px;margin-right:6px;vertical-align:-1px"></i>Insights do período</span>';
+  html += '<div class="section-line"></div></div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">';
+
+  insights.forEach(function(ins) {
+    var col = COLORS[ins.type] || COLORS.neutral;
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start">';
+    html += '<div style="width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:' + col.icon_bg + '">';
+    html += '<i class="ti ' + ins.icon + '" style="font-size:15px;color:' + col.color + '"></i></div>';
+    html += '<div><div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:2px;line-height:1.3">' + ins.title + '</div>';
+    html += '<div style="font-size:10px;color:var(--txt-dim);line-height:1.5">' + ins.desc + '</div></div>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function renderComparativo(empresas, cur, prev, prevLabel) {
+  // bars: fev (gray) vs mar (color) per empresa
+  const maxFat = Math.max(
+    ...empresas.map(([n]) => Math.max(cur.byEmp[n]?.fat||0, prev.byEmp[n]?.fat||0))
+  ) || 1;
+
+  return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-dim)">
+        <span style="width:10px;height:10px;border-radius:2px;background:var(--border);display:inline-block"></span>${prevLabel} (mês anterior)
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-dim)">
+        <span style="width:10px;height:10px;border-radius:2px;background:var(--gold);display:inline-block"></span>Mês atual
+      </span>
+    </div>
+    ${empresas.map(([nome, m]) => {
+      const cfg = empresaCfg(nome);
+      const prevM = prev.byEmp[nome] || prev.byEmp[nome.replace(/'/g,'').replace(/'/g,'')] || { fat:0 };
+      const wCur  = (m.fat / maxFat * 100).toFixed(1);
+      const wPrev = (prevM.fat / maxFat * 100).toFixed(1);
+      const diff  = prevM.fat ? ((m.fat - prevM.fat)/prevM.fat*100) : null;
+      const up    = diff !== null && diff >= 0;
+      return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:600;color:${cfg.color}">${nome}</span>
+          ${diff !== null ? `<span style="font-size:11px;font-weight:600;color:${up?'var(--green)':'var(--red)'}">${up?'+':''}${diff.toFixed(1)}%</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;color:var(--txt-dim);width:28px;flex-shrink:0">${prevLabel.slice(0,3)}</span>
+            <div style="flex:1;height:8px;background:var(--border-light);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${wPrev}%;background:var(--border);border-radius:3px"></div>
+            </div>
+            <span style="font-size:10px;color:var(--txt-dim);width:54px;text-align:right">${fmtK(prevM.fat)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;color:var(--txt-dim);width:28px;flex-shrink:0">Atual</span>
+            <div style="flex:1;height:8px;background:var(--border-light);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${wCur}%;background:${cfg.color};border-radius:3px"></div>
+            </div>
+            <span style="font-size:10px;color:var(--txt-dim);width:54px;text-align:right">${fmtK(m.fat)}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderMargemTrimestre(empresas, cur, prev, prev2, prevLabel, prev2Label, mesLabel) {
+  var has2 = !!(prev2 && prev2Label);
+  var TH = 'text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);padding:0 8px 10px;border-bottom:1px solid var(--border)';
+  var html = '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px">';
+  html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
+  html += '<th style="text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);padding:0 8px 10px 0;border-bottom:1px solid var(--border)">Empresa</th>';
+  if (has2) html += '<th style="' + TH + '">' + prev2Label + '</th>';
+  html += '<th style="' + TH + '">' + prevLabel + '</th>';
+  html += '<th style="' + TH + '">' + mesLabel + '</th>';
+  html += '<th style="text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);padding:0 0 10px 8px;border-bottom:1px solid var(--border)">Tend&ecirc;ncia</th>';
+  html += '</tr></thead><tbody>';
+
+  empresas.forEach(function(entry) {
+    var nome  = entry[0];
+    var m     = entry[1];
+    var cfg   = empresaCfg(nome);
+    var prevM  = (prev  && prev.byEmp[nome])  || { fat:0, custo:0, icms:0 };
+    var prev2M = (prev2 && prev2.byEmp[nome]) || { fat:0, custo:0, icms:0 };
+    var curMarg   = m.fat      ? ((m.fat      - m.custo      - m.icms)      / m.fat      * 100) : 0;
+    var prevMarg  = prevM.fat  ? ((prevM.fat  - prevM.custo  - prevM.icms)  / prevM.fat  * 100) : 0;
+    var prev2Marg = prev2M.fat ? ((prev2M.fat - prev2M.custo - prev2M.icms) / prev2M.fat * 100) : 0;
+    var pp   = curMarg - prevMarg;
+    var up   = pp >= 0;
+    var warn = curMarg < 15;
+    var TD   = 'padding:10px 8px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;color:var(--txt-dim)';
+    var trendBg  = up ? 'rgba(34,197,94,.12)'  : 'rgba(239,68,68,.12)';
+    var trendCol = up ? 'var(--green)' : 'var(--red)';
+    var icon     = 'ti-trending-' + (up ? 'up' : 'down');
+    var ppStr    = (up ? '+' : '') + pp.toFixed(1) + 'pp';
+
+    html += '<tr>';
+    html += '<td style="padding:10px 8px 10px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:' + cfg.color + '">';
+    html += '<span style="width:8px;height:8px;border-radius:50%;background:' + cfg.color + ';display:inline-block;margin-right:7px;vertical-align:middle"></span>' + nome;
+    html += '</td>';
+    if (has2) html += '<td style="' + TD + '">' + (prev2M.fat ? prev2Marg.toFixed(1) + '%' : '&mdash;') + '</td>';
+    html += '<td style="' + TD + '">' + (prevM.fat ? prevMarg.toFixed(1) + '%' : '&mdash;') + '</td>';
+    html += '<td style="padding:10px 0 10px 8px;border-bottom:1px solid var(--border);text-align:center;font-size:13px;font-weight:600;color:' + (warn ? 'var(--orange)' : 'var(--txt)') + '">' + curMarg.toFixed(1) + '%</td>';
+    html += '<td style="padding:10px 0 10px 8px;border-bottom:1px solid var(--border);text-align:right">';
+    html += '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;background:' + trendBg + ';color:' + trendCol + '">';
+    html += '<i class="ti ' + icon + '" style="font-size:11px"></i>' + ppStr;
+    html += '</span></td></tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">';
+  html += '<div style="display:flex;justify-content:space-between;font-size:11px">';
+  html += '<span style="color:var(--txt-dim)">M&eacute;dia geral</span>';
+  var media = '';
+  if (has2 && prev2.totFat) media += ((prev2.totMarg/prev2.totFat)*100).toFixed(1) + '% &rarr; ';
+  media += (prev.totFat ? ((prev.totMarg/prev.totFat)*100).toFixed(1) : '0.0') + '% &rarr; ';
+  media += (cur.totFat  ? ((cur.totMarg/cur.totFat)*100).toFixed(1)  : '0.0') + '%';
+  html += '<span style="font-weight:600;color:var(--txt)">' + media + '</span>';
+  html += '</div></div></div>';
+  return html;
 }
 
 function renderEmpresas(empresas, totFat) {
@@ -467,7 +730,29 @@ function renderEmpresas(empresas, totFat) {
         </div>`;
     }).join('') + `</div>`;
 }
+
 </script>
 
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
+</script>
 </body>
 </html>
