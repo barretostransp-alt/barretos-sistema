@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despesas - Grupo Barreto's</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <style>
+        :root {
+            --gold:#F5B800; --gold-dim:rgba(245,184,0,.12); --gold-border:rgba(245,184,0,.3);
+            --bg:#0E0F12; --surface:#161820; --surface2:#1D1F27; --surface3:#252731;
+            --border:#2A2D38; --border2:#353848;
+            --txt:#E4E6F0; --txt-dim:#7B7F96; --txt-muted:#4A4E63;
+            --red:#E24B4A; --red-dim:rgba(226,75,74,.12); --red-border:rgba(226,75,74,.3);
+            --green:#2EBD85; --green-dim:rgba(46,189,133,.1); --green-border:rgba(46,189,133,.3);
+            --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --orange:#F5832A;
+            --radius:8px; --radius-lg:12px;
+        }
+        html { font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        *{ box-sizing:border-box;margin:0;padding:0 }
+        body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;font-family:'Barlow',sans-serif}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+        
+        .topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+            display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0}
+        .topbar-title{font-size:15px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px}
+        .topbar-title i{color:var(--gold);font-size:18px}
+        .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        
+        select{padding:7px 12px;border:1px solid var(--border);border-radius:7px;font-size:12px;
+            background:var(--surface2);color:var(--txt);cursor:pointer;transition:all .15s;font-family:inherit;font-weight:500}
+        select:hover{border-color:var(--gold);color:var(--gold)}
+        
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;
+            font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+        .btn-primary{background:var(--gold);color:#111}
+        .btn-primary:hover{opacity:.88}
+        .btn-ghost{background:none;border:1px solid var(--border);color:var(--txt-dim)}
+        .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+        
+        .content{flex:1;overflow-y:auto;padding:20px 24px}
+        .page-title{font-size:18px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px;margin-bottom:20px}
+        .page-title i{color:var(--gold);font-size:20px}
+        
+        .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+        .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+            padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+        .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold)}
+        .kpi-card.green::before{background:var(--green)}
+        .kpi-val{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
+        .kpi-lbl{font-size:11px;color:var(--txt-dim);font-weight:500;text-transform:uppercase;letter-spacing:.1em}
+        
+        .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px}
+        .panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+        .panel-title{font-size:13px;font-weight:700;color:var(--txt);flex:1}
+        .panel-body{padding:16px}
+        
+        .chart-wrapper{height:260px;position:relative}
+        
+        .tbl{width:100%;border-collapse:collapse;font-size:12px}
+        .tbl th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;
+            text-transform:uppercase;color:var(--txt-dim);border-bottom:2px solid var(--border);
+            white-space:nowrap;background:var(--surface2)}
+        .tbl td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+        .tbl tr:last-child td{border-bottom:none}
+        .tbl tr:hover td{background:rgba(255,255,255,.02)}
+        .tbl-empty{text-align:center;padding:32px;color:var(--txt-dim);font-size:13px}
+        
+        .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600}
+        .badge-green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+        .badge-orange{background:rgba(245,131,42,.12);color:var(--orange);border:1px solid rgba(245,131,42,.3)}
+        .badge-red{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+        
+        .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);
+            align-items:center;justify-content:center;z-index:1000}
+        .modal.active{display:flex}
+        .modal-content{background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+            padding:24px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto}
+        .modal-header{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--txt)}
+        .form-group{margin-bottom:16px}
+        .form-group label{display:block;font-size:11px;font-weight:600;color:var(--txt-dim);
+            text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;
+            border:1px solid var(--border);border-radius:7px;background:var(--surface3);color:var(--txt);
+            font-size:12px;font-family:inherit}
+        .form-group textarea{resize:vertical}
+        .modal-buttons{display:flex;gap:12px;margin-top:24px}
+        .modal-buttons .btn{flex:1}
+        
+        .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+        
+        .timestamp{font-size:10px;color:var(--txt-muted);margin-top:20px;text-align:right;display:block}
+        
+        body.tema-claro{
+            --gold:#D97706; --gold-dim:rgba(217,119,6,.12); --gold-border:rgba(217,119,6,.3);
+            --bg:#F0F2F5; --surface:#FFFFFF; --surface2:#F9FAFB; --surface3:#F3F4F6;
+            --border:#E2E6ED; --border2:#D1D5DB;
+            --txt:#111827; --txt-dim:#6B7280; --txt-muted:#9CA3AF;
+            --red:#DC2626; --red-dim:rgba(220,38,38,.12); --red-border:rgba(220,38,38,.3);
+            --green:#059669; --green-dim:rgba(5,150,105,.1); --green-border:rgba(5,150,105,.3);
+            --blue:#2563EB; --blue-dim:rgba(37,99,235,.1); --orange:#EA580C;
+        }
+    </style>
+</head>
+<body>
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="topbar-title">
+            <i class="fas fa-wallet"></i>
+            Despesas Administrativas
+        </div>
+        <div class="topbar-right">
+            <div class="filter-row" style="margin:0;flex:1;max-width:400px">
+                <select id="f-mes" onchange="applyFilters()" style="flex:1">
+                    <option value="">Mês</option>
+                </select>
+                <select id="f-categoria" onchange="applyFilters()" style="flex:1">
+                    <option value="">Categoria</option>
+                </select>
+                <select id="f-cnpj" onchange="applyFilters()" style="flex:1">
+                    <option value="">CNPJ</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="openModal()"><i class="fas fa-plus"></i> Adicionar</button>
+            <button class="btn btn-ghost" onclick="exportPDF()"><i class="fas fa-file-pdf"></i></button>
+            <button class="btn btn-ghost" onclick="exportExcel()"><i class="fas fa-file-excel"></i></button>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+        <div class="page-title">
+            <i class="fas fa-chart-bar"></i>
+            Controle de Despesas
+        </div>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid">
+            <div class="kpi-card green">
+                <div class="kpi-lbl">Total Gasto</div>
+                <div class="kpi-val" id="kpi-total">R$ 0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-lbl">Qtd Registros</div>
+                <div class="kpi-val" id="kpi-qtd">0</div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:20px">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Despesas por Categoria</div>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrapper">
+                        <canvas id="chartCategoria"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Despesas por CNPJ</div>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrapper">
+                        <canvas id="chartCNPJ"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Registros de Despesas</div>
+            </div>
+            <div class="panel-body">
+                <table class="tbl">
+                    <colgroup>
+                        <col style="width:10%">
+                        <col style="width:13%">
+                        <col style="width:27%">
+                        <col style="width:12%">
+                        <col style="width:14%">
+                        <col style="width:14%">
+                        <col style="width:10%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Categoria</th>
+                            <th>Descrição</th>
+                            <th style="text-align:center">CNPJ</th>
+                            <th style="text-align:center">Tipo de Pagamento</th>
+                            <th style="text-align:right">Valor</th>
+                            <th style="text-align:center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-despesas">
+                        <tr><td colspan="7" class="tbl-empty">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <span class="timestamp" id="ts-despesas"></span>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal" id="modal-despesa">
+        <div class="modal-content">
+            <div class="modal-header">Adicionar Despesa</div>
+            <form id="form-despesa">
+                <div class="form-group">
+                    <label>Data *</label>
+                    <input type="date" id="inp-data" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria *</label>
+                    <select id="inp-categoria" required>
+                        <option value="">Selecione...</option>
+                        <option value="Aluguel">Aluguel</option>
+                        <option value="Energia">Energia</option>
+                        <option value="RH">RH</option>
+                        <option value="Telefone/Internet">Telefone/Internet</option>
+                        <option value="Manutenção">Manutenção</option>
+                        <option value="Alimentação">Alimentação</option>
+                        <option value="Material de Escritório">Material de Escritório</option>
+                        <option value="Deslocamento">Deslocamento</option>
+                        <option value="Seguros">Seguros</option>
+                        <option value="Impostos">Impostos</option>
+                        <option value="Publicidade">Publicidade</option>
+                        <option value="Água">Água</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descrição *</label>
+                    <input type="text" id="inp-descricao" placeholder="Ex: Aluguel sede" required>
+                </div>
+                <div class="form-group">
+                    <label>CNPJ *</label>
+                    <select id="inp-cnpj" required>
+                        <option value="">Selecione...</option>
+                        <option value="INFRA">INFRA</option>
+                        <option value="BARRETO'S">BARRETO'S</option>
+                        <option value="GONCALVES">GONCALVES</option>
+                        <option value="PINHEIRO">PINHEIRO</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Valor (R$) *</label>
+                    <input type="text" id="inp-valor" placeholder="0,00" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Pagamento *</label>
+                    <select id="inp-pagamento" required>
+                        <option value="">Selecione...</option>
+                        <option value="Crédito">Crédito</option>
+                        <option value="Débito">Débito</option>
+                        <option value="Pix">Pix</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status *</label>
+                    <select id="inp-status" required>
+                        <option value="Pago">Pago</option>
+                        <option value="Pendente">Pendente</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Responsável</label>
+                    <input type="text" id="inp-responsavel" placeholder="Seu nome">
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="inp-notas" rows="3" placeholder="Observações..."></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+        
+        // ============ CONFIGURAÇÃO ============
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDSvPmB2deARH4SlLgQvyc7-s52xUwfZPkebWNY5zHtyUbY3BZYoSK3uA87d8Z4Hs/exec';
+        const charts = {};
+        const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        let allData = [];
+        let filteredData = [];
+        const mesesOrder = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        // ============ API COMMUNICATION ============
+        async function apiPost(payload) {
+            try {
+                console.log('📤 Enviando:', JSON.stringify(payload));
+                const response = await fetch(APPS_SCRIPT_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                
+                if (!response.ok) {
+                    console.error('❌ HTTP Error:', response.status);
+                    return { success: false, error: 'HTTP ' + response.status };
+                }
+                
+                const result = await response.json();
+                console.log('📥 Resposta:', JSON.stringify(result));
+                return result;
+            } catch(e) { 
+                console.error('❌ Erro:', e.message); 
+                return { success: false, error: e.message };
+            }
+        }
+
+        async function apiGet() {
+            try {
+                console.log('📤 GET...');
+                const response = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
+                
+                if (!response.ok) {
+                    console.error('❌ HTTP Error:', response.status);
+                    return { success: false, error: 'HTTP ' + response.status };
+                }
+                
+                const result = await response.json();
+                console.log('📥 Dados carregados:', result.rows.length + ' registros');
+                return result;
+            } catch(e) { 
+                console.error('❌ Erro:', e.message); 
+                return { success: false, error: e.message };
+            }
+        }
+
+        // ============ TEMA ============
+        window.addEventListener('message', function(event) {
+            if (event.source !== window.parent) return;
+            if (event.data.barretos_user) localStorage.setItem('barretos_user', event.data.barretos_user);
+            if (event.data.barretos_nome) localStorage.setItem('barretos_nome', event.data.barretos_nome);
+            if (event.data.barretos_perfil) localStorage.setItem('barretos_perfil', event.data.barretos_perfil);
+            if (event.data.barretos_login) localStorage.setItem('barretos_login', event.data.barretos_login);
+            if (event.data.tipo === 'barretos_tema' || event.data.tema) {
+                const novoTema = event.data.tema || 'escuro';
+                localStorage.setItem('barretos_tema', novoTema);
+                if (novoTema === 'claro') {
+                    document.body.classList.add('tema-claro');
+                } else {
+                    document.body.classList.remove('tema-claro');
+                }
+                setTimeout(() => loadCharts(), 100);
+            }
+        });
+
+        function _getPerfil(){ return localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||''; }
+        function _getNome()  { return localStorage.getItem('barretos_nome')||sessionStorage.getItem('barretos_nome')||''; }
+
+        // ============ UTILIDADES ============
+        function formatCurrency(v) { return fmt.format(v || 0); }
+        
+        function parseValue(v) {
+            if (!v || v === '') return 0;
+            if (typeof v === 'number') return v;
+            let s = String(v).replace(/R\$\s*/g, '').trim();
+            s = s.replace(',', '.');
+            return parseFloat(s) || 0;
+        }
+        
+        function formatDate() { 
+            return new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        }
+        
+        function formatDateDMY(date) {
+            if (typeof date === 'number') {
+                date = new Date(date * 1000);
+            } else if (typeof date === 'string') {
+                if (date.includes('T')) date = new Date(date);
+                else if (date.includes('-') && !date.includes('/')) {
+                    const [y,m,d] = date.split('-');
+                    date = new Date(y, m-1, d);
+                } else if (date.includes('/')) {
+                    return date;
+                }
+            }
+            const d = String(date.getDate()).padStart(2,'0');
+            const m = String(date.getMonth()+1).padStart(2,'0');
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
+
+        // ============ DADOS ============
+        async function loadData() {
+            try {
+                const result = await apiGet();
+                if (result.success && result.rows) {
+                    allData = result.rows;
+                    filteredData = allData;
+                    populateFilters();
+                    loadDashboard();
+                } else {
+                    alert('Erro ao carregar: ' + (result.error || 'Desconhecido'));
+                }
+            } catch (e) { 
+                console.error('Erro loadData:', e); 
+                alert('Erro ao carregar dados: ' + e.message);
+            }
+        }
+
+        function populateFilters() {
+            const meses = [...new Set(allData.map(r => r['Mês'] || '').filter(Boolean))].sort((a, b) => mesesOrder.indexOf(a) - mesesOrder.indexOf(b));
+            const cats = [...new Set(allData.map(r => r['Categoria'] || '').filter(Boolean))].sort();
+            const cnpjs = [...new Set(allData.map(r => r['CNPJ'] || '').filter(Boolean))].sort();
+
+            document.getElementById('f-mes').innerHTML = '<option value="">Mês</option>' + meses.map(m => `<option>${m}</option>`).join('');
+            document.getElementById('f-categoria').innerHTML = '<option value="">Categoria</option>' + cats.map(c => `<option>${c}</option>`).join('');
+            document.getElementById('f-cnpj').innerHTML = '<option value="">CNPJ</option>' + cnpjs.map(c => `<option>${c}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const mes = document.getElementById('f-mes').value;
+            const cat = document.getElementById('f-categoria').value;
+            const cnpj = document.getElementById('f-cnpj').value;
+
+            filteredData = allData.filter(r => {
+                if (mes && r['Mês'] !== mes) return false;
+                if (cat && r['Categoria'] !== cat) return false;
+                if (cnpj && r['CNPJ'] !== cnpj) return false;
+                return true;
+            });
+
+            loadDashboard();
+        }
+
+        function loadDashboard() {
+            const total = filteredData.reduce((s, r) => s + parseValue(r['Valor']), 0);
+
+            document.getElementById('kpi-total').textContent = formatCurrency(total);
+            document.getElementById('kpi-qtd').textContent = filteredData.length;
+
+            loadTable();
+            loadCharts();
+            document.getElementById('ts-despesas').textContent = `Atualizado: ${formatDate()}`;
+        }
+
+        function loadTable() {
+            const tbody = document.getElementById('tbody-despesas');
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="tbl-empty">Nenhum registro encontrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filteredData.map((r, idx) => {
+                const status = r['Status'].toLowerCase();
+                const badge = status === 'pago' ? 'badge-green' : status === 'pendente' ? 'badge-orange' : 'badge-red';
+                
+                return `
+                    <tr style="cursor:pointer" onclick="editarDespesa(${idx})" onmouseover="this.style.backgroundColor='rgba(255,255,255,.08)'" onmouseout="this.style.backgroundColor=''">
+                        <td style="white-space:nowrap">${formatDateDMY(r['Data'])}</td>
+                        <td>${r['Categoria']}</td>
+                        <td style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r['Descrição']}">${r['Descrição']}</td>
+                        <td style="text-align:center">${r['CNPJ']}</td>
+                        <td style="text-align:center">${r['Tipo de Pagamento']}</td>
+                        <td style="text-align:right;color:var(--green);font-weight:600;white-space:nowrap">${formatCurrency(parseValue(r['Valor']))}</td>
+                        <td style="text-align:center"><span class="badge ${badge}">${r['Status']}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function destroyChart(id) {
+            if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+        }
+
+        function loadCharts() {
+            destroyChart('chartCategoria');
+            const catData = {};
+            filteredData.forEach(r => {
+                const c = r['Categoria'] || 'Outro';
+                catData[c] = (catData[c] || 0) + parseValue(r['Valor']);
+            });
+
+            const total = Object.values(catData).reduce((a, b) => a + b, 0);
+            const labels = Object.keys(catData).map(label => {
+                const valor = catData[label];
+                const percentual = total > 0 ? ((valor * 100) / total).toFixed(0) : 0;
+                const count = filteredData.filter(r => (r['Categoria'] || 'Outro') === label).length;
+                return `${label} ${percentual}% (${count})`;
+            });
+            
+            charts.chartCategoria = new Chart(document.getElementById('chartCategoria'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: Object.values(catData),
+                        backgroundColor: ['#2EBD85', '#E24B4A', '#7B7F96', '#F5B800', '#4A8FE8', '#F5832A', '#BB8FCE', '#4ECDC4', '#FF6B6B', '#F7DC6F', '#85C1E2', '#A3D5A3', '#87CEEB'],
+                        borderColor: document.body.classList.contains('tema-claro') ? '#FFFFFF' : '#0E0F12',
+                        borderWidth: 1,
+                        spacing: 2
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: { 
+                        legend: { 
+                            position: 'right',
+                            labels: { 
+                                padding: 20,
+                                font: { size: 13, weight: '500', family: "'Barlow', sans-serif" },
+                                color: document.body.classList.contains('tema-claro') ? '#111827' : '#E4E6F0',
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: document.body.classList.contains('tema-claro') ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)',
+                            titleColor: document.body.classList.contains('tema-claro') ? '#111827' : '#E4E6F0',
+                            bodyColor: document.body.classList.contains('tema-claro') ? '#111827' : '#E4E6F0',
+                            padding: 10,
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 12 }
+                        },
+                        datalabels: { display: false }
+                    }
+                }
+            });
+
+            destroyChart('chartCNPJ');
+            const cnpjData = {};
+            filteredData.forEach(r => {
+                const c = r['CNPJ'] || 'Outro';
+                cnpjData[c] = (cnpjData[c] || 0) + parseValue(r['Valor']);
+            });
+
+            charts.chartCNPJ = new Chart(document.getElementById('chartCNPJ'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(cnpjData),
+                    datasets: [{ data: Object.values(cnpjData), backgroundColor: '#4A8FE8', borderRadius: 4 }]
+                },
+                options: { 
+                    indexAxis: 'y', 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'start',
+                            color: '#fff',
+                            font: { weight: 'bold', size: 12 },
+                            formatter: (value) => formatCurrency(value)
+                        }
+                    },
+                    scales: {
+                        x: { display: false, beginAtZero: true },
+                        y: {
+                            ticks: {
+                                color: document.body.classList.contains('tema-claro') ? '#111827' : '#7B7F96',
+                                font: { size: 12 }
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============ MODAL ============
+        function openModal() {
+            document.getElementById('inp-data').value = new Date().toISOString().split('T')[0];
+            document.getElementById('inp-valor').value = '';
+            document.getElementById('form-despesa').reset();
+            delete document.getElementById('form-despesa').dataset.editId;
+            document.querySelector('.modal-header').textContent = 'Adicionar Despesa';
+            document.querySelector('.btn-primary').textContent = 'Salvar';
+            document.getElementById('modal-despesa').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-despesa').classList.remove('active');
+            document.getElementById('form-despesa').reset();
+            delete document.getElementById('form-despesa').dataset.editId;
+        }
+
+        document.getElementById('form-despesa').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const dataValue = document.getElementById('inp-data').value;
+            const data = {
+                Data: dataValue,
+                Categoria: document.getElementById('inp-categoria').value,
+                Descrição: document.getElementById('inp-descricao').value,
+                CNPJ: document.getElementById('inp-cnpj').value,
+                Valor: parseValue(document.getElementById('inp-valor').value),
+                'Tipo de Pagamento': document.getElementById('inp-pagamento').value,
+                Status: document.getElementById('inp-status').value,
+                Responsável: document.getElementById('inp-responsavel').value,
+                Notas: document.getElementById('inp-notas').value,
+                Mês: new Date(dataValue).toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+            };
+
+            const editId = document.getElementById('form-despesa').dataset.editId;
+            
+            if (editId) {
+                // EDIÇÃO por ID
+                const payload = {
+                    action: 'updateDespesa',
+                    ID: editId,
+                    newData: data
+                };
+                const result = await apiPost(payload);
+                if (result && result.success) {
+                    alert('✅ Despesa atualizada!');
+                    closeModal();
+                    loadData();
+                } else {
+                    alert('❌ Erro: ' + (result?.message || result?.error || 'Desconhecido'));
+                }
+            } else {
+                // NOVO REGISTRO
+                const payload = {
+                    action: 'addDespesa',
+                    data: data
+                };
+                const result = await apiPost(payload);
+                if (result && result.success) {
+                    alert('✅ Despesa salva!');
+                    closeModal();
+                    loadData();
+                } else {
+                    alert('❌ Erro: ' + (result?.message || result?.error || 'Desconhecido'));
+                }
+            }
+        });
+
+        function editarDespesa(idx) {
+            const registro = filteredData[idx];
+            
+            document.getElementById('inp-data').value = registro['Data'];
+            document.getElementById('inp-categoria').value = registro['Categoria'];
+            document.getElementById('inp-descricao').value = registro['Descrição'];
+            document.getElementById('inp-cnpj').value = registro['CNPJ'];
+            document.getElementById('inp-valor').value = registro['Valor'];
+            document.getElementById('inp-pagamento').value = registro['Tipo de Pagamento'];
+            document.getElementById('inp-status').value = registro['Status'];
+            document.getElementById('inp-responsavel').value = registro['Responsável'];
+            document.getElementById('inp-notas').value = registro['Notas'];
+            
+            document.getElementById('form-despesa').dataset.editId = registro['ID'];
+            document.querySelector('.modal-header').textContent = 'Editar Despesa';
+            document.querySelector('.btn-primary').textContent = 'Atualizar';
+            document.getElementById('modal-despesa').classList.add('active');
+        }
+
+        function exportPDF() {
+            html2pdf().set({ margin: 10, filename: 'despesas.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'landscape', format: 'a4' } }).from(document.querySelector('.content')).save();
+        }
+
+        function exportExcel() {
+            const ws_data = [['Data', 'Categoria', 'Descrição', 'CNPJ', 'Tipo de Pagamento', 'Valor', 'Status']];
+            filteredData.forEach(r => ws_data.push([r['Data'], r['Categoria'], r['Descrição'], r['CNPJ'], r['Tipo de Pagamento'], r['Valor'], r['Status']]));
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Despesas');
+            XLSX.writeFile(wb, 'despesas.xlsx');
+        }
+
+        document.getElementById('modal-despesa').addEventListener('click', (e) => { if (e.target.id === 'modal-despesa') closeModal(); });
+
+        // ============ INICIALIZAÇÃO ============
+        window.addEventListener('load', function() {
+            const temaSalvo = localStorage.getItem('barretos_tema') || 'escuro';
+            if (temaSalvo === 'claro') {
+                document.body.classList.add('tema-claro');
+            } else {
+                document.body.classList.remove('tema-claro');
+            }
+            loadData();
+        });
+    </script>
+</body>
+</html>
