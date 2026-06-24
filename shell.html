@@ -724,6 +724,9 @@ function respErr(e) {
       <div class="sb-item" id="nav-calendario" onclick="navigate('calendario')">
         <i class="ti ti-calendar"></i><span>Calendário</span>
       </div>
+      <div class="sb-item" id="nav-despesas" onclick="navigate('despesas')">
+        <i class="ti ti-wallet"></i><span>Despesas</span>
+      </div>
       <div class="sb-section" id="section-rh">RH</div>
       <div class="sb-item" id="nav-diarias" onclick="navigate('diarias')">
         <i class="ti ti-calendar-check"></i><span>Diárias de Motoristas</span>
@@ -782,7 +785,7 @@ function respErr(e) {
       <div class="iframe-loading" id="iframe-loading">
         <div class="spinner-lg"></div><span>Carregando ferramenta…</span>
       </div>
-      <script>function onFrameLoad(){var il=document.getElementById("iframe-loading");if(il)il.style.display="none";setTimeout(function(){broadcastTema(localStorage.getItem('barretos_tema')||'escuro');},300);}</script>
+      <script>function onFrameLoad(){var il=document.getElementById("iframe-loading");if(il)il.style.display="none";setTimeout(function(){if(typeof broadcastTema==='function')broadcastTema(localStorage.getItem('barretos_tema')||'escuro');},300);}</script>
       <iframe id="main-frame" src="" onload="onFrameLoad()"></iframe>
     </div>
   </div>
@@ -910,6 +913,7 @@ var TOOLS = {
   inicio:    { src:"inicio.html",               cat:"",            label:"Início",                icon:"ti-home"             },
   dashboard: { src:"dashbord_home.html",         cat:"Geral",       label:"Dashboard",             icon:"ti-layout-dashboard" },
   calendario:{ src:"calendario.html",            cat:"Geral",       label:"Calendário",            icon:"ti-calendar"         },
+  despesas:  { src:"despesas.html",              cat:"Geral",       label:"Despesas",              icon:"ti-wallet"           },
   diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
@@ -987,7 +991,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
