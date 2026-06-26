@@ -363,6 +363,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
               <th>Faturamento</th>
               <th>Abastecimento</th>
               <th>Pedágio</th>
+              <th>Pessoal</th>
               <th>Manutenção</th>
               <th>Borracharia</th>
               <th>Documentação</th>
@@ -2244,7 +2245,7 @@ function renderResumoPorPlaca() {
   // gp() receives ALREADY-NORMALIZED key — no double-normalizing
   const gp=(key)=>{
     if(!key||key==='GERAL') key='GERAL';
-    if(!placas[key]) placas[key]={display:key,fat:0,aba:0,ped:0,com:0,manut:0,borra:0,doc:0,outros:0};
+    if(!placas[key]) placas[key]={display:key,fat:0,aba:0,ped:0,com:0,pessoal:0,manut:0,borra:0,doc:0,outros:0};
     return placas[key];
   };
 
@@ -2265,7 +2266,8 @@ function renderResumoPorPlaca() {
     const pp=gp(k);
     const cat=(r['Categoria']||'').toLowerCase();
     const val=parseBRL(r['Valor']);
-    if(cat==='manutenção'||cat==='manutencao'||cat==='serviços/peças'||cat==='servicos/pecas'||cat==='peças'||cat==='pecas') pp.manut+=val;
+    if(cat==='pessoal'||cat==='rh'||cat==='folha de pagamento'||cat==='salarios'||cat==='salários') pp.pessoal+=val;
+    else if(cat==='manutenção'||cat==='manutencao'||cat==='serviços/peças'||cat==='servicos/pecas'||cat==='peças'||cat==='pecas') pp.manut+=val;
     else if(cat==='borracharia') pp.borra+=val;
     else if(cat==='documentação'||cat==='documentacao'||cat==='licenciamento') pp.doc+=val;
     else pp.outros+=val;
@@ -2308,19 +2310,20 @@ function renderResumoPorPlaca() {
   
   if(!entries.length){tb.innerHTML='<tr><td colspan="9" class="tbl-empty">Sem dados no período</td></tr>';return;}
 
-  let totFat=0,totAba=0,totPed=0,totCom=0,totManut=0,totBorra=0,totDoc=0,totOut=0;
-  entries.forEach(([,v])=>{totFat+=v.fat;totAba+=v.aba;totPed+=v.ped;totCom+=v.com||0;totManut+=v.manut;totBorra+=v.borra;totDoc+=v.doc;totOut+=v.outros;});
-  const totLiq=totFat-totAba-totPed-totCom-totManut-totBorra-totDoc-totOut;
+  let totFat=0,totAba=0,totPed=0,totCom=0,totPessoal=0,totManut=0,totBorra=0,totDoc=0,totOut=0;
+  entries.forEach(([,v])=>{totFat+=v.fat;totAba+=v.aba;totPed+=v.ped;totCom+=v.com||0;totPessoal+=v.pessoal;totManut+=v.manut;totBorra+=v.borra;totDoc+=v.doc;totOut+=v.outros;});
+  const totLiq=totFat-totAba-totPed-totCom-totPessoal-totManut-totBorra-totDoc-totOut;
 
   const fC=(v,red)=>`<span style="color:${v>0?(red?'var(--red)':'var(--txt)'):'var(--txt-muted)'}">${v>0?fmtBRL(v):'—'}</span>`;
   
   tb.innerHTML = entries.map(([p,v])=>{
-    const liq=v.fat-v.aba-v.ped-(v.com||0)-v.manut-v.borra-v.doc-v.outros;
+    const liq=v.fat-v.aba-v.ped-(v.com||0)-v.pessoal-v.manut-v.borra-v.doc-v.outros;
     return `<tr>
       <td><span class="placa">${v.display||p}</span></td>
       <td class="txt-green">${fmtBRL(v.fat)}</td>
       <td>${fC(v.aba,true)}</td>
       <td>${fC(v.ped,true)}</td>
+      <td>${fC(v.pessoal,true)}</td>
       <td>${fC(v.manut,true)}</td>
       <td>${fC(v.borra,true)}</td>
       <td>${fC(v.doc,true)}</td>
@@ -2333,6 +2336,7 @@ function renderResumoPorPlaca() {
     <td class="txt-green">${fmtBRL(totFat)}</td>
     <td class="txt-red">${fmtBRL(totAba)}</td>
     <td class="txt-dim">${fmtBRL(totPed)}</td>
+    <td class="txt-dim">${fmtBRL(totPessoal)}</td>
     <td class="txt-dim">${fmtBRL(totManut)}</td>
     <td class="txt-dim">${fmtBRL(totBorra)}</td>
     <td class="txt-dim">${fmtBRL(totDoc)}</td>
