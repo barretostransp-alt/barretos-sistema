@@ -554,7 +554,7 @@ function buildForm(data,isNew){
   "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-notes\" style=\"font-size:12px\"></i> Observações</div>"+
   "<div class=\"fg full\">"+
     "<label>Observação</label>"+
-    "<textarea id=\""+fid("OBSERVACAO")+"\" rows=\"3\" placeholder=\"Informações adicionais sobre o card...\">"+e(data["OBSERVACAO"]||"")+"</textarea>"+
+    "<textarea id=\""+fid("OBSERVACAO")+"\" rows=\"3\" placeholder=\"Informações adicionais sobre o card...\">"+e(data["OBSERVACAO"]||"")+"</textarea>"+ 
   "</div></div>"+
 
   // ── ANEXOS
@@ -683,7 +683,7 @@ function renderAttList() {
          + "<span class=\"asz\">" + sz + "</span>"
          + "<a href=\"https://drive.google.com/file/d/"+a.id+"/view\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\" rel=\"noopener\"><i class=\"ti ti-eye\"></i></a>"
          + "<a href=\""+a.url+"\" download=\""+e(nm)+"\" class=\"adl\"><i class=\"ti ti-download\"></i></a>"
-         + "<button class=\"arm\" onclick=\"rmAttDrive(\""+a.id+"\","+i+")\" title=\"Excluir\"><i class=\"ti ti-x\"></i></button>"
+         + "<button class=\"arm\" onclick=\"rmAttDrive('"+a.id+"',"+i+")\" title=\"Excluir\"><i class=\"ti ti-x\"></i></button>"
          + "</div>";
   }
   // Mostra novos arquivos ainda não enviados
@@ -701,6 +701,21 @@ function renderAttList() {
   }
   if (!out) out = "<div style=\"color:var(--text-muted);font-size:12px;padding:8px 0\">Nenhum anexo</div>";
   l.innerHTML = out;
+  // Bind clicks via addEventListener — resolve problemas com onclick inline em innerHTML
+  var btns = l.querySelectorAll(".arm");
+  btns.forEach(function(btn, n) {
+    btn.onclick = null;
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (n < driveAtts.length) {
+        // botao de anexo do Drive
+        rmAttDrive(driveAtts[n].id, n);
+      } else {
+        // botao de arquivo pendente
+        rmAtt(n - driveAtts.length);
+      }
+    });
+  });
 }
 
 function getAtt(key) {
@@ -722,14 +737,40 @@ function handleFiles(files) {
 function rmAtt(i) { pendAtt.splice(i, 1); renderAttList(); }
 
 function rmAttDrive(fileId, i) {
+  console.log("[rmAttDrive] Iniciando exclusão de", fileId);
   if (!confirm("Excluir este anexo permanentemente?")) return;
+  if (!WEBAPP_URL || !fileId) { 
+    alert("Erro: URL ou fileId ausente");
+    console.error("[rmAttDrive] Validação falhou - WEBAPP_URL:", WEBAPP_URL, "fileId:", fileId);
+    return; 
+  }
+  console.log("[rmAttDrive] Enviando requisição DELETE para Apps Script");
   fetch(WEBAPP_URL, {
     method: "POST",
     body: JSON.stringify({ action: "excluir_anexo", fileId: fileId })
-  }).catch(function() {});
-  driveAtts.splice(i, 1);
-  try { localStorage.setItem("attcnt_"+editKey, JSON.stringify(driveAtts)); } catch(e) {}
-  renderAttList();
+  })
+  .then(function(r) {
+    console.log("[rmAttDrive] Resposta HTTP recebida:", r.status);
+    if (!r.ok) throw new Error("HTTP " + r.status); 
+    return r.json(); 
+  })
+  .then(function(j) {
+    console.log("[rmAttDrive] JSON recebido:", j);
+    if (j.success) {
+      console.log("[rmAttDrive] ✓ Sucesso! Removendo da lista...");
+      driveAtts.splice(i, 1);
+      try { localStorage.setItem("attcnt_"+editKey, JSON.stringify(driveAtts)); } catch(e) {}
+      renderAttList();
+      alert("✓ Anexo excluído com sucesso!");
+    } else {
+      console.error("[rmAttDrive] ✗ Erro:", j);
+      alert("Erro ao excluir: " + (j.error || JSON.stringify(j)));
+    }
+  })
+  .catch(function(err) {
+    console.error("[rmAttDrive] ✗ Erro na requisição:", err);
+    alert("Erro ao excluir anexo: " + err.message);
+  });
 }
 
 async function saveAtt(key) {
