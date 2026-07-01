@@ -367,8 +367,6 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         <select class="filter-sel" id="flt-status" onchange="aplicarFiltros()">
           <option value="">Todos</option>
           <option value="Pendente">Pendente</option>
-          <option value="Aprovado Nível 1">Aprovado Nível 1</option>
-          <option value="Aprovado Nível 2">Aprovado Nível 2</option>
           <option value="Aprovado">Aprovado</option>
           <option value="Rejeitado">Rejeitado</option>
         </select>
@@ -437,9 +435,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
       <div class="filter-group">
         <span class="filter-label">Nível de validação</span>
         <select class="filter-sel" id="val-nivel" onchange="renderValidacoes()">
-          <option value="1">Validação Nível 1</option>
-          <option value="2">Validação Nível 2</option>
-          <option value="3">Validação Final</option>
+          <option value="1">Validação</option>
         </select>
       </div>
       <div class="filter-group">
@@ -657,13 +653,16 @@ function popularSelectMotoristas() {
 }
 
 function popularFiltros() {
-  // Meses únicos
+  // Meses únicos — normaliza Data para capturar qualquer formato
   var meses = {}, semanas = {};
   allData.forEach(function(r) {
-    var p = String(r.Data||'').split('/');
-    if (p.length === 3) {
-      var key = p[1] + '/' + p[2];
-      meses[key] = nomeMes(parseInt(p[1])-1) + '/' + p[2].slice(-2);
+    var ts = parseDateBR(r.Data);
+    if (ts) {
+      var d = new Date(ts);
+      var mm = String(d.getMonth()+1).padStart(2,'0');
+      var yyyy = String(d.getFullYear());
+      var key = mm + '/' + yyyy;
+      meses[key] = nomeMes(d.getMonth()) + '/' + yyyy.slice(-2);
     }
     var sw = semanaISO(r.Data);
     if (sw) semanas[sw] = semanaLabel(sw);
@@ -710,8 +709,11 @@ function filtradoAtual() {
     if (mot    && r.Motorista !== mot) return false;
     if (status && r.Status   !== status) return false;
     if (mes) {
-      var p = String(r.Data||'').split('/');
-      if (p.length < 3 || (p[1]+'/'+p[2]) !== mes) return false;
+      var ts = parseDateBR(r.Data);
+      if (!ts) return false;
+      var d = new Date(ts);
+      var mesKey = String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+      if (mesKey !== mes) return false;
     }
     if (semana && semanaISO(r.Data) !== semana) return false;
     return true;
@@ -794,8 +796,7 @@ function formatarDataHora(val) {
 function statusClass(s) {
   if (!s) return 'pendente';
   s = s.toLowerCase();
-  if (s.includes('nível 1') || s.includes('nivel 1')) return 'nivel1';
-  if (s.includes('nível 2') || s.includes('nivel 2')) return 'nivel2';
+  // validação única — sem nível 1/2
   if (s === 'aprovado') return 'aprovado';
   if (s === 'rejeitado') return 'rejeitado';
   return 'pendente';
@@ -829,163 +830,142 @@ function resumoCard(label, val, sub, cls) {
 // ── RESUMO SEMANA/MÊS ────────────────────────────────────────
 function renderResumo() {
   var mot = document.getElementById('res-motorista').value;
-  var mes = document.getElementById('res-mes').value; // "MM/YYYY"
+  var mes = document.getElementById('res-mes').value; // "MM/YYYY" ou ""
 
-  var dados = allData.filter(function(r) {
-    if (mot && r.Motorista !== mot) return false;
-    if (mes) {
-      var p = String(r.Data||'').split('/');
-      if (p.length < 3 || (p[1]+'/'+p[2]) !== mes) return false;
-    }
-    return r.Status !== 'Rejeitado';
-  });
+  // Normaliza qualquer formato de data → objeto Date (meia-noite local)
+  function toDate(val) {
+    if (!val) return null;
+    var s = String(val).trim();
+    var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m1) return new Date(+m1[3], +m1[2]-1, +m1[1]);
+    var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m2) return new Date(+m2[1], +m2[2]-1, +m2[3]);
+    var d = new Date(val);
+    return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
 
-  // Determina o mês/ano de referência
+  // Determina o mês de referência
   var refMes, refAno;
   if (mes) {
     var pm = mes.split('/');
     refMes = parseInt(pm[0]) - 1;
     refAno = parseInt(pm[1]);
   } else {
-    // Usa o mês mais recente dos dados
-    var melhorData = null;
-    dados.forEach(function(r) {
-      var pd = parseDataRow2(r.Data);
-      if (pd) {
-        var t = new Date(pd.ano, pd.mes, pd.dia).getTime();
-        if (!melhorData || t > melhorData.t) melhorData = { t: t, mes: pd.mes, ano: pd.ano };
-      }
-    });
-    if (melhorData) { refMes = melhorData.mes; refAno = melhorData.ano; }
-    else { var now = new Date(); refMes = now.getMonth(); refAno = now.getFullYear(); }
+    var now = new Date();
+    refMes = now.getMonth();
+    refAno = now.getFullYear();
   }
 
-  // parseDataRow2 disponível antes do refMes/refAno
-  function parseDataRow2(val) {
-    if (!val) return null;
-    var s = String(val);
-    var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (m1) return { dia: parseInt(m1[1]), mes: parseInt(m1[2])-1, ano: parseInt(m1[3]) };
-    var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m2) return { dia: parseInt(m2[3]), mes: parseInt(m2[2])-1, ano: parseInt(m2[1]) };
-    var d = new Date(val);
-    if (!isNaN(d)) return { dia: d.getDate(), mes: d.getMonth(), ano: d.getFullYear() };
-    return null;
-  }
-
-  // Gera as semanas do mês: blocos de 7 dias começando no dia 1
-  // Semana 1: 01–07, Semana 2: 08–14, Semana 3: 15–21, Semana 4: 22–28, Semana 5: 29–fim
-  var diasNoMes = new Date(refAno, refMes + 1, 0).getDate();
+  // Gera semanas seg–dom que cobrem o mês inteiro
+  // (inclui dias do mês anterior na 1ª semana e do mês seguinte na última)
   var semanas = [];
-  var inicio = 1;
-  while (inicio <= diasNoMes) {
-    var fim = Math.min(inicio + 6, diasNoMes);
-    semanas.push({ ini: inicio, fim: fim });
-    inicio += 7;
+  var dia1 = new Date(refAno, refMes, 1);
+  var dow = dia1.getDay(); // 0=dom,1=seg,...,6=sab
+  var diffParaSeg = (dow === 0) ? -6 : 1 - dow;
+  var seg = new Date(refAno, refMes, 1 + diffParaSeg);
+  var ultimoDiaMes = new Date(refAno, refMes + 1, 0);
+  while (seg <= ultimoDiaMes) {
+    var dom = new Date(seg.getFullYear(), seg.getMonth(), seg.getDate() + 6);
+    semanas.push({ ini: new Date(seg), fim: new Date(dom) });
+    seg.setDate(seg.getDate() + 7);
   }
 
-  // Motoristas únicos nos dados filtrados
-  var motLista = [...new Set(dados.map(function(r) { return r.Motorista; }).filter(Boolean))].sort();
-  if (mot) motLista = motLista.filter(function(m) { return m === mot; });
+  // Filtra dados: sem rejeitados, com motorista se filtrado
+  var dadosBase = allData.filter(function(r) {
+    if (r.Status === 'Rejeitado') return false;
+    if (mot && r.Motorista !== mot) return false;
+    return true;
+  });
 
-  // Conta diárias por motorista × semana
-  // Converte qualquer formato de data para {dia, mes0based, ano}
-  function parseDataRow(val) {
-    if (!val) return null;
-    var s = String(val);
-    // dd/MM/yyyy
-    var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (m1) return { dia: parseInt(m1[1]), mes: parseInt(m1[2])-1, ano: parseInt(m1[3]) };
-    // yyyy-MM-dd
-    var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m2) return { dia: parseInt(m2[3]), mes: parseInt(m2[2])-1, ano: parseInt(m2[1]) };
-    // Tenta como Date string (ex: "Wed Jun 10 2026...")
-    var d = new Date(val);
-    if (!isNaN(d)) return { dia: d.getDate(), mes: d.getMonth(), ano: d.getFullYear() };
-    return null;
-  }
+  // Motoristas que têm pelo menos 1 diária em alguma das semanas exibidas
+  var iniTotal = semanas[0].ini;
+  var fimTotal = semanas[semanas.length - 1].fim;
+  var seen = {}, motLista = [];
+  dadosBase.forEach(function(r) {
+    if (!r.Motorista || seen[r.Motorista]) return;
+    var d = toDate(r.Data);
+    if (d && d >= iniTotal && d <= fimTotal) {
+      seen[r.Motorista] = true;
+      motLista.push(r.Motorista);
+    }
+  });
+  motLista.sort();
 
-  function contarDias(motorista, semana) {
-    return dados.filter(function(r) {
+  // Conta diárias de um motorista em uma semana
+  function contar(motorista, semana) {
+    return dadosBase.filter(function(r) {
       if (r.Motorista !== motorista) return false;
-      var pd = parseDataRow(r.Data);
-      if (!pd) return false;
-      return pd.mes === refMes && pd.ano === refAno && pd.dia >= semana.ini && pd.dia <= semana.fim;
+      var d = toDate(r.Data);
+      return d && d >= semana.ini && d <= semana.fim;
     }).length;
   }
 
-  function totalMot(motorista) {
-    return dados.filter(function(r) { return r.Motorista === motorista; }).length;
-  }
+  // Formata dd/MM
+  var fmt = function(d) {
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  };
 
   var nomeMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  var titMes = nomeMeses[refMes] + ' ' + refAno;
-
-  // Monta HTML
   var html = '<div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">' +
     '<i class="ti ti-calendar-stats" style="font-size:18px;color:var(--gold)"></i>' +
-    '<span style="font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700">' + titMes + '</span>' +
-    '</div>';
+    '<span style="font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700">' +
+    nomeMeses[refMes] + ' ' + refAno + '</span></div>';
 
   if (!motLista.length) {
-    html += '<div class="empty-state"><i class="ti ti-chart-off"></i><div>Sem dados para o filtro selecionado</div></div>';
+    html += '<div class="empty-state"><i class="ti ti-chart-off"></i><div>Sem dados para o período</div></div>';
     document.getElementById('resumo-content').innerHTML = html;
     return;
   }
 
-  html += '<table class="diarias-table" style="margin-top:0">' +
-    '<thead><tr>' +
+  // Cabeçalho
+  html += '<table class="diarias-table" style="margin-top:0"><thead><tr>' +
     '<th style="min-width:200px">Motorista</th>';
-
-  // Cabeçalhos das semanas
   semanas.forEach(function(s) {
-    var label = String(s.ini).padStart(2,'0') + '/' +
-                String(refMes+1).padStart(2,'0') +
-                ' – ' +
-                String(s.fim).padStart(2,'0') + '/' +
-                String(refMes+1).padStart(2,'0');
-    html += '<th style="text-align:center;min-width:120px">' + label + '</th>';
+    var cruzaMes = s.ini.getMonth() !== refMes || s.fim.getMonth() !== refMes;
+    html += '<th style="text-align:center;min-width:120px' +
+      (cruzaMes ? ';color:var(--gold)' : '') + '">' +
+      fmt(s.ini) + ' – ' + fmt(s.fim) + '</th>';
   });
-
-  html += '<th style="text-align:center;min-width:100px;color:var(--gold)">TOTAL MÊS</th>' +
+  html += '<th style="text-align:center;min-width:100px;color:var(--gold)">TOTAL</th>' +
     '</tr></thead><tbody>';
 
+  // Linhas de motoristas
   motLista.forEach(function(m) {
     html += '<tr><td style="font-weight:600">' + esc(m) + '</td>';
+    var totMot = 0;
     semanas.forEach(function(s) {
-      var n = contarDias(m, s);
+      var n = contar(m, s); totMot += n;
       html += '<td style="text-align:center;' +
         (n > 0 ? 'color:var(--green);font-weight:700;font-size:15px' : 'color:var(--border-light)') +
         '">' + (n > 0 ? n : '—') + '</td>';
     });
-    var tot = totalMot(m);
-    html += '<td style="text-align:center;font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">' + tot + '</td>';
-    html += '</tr>';
+    html += '<td style="text-align:center;font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">' +
+      totMot + '</td></tr>';
   });
 
   // Linha de totais
   html += '<tr style="border-top:2px solid var(--border-light)">' +
     '<td style="font-weight:700;color:var(--txt-dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em">TOTAL</td>';
+  var totGeral = 0;
   semanas.forEach(function(s) {
-    var tot = motLista.reduce(function(acc, m) { return acc + contarDias(m, s); }, 0);
+    var tot = motLista.reduce(function(acc, m) { return acc + contar(m, s); }, 0);
+    totGeral += tot;
     html += '<td style="text-align:center;font-weight:700;' +
-      (tot > 0 ? 'color:var(--txt)' : 'color:var(--border-light)') + '">' +
-      (tot > 0 ? tot : '—') + '</td>';
+      (tot > 0 ? 'color:var(--txt)' : 'color:var(--border-light)') +
+      '">' + (tot > 0 ? tot : '—') + '</td>';
   });
-  var totGeral = motLista.reduce(function(acc, m) { return acc + totalMot(m); }, 0);
-  html += '<td style="text-align:center;font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">' + totGeral + '</td>';
-  html += '</tr></tbody></table>';
+  html += '<td style="text-align:center;font-family:\'Barlow\',sans-serif;font-size:18px;font-weight:700;color:var(--gold)">' +
+    totGeral + '</td></tr></tbody></table>';
 
   document.getElementById('resumo-content').innerHTML = html;
 }
+
 
 // ── VALIDAÇÕES ───────────────────────────────────────────────
 function renderValidacoes() {
   var nivel  = parseInt(document.getElementById('val-nivel').value);
   var statusMap = {
-    1: 'Pendente',
-    2: 'Aprovado Nível 1',
-    3: 'Aprovado Nível 2'
+    1: 'Pendente'
   };
   var statusAlvo = statusMap[nivel];
   var dados = allData.filter(function(r) { return r.Status === statusAlvo; });
@@ -1107,11 +1087,9 @@ function abrirValidar(id) {
 
   // Steps
   var steps = [
-    { label: 'Nível 1', val: row.Validador1, data: formatarData(row.DataVal1) },
-    { label: 'Nível 2', val: row.Validador2, data: formatarData(row.DataVal2) },
-    { label: 'Final',   val: row.Validador3, data: formatarData(row.DataVal3) }
+    { label: 'Validação', val: row.Validador1, data: formatarData(row.DataVal1) }
   ];
-  var statusMap = { 'Aprovado Nível 1': 1, 'Aprovado Nível 2': 2, 'Aprovado': 3, 'Rejeitado': -1 };
+  var statusMap = { 'Aprovado': 1, 'Rejeitado': -1 };
   var nivelAtual = statusMap[row.Status] !== undefined ? statusMap[row.Status] : 0;
 
   var stepsHtml = steps.map(function(s, i) {
@@ -1127,8 +1105,8 @@ function abrirValidar(id) {
 
   // Nível a validar
   var proximoNivel = nivelAtual + 1;
-  document.getElementById('mv-btn-aprovar').textContent = '✓ Aprovar (Nível ' + proximoNivel + ')';
-  document.getElementById('mv-btn-aprovar').disabled = proximoNivel > 3;
+  document.getElementById('mv-btn-aprovar').textContent = '✓ Aprovar';
+  document.getElementById('mv-btn-aprovar').disabled = nivelAtual >= 1;
   document.getElementById('mv-validador').value = NOME_VALIDADOR || document.getElementById('val-nome').value;
   document.getElementById('mv-motivo').value = '';
   document.getElementById('mv-motivo-wrap').style.display = 'none';
@@ -1141,9 +1119,9 @@ async function confirmarValidacao(acao) {
   var validador = document.getElementById('mv-validador').value.trim();
   if (!validador) { toast('Informe seu nome', 'error'); return; }
 
-  var statusMap = { 'Pendente': 0, 'Aprovado Nível 1': 1, 'Aprovado Nível 2': 2 };
+  var statusMap = { 'Pendente': 0 };
   var nivelAtual = statusMap[validandoRow.Status] !== undefined ? statusMap[validandoRow.Status] : 0;
-  var nivel = nivelAtual + 1;
+  var nivel = 1;
 
   if (acao === 'rejeitar') {
     var motivo = document.getElementById('mv-motivo').value.trim();
@@ -1167,7 +1145,7 @@ async function confirmarValidacao(acao) {
     var json = await res.json();
     if (json.success) {
       fecharModal('modal-val'); await carregarDados();
-      toast(nivel === 3 ? 'Diária aprovada!' : 'Nível ' + nivel + ' aprovado', 'success');
+      toast('Diária aprovada!', 'success');
     } else toast(json.error || 'Erro', 'error');
   }
 }
