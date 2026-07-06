@@ -1439,6 +1439,15 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
       <button class="hist-filter-btn" onclick="filterHist('Recusada',this)" style="color:#E24B4A">Recusada</button>
       <button class="hist-filter-btn" onclick="filterHist('Desconsiderar',this)" style="color:#9A8A3A">Desconsiderar</button>
     </div>
+    <div style="position:relative;display:flex;align-items:center">
+      <i class="ti ti-search" style="position:absolute;left:9px;font-size:12px;color:var(--txt-dim,#888);pointer-events:none"></i>
+      <input type="text" id="hist-busca-cliente" placeholder="Buscar cliente..."
+        oninput="renderHistory()"
+        style="padding:5px 10px 5px 28px;background:var(--charcoal,#1C1E26);border:1px solid var(--charcoal-border,#2E3038);
+               border-radius:6px;color:var(--text-primary,#E8E9EC);font-size:12px;font-family:inherit;
+               width:180px;outline:none;transition:border-color .15s"
+        onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--charcoal-border,#2E3038)'">
+    </div>
     <div class="hist-filter-drop" id="drop-vend-wrap">
       <button class="hist-filter-drop-btn" onclick="toggleDrop('drop-vend')">
         <i class="ti ti-user" style="font-size:12px"></i>
@@ -3324,6 +3333,31 @@ function setFilterMes(val, el) {
   renderHistory();
 }
 
+
+function parseDateAny(val) {
+  // Retorna { fmt: 'dd/MM/yyyy', key: 'yyyy-MM' } ou null
+  if (!val) return null;
+  var s = String(val).trim();
+  // dd/MM/yyyy ou d/M/yyyy
+  var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m1) {
+    var dd = m1[1].padStart(2,'0'), mm = m1[2].padStart(2,'0'), yyyy = m1[3];
+    return { fmt: dd+'/'+mm+'/'+yyyy, key: yyyy+'-'+mm };
+  }
+  // yyyy-MM-dd
+  var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return { fmt: m2[3]+'/'+m2[2]+'/'+m2[1], key: m2[1]+'-'+m2[2] };
+  // Qualquer string que o Date consiga parsear (ex: "Fri Jul 03 2026 16:12:00 GMT-0300")
+  var d = new Date(val);
+  if (!isNaN(d)) {
+    var dd2 = String(d.getDate()).padStart(2,'0');
+    var mm2 = String(d.getMonth()+1).padStart(2,'0');
+    var yyyy2 = String(d.getFullYear());
+    return { fmt: dd2+'/'+mm2+'/'+yyyy2, key: yyyy2+'-'+mm2 };
+  }
+  return null;
+}
+
 function popularFiltrosVendMes() {
   // Vendedores
   const vends = [...new Set(histData.map(r => r['Vendedor']||'').filter(Boolean))].sort();
@@ -3336,19 +3370,32 @@ function popularFiltrosVendMes() {
   const mesesMap = {};
   const nomeMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   histData.forEach(r => {
-    const d = String(r['Data']||'');
-    const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    if (m) {
-      const key = m[3] + '-' + m[2];
-      const label = nomeMes[parseInt(m[2])-1] + '/' + m[3].slice(-2);
-      mesesMap[key] = label;
+    const pd = parseDateAny(r['Data']);
+    if (pd) {
+      const nomeMesArr = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      const mesIdx = parseInt(pd.key.split('-')[1]) - 1;
+      mesesMap[pd.key] = nomeMesArr[mesIdx] + '/' + pd.key.split('-')[0].slice(-2);
     }
   });
   const meses = Object.keys(mesesMap).sort().reverse();
   const menuM = document.getElementById('drop-mes');
+
+  // Mês vigente no formato yyyy-MM
+  const now = new Date();
+  const mesVigente = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+  // Só aplica o padrão de mês vigente na primeira carga (histFilterMes === 'all')
+  if (histFilterMes === 'all' && meses.includes(mesVigente)) {
+    histFilterMes = mesVigente;
+    const lbl = document.getElementById('drop-mes-label');
+    if (lbl) lbl.textContent = mesesMap[mesVigente];
+    const btn = document.querySelector('#drop-mes-wrap .hist-filter-drop-btn');
+    if (btn) btn.classList.add('active');
+  }
+
   if (menuM) {
-    menuM.innerHTML = '<div class="hist-drop-item active" onclick="setFilterMes(\'all\',this)">Todos</div>' +
-      meses.map(k => `<div class="hist-drop-item" onclick="setFilterMes('${k}',this)">${mesesMap[k]}</div>`).join('');
+    menuM.innerHTML = '<div class="hist-drop-item' + (histFilterMes === 'all' ? ' active' : '') + '" onclick="setFilterMes(\'all\',this)">Todos</div>' +
+      meses.map(k => `<div class="hist-drop-item${histFilterMes === k ? ' active' : ''}" onclick="setFilterMes('${k}',this)">${mesesMap[k]}</div>`).join('');
   }
 }
 
@@ -3486,10 +3533,8 @@ function refreshStatsOnly() {
     if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
     if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
     if (histFilterMes !== 'all') {
-      const d = String(r['Data']||'');
-      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if (!m) return false;
-      if (m[3] + '-' + m[2] !== histFilterMes) return false;
+      const pd = parseDateAny(r['Data']);
+      if (!pd || pd.key !== histFilterMes) return false;
     }
     return true;
   });
@@ -3505,7 +3550,7 @@ function refreshStatsOnly() {
     else if (sc === 'desconsiderar') nD++;
   });
   const nP = total - nA - nR - nD;
-  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all');
+  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all' || !!buscaCliente);
   const statsEl = document.getElementById('hist-stats-fixed');
   if (statsEl) statsEl.innerHTML = buildDonut(nA, nR, nP, nD, total) + `<div class="hist-kpis">
     <div class="hist-kpi"><span class="hist-kpi-val">${total}</span><span class="hist-kpi-lbl">${isFiltered ? 'Filtradas' : 'Total'}</span></div>
@@ -3551,17 +3596,17 @@ function renderHistory() {
   const totalGeral = histData.length;
 
   // Aplica filtros — mesmo critério para tabela E dashboard
+  const buscaCliente = (document.getElementById('hist-busca-cliente')?.value || '').toLowerCase().trim();
   const filtered = histData.filter(r => {
     const key = getLocalKey(r);
     const st = (localOverrides[key] && localOverrides[key].status) || r['Status'] || '';
     if (histFilter !== 'all' && !String(st).toLowerCase().includes(histFilter.toLowerCase())) return false;
     if (histFilterVend !== 'all' && (r['Vendedor']||'') !== histFilterVend) return false;
     if (histFilterMes !== 'all') {
-      const d = String(r['Data']||'');
-      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if (!m) return false;
-      if (m[3] + '-' + m[2] !== histFilterMes) return false;
+      const pd = parseDateAny(r['Data']);
+      if (!pd || pd.key !== histFilterMes) return false;
     }
+    if (buscaCliente && !String(r['Cliente']||'').toLowerCase().includes(buscaCliente)) return false;
     return true;
   });
 
@@ -3577,7 +3622,7 @@ function renderHistory() {
     else if (sc === 'desconsiderar') nD++;
   });
   const nP = total - nA - nR - nD;
-  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all');
+  const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all' || !!buscaCliente);
 
   // Ordem decrescente (mais recente primeiro)
   const sortedData = filtered.slice().reverse();
@@ -3590,7 +3635,10 @@ function renderHistory() {
       <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Observação</th></tr></thead>
       <tbody>${sortedData.map((r, i) => {
         const key = getLocalKey(r);
-        return `<tr>${cols.map(c => `<td>${r[c]||'—'}</td>`).join('')}${buildStatusCell(r,key,i)}${buildObsCell(r,key)}</tr>`;
+        return `<tr>${cols.map(c => {
+          if (c === 'Data') { const pd = parseDateAny(r[c]); return `<td>${pd ? pd.fmt : (r[c]||'—')}</td>`; }
+          return `<td>${r[c]||'—'}</td>`;
+        }).join('')}${buildStatusCell(r,key,i)}${buildObsCell(r,key)}</tr>`;
       }).join('')}</tbody>
     </table>
     <p style="font-size:11px;color:var(--txt-dim,#888);margin-top:10px;text-align:right">
