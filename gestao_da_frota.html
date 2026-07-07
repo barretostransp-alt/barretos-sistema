@@ -2431,8 +2431,9 @@ function viagemEditKey(r) {
 }
 function editViagemFromPanel() {
   if(!currentViagemIdx) return;
+  const r = currentViagemIdx;
   closeSidePanel();
-  openEditViagem(currentViagemIdx);
+  openEditViagem(r);
 }
 async function deleteViagemFromPanel() {
   if(!currentViagemIdx) return;
