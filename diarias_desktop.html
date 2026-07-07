@@ -159,8 +159,6 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
   white-space:nowrap;
 }
 .status-pill.pendente{background:rgba(245,184,0,.12);color:var(--gold)}
-.status-pill.nivel1{background:rgba(59,130,246,.12);color:var(--blue)}
-.status-pill.nivel2{background:rgba(139,92,246,.12);color:var(--purple)}
 .status-pill.aprovado{background:rgba(46,189,133,.12);color:var(--green)}
 .status-pill.rejeitado{background:rgba(226,75,74,.12);color:var(--red)}
 
@@ -432,12 +430,6 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
   <!-- ══ VIEW VALIDAÇÕES ══ -->
   <div class="view" id="view-validacao">
     <div class="filter-bar">
-      <div class="filter-group">
-        <span class="filter-label">Nível de validação</span>
-        <select class="filter-sel" id="val-nivel" onchange="renderValidacoes()">
-          <option value="1">Validação</option>
-        </select>
-      </div>
       <div class="filter-group">
         <span class="filter-label">Validador</span>
         <input class="filter-input" id="val-nome" placeholder="Seu nome" value="">
@@ -808,13 +800,11 @@ function renderResumoRapido(dados) {
   var pend     = dados.filter(function(r) { return r.Status === 'Pendente'; }).length;
   var aprov    = dados.filter(function(r) { return r.Status === 'Aprovado'; }).length;
   var rejeit   = dados.filter(function(r) { return r.Status === 'Rejeitado'; }).length;
-  var emFluxo  = total - aprov - rejeit;
 
   document.getElementById('badge-total').textContent = total;
   document.getElementById('resumo-rapido').innerHTML =
     resumoCard('Total', total, 'diárias', 'gold') +
     resumoCard('Pendentes', pend, 'aguardando', 'gold') +
-    resumoCard('Em validação', emFluxo - pend, 'em andamento', 'blue') +
     resumoCard('Aprovadas', aprov, 'concluídas', 'green') +
     resumoCard('Rejeitadas', rejeit, 'com problema', 'red');
 }
@@ -963,12 +953,7 @@ function renderResumo() {
 
 // ── VALIDAÇÕES ───────────────────────────────────────────────
 function renderValidacoes() {
-  var nivel  = parseInt(document.getElementById('val-nivel').value);
-  var statusMap = {
-    1: 'Pendente'
-  };
-  var statusAlvo = statusMap[nivel];
-  var dados = allData.filter(function(r) { return r.Status === statusAlvo; });
+  var dados = allData.filter(function(r) { return r.Status === 'Pendente'; });
 
   document.getElementById('badge-pendente').textContent =
     allData.filter(function(r) { return r.Status === 'Pendente'; }).length;
@@ -1085,28 +1070,10 @@ function abrirValidar(id) {
     '<div><b>Data:</b> ' + esc(row.Data) + '</div>' +
     '<div><b>Observação:</b> ' + esc(row.Observacao||'—') + '</div>';
 
-  // Steps
-  var steps = [
-    { label: 'Validação', val: row.Validador1, data: formatarData(row.DataVal1) }
-  ];
-  var statusMap = { 'Aprovado': 1, 'Rejeitado': -1 };
-  var nivelAtual = statusMap[row.Status] !== undefined ? statusMap[row.Status] : 0;
+  document.getElementById('val-steps').innerHTML = '';
 
-  var stepsHtml = steps.map(function(s, i) {
-    var cls = nivelAtual > i ? 'done' : (nivelAtual === i ? 'active' : '');
-    if (row.Status === 'Rejeitado') cls = i === 0 ? 'rejected' : '';
-    return '<div class="v-step ' + cls + '">' +
-      '<div class="v-step-num">' + (nivelAtual > i ? '✓' : (i+1)) + '</div>' +
-      '<div style="font-size:10px;font-weight:600">' + s.label + '</div>' +
-      (s.val ? '<div style="font-size:10px;color:var(--txt-dim);margin-top:3px">' + esc(s.val) + '</div>' : '') +
-      '</div>';
-  }).join('');
-  document.getElementById('val-steps').innerHTML = stepsHtml;
-
-  // Nível a validar
-  var proximoNivel = nivelAtual + 1;
   document.getElementById('mv-btn-aprovar').textContent = '✓ Aprovar';
-  document.getElementById('mv-btn-aprovar').disabled = nivelAtual >= 1;
+  document.getElementById('mv-btn-aprovar').disabled = false;
   document.getElementById('mv-validador').value = NOME_VALIDADOR || document.getElementById('val-nome').value;
   document.getElementById('mv-motivo').value = '';
   document.getElementById('mv-motivo-wrap').style.display = 'none';
@@ -1119,10 +1086,6 @@ async function confirmarValidacao(acao) {
   var validador = document.getElementById('mv-validador').value.trim();
   if (!validador) { toast('Informe seu nome', 'error'); return; }
 
-  var statusMap = { 'Pendente': 0 };
-  var nivelAtual = statusMap[validandoRow.Status] !== undefined ? statusMap[validandoRow.Status] : 0;
-  var nivel = 1;
-
   if (acao === 'rejeitar') {
     var motivo = document.getElementById('mv-motivo').value.trim();
     if (!document.getElementById('mv-motivo-wrap').style.display || document.getElementById('mv-motivo-wrap').style.display === 'none') {
@@ -1132,7 +1095,7 @@ async function confirmarValidacao(acao) {
     if (!motivo) { toast('Informe o motivo da rejeição', 'error'); return; }
 
     var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify({
-      action: 'validar', id: validandoRow.ID, nivel: nivel, validador: validador, acao: 'rejeitar', motivo: motivo
+      action: 'validar', id: validandoRow.ID, validador: validador, acao: 'rejeitar', motivo: motivo
     })});
     var json = await res.json();
     if (json.success) {
@@ -1140,7 +1103,7 @@ async function confirmarValidacao(acao) {
     } else toast(json.error || 'Erro', 'error');
   } else {
     var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify({
-      action: 'validar', id: validandoRow.ID, nivel: nivel, validador: validador, acao: 'aprovar'
+      action: 'validar', id: validandoRow.ID, validador: validador, acao: 'aprovar'
     })});
     var json = await res.json();
     if (json.success) {
@@ -1170,12 +1133,8 @@ function exportarExcel() {
       'Motorista':   r.Motorista,
       'Observação':  r.Observacao,
       'Status':      r.Status,
-      'Validador 1': r.Validador1,
-      'Dt. Val. 1':  formatarData(r.DataVal1),
-      'Validador 2': r.Validador2,
-      'Dt. Val. 2':  formatarData(r.DataVal2),
-      'Validador 3': r.Validador3,
-      'Dt. Val. 3':  formatarData(r.DataVal3),
+      'Validador':   r.Validador1,
+      'Dt. Validação': formatarData(r.DataVal1),
       'Motivo Rejeição': r.MotivoRejeicao,
       'Registrado em': formatarDataHora(r.DataRegistro)
     };
