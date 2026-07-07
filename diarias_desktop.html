@@ -536,7 +536,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-var URL_DIARIAS    = 'https://script.google.com/macros/s/AKfycbyZZqcNmYUPlyjUVj1e4F7cEAfuvz5yUOa8sJUjLORFsIK6lqU6eILgYHghFh2J_Znr/exec';
+var URL_DIARIAS    = 'https://script.google.com/macros/s/AKfycbxotPbQ44MYstDRfLGq1fhRk_gCq4oYHfc0uMQ-k8l5jJVKa8nC7D5f1rw7RtlW4ueI/exec';
 var NOME_VALIDADOR = localStorage.getItem('diarias_validador') || '';
 
 // ── ESTADO ──────────────────────────────────────────────────
@@ -585,7 +585,7 @@ async function carregarDados() {
     // Carrega motoristas e diárias em paralelo
     var [rMot, rDia] = await Promise.all([
       fetch(URL_DIARIAS + '?action=motoristas').then(r => r.json()),
-      fetch(URL_DIARIAS).then(r => r.json())
+      fetch(URL_DIARIAS + '?action=diarias').then(r => r.json())
     ]);
 
     // Motoristas
