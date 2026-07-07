@@ -638,6 +638,12 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <button class="btn btn-ghost" style="flex:1" onclick="closeSidePanel()">
       <i class="ti ti-x" style="font-size:13px"></i> Fechar
     </button>
+    <button class="btn btn-ghost" style="flex:1;border-color:var(--gold);color:var(--gold)" onclick="editViagemFromPanel()">
+      <i class="ti ti-pencil" style="font-size:13px"></i> Editar
+    </button>
+    <button class="btn btn-ghost" style="flex:1;border-color:var(--red,#e5484d);color:var(--red,#e5484d)" onclick="deleteViagemFromPanel()">
+      <i class="ti ti-trash" style="font-size:13px"></i> Excluir
+    </button>
   </div>
 </div>
 
@@ -1103,6 +1109,12 @@ function openAddModal() {
       const dpg=document.getElementById('d-pagamento'); if(dpg) dpg.value='Pix';
       const ds=document.getElementById('d-status'); if(ds) ds.value='Pago';
       document.getElementById('modal-despesa').querySelectorAll('input[type=text],input[type=number],input:not([type])').forEach(el=>{ el.value=''; });
+    }
+    if(currentView==='viagens'){
+      editingViagem = null;
+      document.getElementById('modal-viagem').querySelector('.modal-title').innerHTML='<i class="ti ti-route" style="color:var(--gold);margin-right:6px"></i>Lançar Viagem';
+      document.getElementById('modal-viagem').querySelectorAll('input,select').forEach(el=>{ if(el.id!=='vg-situacao') el.value=''; });
+      document.getElementById('vg-situacao').value='À VENCER';
     }
     populateSelects(); document.getElementById(m).classList.add('open'); setTodayDates();
   }
@@ -1873,7 +1885,8 @@ function openEditMotorista(m) {
   document.getElementById('modal-motorista').classList.add('open');
 }
 async function saveViagem() {
-  const data={action:'viagem',DATA:document.getElementById('vg-data').value,
+  const isEditing = !!editingViagem;
+  const data={action:isEditing?'updateViagem':'viagem',DATA:document.getElementById('vg-data').value,
     ORGIEM:document.getElementById('vg-origem').value,UF:document.getElementById('vg-uf').value,
     ROTA:document.getElementById('vg-rota').value,UF2:document.getElementById('vg-uf2').value,
     CLIENTE:document.getElementById('vg-cliente').value,PLACA:document.getElementById('vg-placa').value,
@@ -1883,6 +1896,8 @@ async function saveViagem() {
     COMISSÃO:document.getElementById('vg-comissao').value,'KM TOTAL':document.getElementById('vg-km').value,KM:document.getElementById('vg-km').value,
     'SITUAÇÃO DE PAGAMENTO':document.getElementById('vg-situacao').value,MOTORISTA3:document.getElementById('vg-tipo-veic').value};
   if(!data.PLACA||!data['F.EMPRESA']){alert('Preencha placa e faturamento');return;}
+  if(isEditing) data._editKey = viagemEditKey(editingViagem);
+  editingViagem = null;
   await postAndRefresh(data,'modal-viagem');
 }
 async function saveCombustivel() {
@@ -2075,6 +2090,23 @@ function sheetToJson(name) {
     return d.slice(1).map(r=>{const o={};h.forEach((k,i)=>{o[k]=cellToStr(r[i]);});return o;}).filter(r=>Object.values(r).some(v=>v));
   } catch(e){return[];} }
 
+// Localiza a linha de uma viagem na aba PROGRAMAÇÃO pela chave composta
+// DATA|PLACA|Nº EMBARQUE. Usa cellToStr() para normalizar a data (a mesma
+// função usada em doGet), assim funciona tanto se a coluna DATA guarda
+// texto quanto se guarda um objeto Date real. Retorna o índice da linha
+// no array 'rows' (0 = cabeçalho) ou -1 se não encontrar.
+function findViagemRow(rows, iData, iPlaca, iEmb, keyData, keyPlaca, keyEmb) {
+  for (let ri=1; ri<rows.length; ri++) {
+    const rowData = cellToStr(rows[ri][iData]);
+    const rowPlaca = String(rows[ri][iPlaca]||'');
+    const rowEmb = iEmb>=0 ? String(rows[ri][iEmb]||'') : '';
+    if (rowData===String(keyData) && rowPlaca===String(keyPlaca) && (!keyEmb || rowEmb===String(keyEmb))) {
+      return ri;
+    }
+  }
+  return -1;
+}
+
 function doGet(e) {
   const data={ veiculos:sheetToJson('Veiculos'), motoristas:sheetToJson('Motoristas'),
     viagens:sheetToJson('PROGRAMAÇÃO'), combustivel:sheetToJson('Combustivel'),
@@ -2132,6 +2164,42 @@ function doPost(e) {
         sh.setFrozenRows(1);sh.getRange(1,1,1,22).setBackground('#F5B800').setFontWeight('bold').setFontColor('#111');}
       const fat=parseFloat(d['F.EMPRESA'])||0,aba=parseFloat(d.ABASTECIMENTO)||0,ped=parseFloat(d.PEDAGIO)||0,com=parseFloat(d['COMISSÃO'])||0;
       sh.appendRow([3,d.DATA,d.ORGIEM,d.UF,d.ROTA,d.UF2,d.CLIENTE,d.PLACA,d.MOTORISTA,d['NUMEDO DO EMBARQUE'],d.PESO,fat,aba,ped,'',d.KM||'','','',d.MOTORISTA3,d['SITUAÇÃO DE PAGAMENTO'],com,fat-aba-ped-com]);
+    } else if(d.action==='updateViagem'){
+      // Edita linha existente na aba PROGRAMAÇÃO
+      // Localiza pela chave composta DATA|PLACA|Nº EMBARQUE enviada em d._editKey
+      const sh=SS.getSheetByName('PROGRAMAÇÃO');
+      if(!sh) throw new Error('Aba PROGRAMAÇÃO não encontrada');
+      const rows=sh.getDataRange().getValues();
+      const h=rows[0];
+      const iData=h.indexOf('DATA'), iPlaca=h.indexOf('PLACA'), iEmb=h.indexOf('NUMEDO DO EMBARQUE');
+      if(iData<0||iPlaca<0) throw new Error('Colunas DATA ou PLACA não encontradas');
+      const parts=(d._editKey||'').split('|');
+      const keyData=parts[0]||'', keyPlaca=parts[1]||'', keyEmb=parts[2]||'';
+      const fat=parseFloat(d['F.EMPRESA'])||0,aba=parseFloat(d.ABASTECIMENTO)||0,ped=parseFloat(d.PEDAGIO)||0,com=parseFloat(d['COMISSÃO'])||0;
+      const fieldMap={
+        'DATA':d.DATA,'ORGIEM':d.ORGIEM,'UF':d.UF,'ROTA':d.ROTA,'UF2':d.UF2,'CLIENTE':d.CLIENTE,
+        'PLACA':d.PLACA,'MOTORISTA':d.MOTORISTA,'NUMEDO DO EMBARQUE':d['NUMEDO DO EMBARQUE'],'PESO':d.PESO,
+        'F.EMPRESA':fat,'ABASTECIMENTO':aba,'PEDAGIO':ped,'KM TOTAL':d.KM||'','MOTORISTA3':d.MOTORISTA3,
+        'SITUAÇÃO DE PAGAMENTO':d['SITUAÇÃO DE PAGAMENTO'],'COMISSÃO':com,'LÍQUIDO':fat-aba-ped-com
+      };
+      const ri=findViagemRow(rows,iData,iPlaca,iEmb,keyData,keyPlaca,keyEmb);
+      if(ri<0) throw new Error('Viagem não encontrada: '+d._editKey);
+      Object.keys(fieldMap).forEach(function(col){
+        const ci=h.indexOf(col);
+        if(ci>=0) sh.getRange(ri+1, ci+1).setValue(fieldMap[col]);
+      });
+    } else if(d.action==='deleteViagem'){
+      const sh=SS.getSheetByName('PROGRAMAÇÃO');
+      if(!sh) throw new Error('Aba PROGRAMAÇÃO não encontrada');
+      const rows=sh.getDataRange().getValues();
+      const h=rows[0];
+      const iData=h.indexOf('DATA'), iPlaca=h.indexOf('PLACA'), iEmb=h.indexOf('NUMEDO DO EMBARQUE');
+      if(iData<0||iPlaca<0) throw new Error('Colunas DATA ou PLACA não encontradas');
+      const parts=(d._editKey||'').split('|');
+      const keyData=parts[0]||'', keyPlaca=parts[1]||'', keyEmb=parts[2]||'';
+      const ri=findViagemRow(rows,iData,iPlaca,iEmb,keyData,keyPlaca,keyEmb);
+      if(ri<0) throw new Error('Viagem não encontrada: '+d._editKey);
+      sh.deleteRow(ri+1);
     } else if(d.action==='multa'){
       const sh=getOrCreate('Multas',['Data','Placa','Motorista Real','Orgao','Auto de Infracao','Codigo','Descricao','Local','Valor','Valor Desconto','Prazo Pagamento','Prazo Recurso','Responsabilidade','Status','Comprovante']);
       sh.appendRow([d.Data,d.Placa,d['Motorista Real']||'',d.Orgao,d['Auto de Infracao'],d.Codigo||'',d.Descricao,d.Local||'',d.Valor,d['Valor Desconto']||'',d['Prazo Pagamento']||'',d['Prazo Recurso']||'',d.Responsabilidade,d.Status,d.Comprovante||'']);
@@ -2349,6 +2417,75 @@ function renderResumoPorPlaca() {
    SIDE PANEL — VIAGEM DETALHES
 ════════════════════════════════════════ */
 let currentViagemIdx = null;
+let editingViagem = null;
+function toDateInputValue(raw) {
+  const d = parseDate(raw||'');
+  if(!d || isNaN(d.getTime())) return '';
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function viagemEditKey(r) {
+  // Chave composta DATA|PLACA|Nº EMBARQUE — evita conflito quando há mais de uma
+  // viagem no mesmo dia com a mesma placa.
+  return [r['DATA']||r['Data']||'', r['PLACA']||r['Placa']||'', r['NUMEDO DO EMBARQUE']||r['Embarque']||''].join('|');
+}
+function editViagemFromPanel() {
+  if(!currentViagemIdx) return;
+  closeSidePanel();
+  openEditViagem(currentViagemIdx);
+}
+async function deleteViagemFromPanel() {
+  if(!currentViagemIdx) return;
+  const r = currentViagemIdx;
+  const desc = `${fmtDate(r['DATA']||r['Data']||'')} — ${r['PLACA']||r['Placa']||''} — ${r['CLIENTE']||r['Cliente']||''}`;
+  if(!confirm(`Excluir esta viagem?\n\n${desc}\n\nEsta ação não pode ser desfeita.`)) return;
+  const btn = document.querySelector('#side-panel-viagem .side-panel-footer button:nth-child(3)');
+  const orig = btn ? btn.innerHTML : '';
+  if(btn){ btn.innerHTML='<span class="spinner" style="width:12px;height:12px;border-width:2px"></span>'; btn.disabled=true; }
+  const res = await apiPost({ action:'deleteViagem', _editKey: viagemEditKey(r) });
+  if(btn){ btn.innerHTML=orig; btn.disabled=false; }
+  if(res?.success){
+    closeSidePanel();
+    await loadAllData();
+  } else if(WEBAPP_URL) {
+    alert('Erro ao excluir a viagem. ' + (res?.error ? res.error : 'Verifique o Apps Script.'));
+  } else {
+    alert('Configure o Apps Script para excluir viagens na planilha.');
+  }
+}
+function openEditViagem(r) {
+  if(!r) return;
+  editingViagem = r;
+  populateSelects();
+  document.getElementById('modal-viagem').querySelector('.modal-title').innerHTML =
+    '<i class="ti ti-pencil" style="color:var(--gold);margin-right:6px"></i>Editar Viagem — ' + (r['PLACA']||r['Placa']||'');
+  document.getElementById('vg-data').value       = toDateInputValue(r['DATA']||r['Data']||'');
+  const placaSel = document.getElementById('vg-placa');
+  const placaVal = r['PLACA']||r['Placa']||'';
+  if(placaSel && placaVal && ![...placaSel.options].some(o=>o.value===placaVal))
+    placaSel.innerHTML += `<option value="${placaVal}">${placaVal}</option>`;
+  if(placaSel) placaSel.value = placaVal;
+  const motSel = document.getElementById('vg-motorista');
+  const motVal = r['MOTORISTA']||r['Motorista']||'';
+  if(motSel && motVal && ![...motSel.options].some(o=>o.value===motVal))
+    motSel.innerHTML += `<option value="${motVal}">${motVal}</option>`;
+  if(motSel) motSel.value = motVal;
+  document.getElementById('vg-origem').value     = r['ORGIEM']||r['Origem']||'';
+  document.getElementById('vg-uf').value         = r['UF']||'';
+  document.getElementById('vg-rota').value       = r['ROTA']||r['Rota']||'';
+  document.getElementById('vg-uf2').value        = r['UF2']||'';
+  document.getElementById('vg-cliente').value    = r['CLIENTE']||r['Cliente']||'';
+  document.getElementById('vg-embarque').value   = r['NUMEDO DO EMBARQUE']||r['Embarque']||'';
+  document.getElementById('vg-peso').value       = r['PESO']||'';
+  document.getElementById('vg-fempresa').value   = parseBRL(r['F.EMPRESA']||r['F.Empresa'])||'';
+  document.getElementById('vg-pedagio').value    = parseBRL(r['PEDAGIO']||r['Pedagio'])||'';
+  document.getElementById('vg-abast').value      = parseBRL(r['ABASTECIMENTO']||r['Abastecimento'])||'';
+  document.getElementById('vg-comissao').value   = parseBRL(r['COMISSÃO']||r['Comissao'])||'';
+  document.getElementById('vg-km').value         = r['KM TOTAL']||r['KM']||'';
+  document.getElementById('vg-situacao').value   = r['SITUAÇÃO DE PAGAMENTO']||r['Situacao Pagamento']||'À VENCER';
+  document.getElementById('vg-tipo-veic').value  = r['MOTORISTA3']||'';
+  document.getElementById('modal-viagem').classList.add('open');
+}
 
 function openViagemPanel(r) {
   if(!r) return;
@@ -2403,9 +2540,21 @@ async function saveViagemStatusInline(sel, r) {
   const newStatus = sel.value;
   // Update color class
   sel.className = 'status-sel ' + (newStatus==='PAGO'?'status-pg':newStatus==='VENCIDO'?'status-vd':'status-av');
+  // Guarda a chave ANTES de alterar o status no objeto em memória
+  const editKey = viagemEditKey(r);
   r['SITUAÇÃO DE PAGAMENTO'] = newStatus;
-  // Save to Sheets
-  await apiPost({ action:'updateViagem', date:r['DATA']||r['Data'], placa:r['PLACA']||r['Placa'], status:newStatus });
+  // Envia a linha inteira (com o status novo) para não apagar as demais colunas
+  const data={action:'updateViagem',_editKey:editKey,
+    DATA:r['DATA']||r['Data']||'',ORGIEM:r['ORGIEM']||r['Origem']||'',UF:r['UF']||'',
+    ROTA:r['ROTA']||r['Rota']||'',UF2:r['UF2']||'',CLIENTE:r['CLIENTE']||r['Cliente']||'',
+    PLACA:r['PLACA']||r['Placa']||'',MOTORISTA:r['MOTORISTA']||r['Motorista']||'',
+    'NUMEDO DO EMBARQUE':r['NUMEDO DO EMBARQUE']||r['Embarque']||'',PESO:r['PESO']||'',
+    'F.EMPRESA':parseBRL(r['F.EMPRESA']||r['F.Empresa']),PEDAGIO:parseBRL(r['PEDAGIO']||r['Pedagio']),
+    ABASTECIMENTO:parseBRL(r['ABASTECIMENTO']||r['Abastecimento']),COMISSÃO:parseBRL(r['COMISSÃO']||r['Comissao']),
+    'KM TOTAL':r['KM TOTAL']||r['KM']||'',KM:r['KM TOTAL']||r['KM']||'',
+    'SITUAÇÃO DE PAGAMENTO':newStatus,MOTORISTA3:r['MOTORISTA3']||''};
+  const res = await apiPost(data);
+  if(!res?.success && WEBAPP_URL) alert('Erro ao salvar status. '+(res?.error?res.error:'Verifique o Apps Script.'));
 }
 
 /* ═══════════════════════════════════════
