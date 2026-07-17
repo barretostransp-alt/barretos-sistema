@@ -340,15 +340,6 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       <div class="kpi-grid" id="dash-kpis">
         <div class="kpi-card loading-row" style="grid-column:1/-1"><span class="spinner"></span> Carregando…</div>
       </div>
-      <div id="dash-charts" style="display:none;margin-bottom:16px">
-        <div class="panel">
-          <div class="panel-header">
-            <i class="ti ti-alert-triangle" style="color:var(--orange)"></i>
-            <span class="panel-title">Alertas</span>
-          </div>
-          <div class="panel-body" id="dash-alerts"></div>
-        </div>
-      </div>
       <div class="panel" id="dash-resumo-placas" style="display:none">
         <div class="panel-header">
           <i class="ti ti-table" style="color:var(--gold)"></i>
@@ -372,6 +363,15 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
             </tr></thead>
             <tbody id="tbody-resumo-placas"></tbody>
           </table>
+        </div>
+      </div>
+      <div id="dash-charts" style="display:none;margin-bottom:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <i class="ti ti-alert-triangle" style="color:var(--orange)"></i>
+            <span class="panel-title">Alertas</span>
+          </div>
+          <div class="panel-body" id="dash-alerts"></div>
         </div>
       </div>
     </div>
@@ -515,7 +515,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <option>Serviços/Peças</option><option>Peças</option>
           <option>Documentação</option>
           <option>Pessoal</option><option>Tecnologia</option>
-          <option>Alimentação</option><option>Outros</option>
+          <option>Alimentação</option><option>Combustível</option><option>Outros</option>
           <option>Manutenção</option>
         </select>
         <select class="filter-input" id="f-desp-status" onchange="filterDespesas()">
@@ -892,7 +892,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <option>Serviços/Peças</option><option>Peças</option>
           <option>Documentação</option>
           <option>Pessoal</option><option>Tecnologia</option>
-          <option>Alimentação</option><option>Outros</option>
+          <option>Alimentação</option><option>Combustível</option><option>Outros</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Placa</label>
@@ -1328,7 +1328,7 @@ function renderDashboard() {
   db.despesas.forEach(d=>{
     const diff=daysDiff(d['Vencimento']||d['Data']);
     if((d['Status']==='A Vencer'||d['Status']==='Vencido'||d['Status']==='Pendente'||d['Status']==='Em Andamento') && diff!==null && diff<=30)
-      alerts.push({icon:'ti-receipt',col:diff<=0?'var(--red)':'var(--orange)',
+      alerts.push({icon:'ti-receipt',col:diff<=0?'var(--red)':'var(--blue)',
         main:`${d['Categoria']||'Despesa'} — ${d['Placa']||''}`,
         sub:`R$ ${parseBRL(d['Valor']).toLocaleString('pt-BR',{minimumFractionDigits:2})} — ${diff<=0?'VENCIDA':'vence em '+diff+' dias'}`});
   });
@@ -2338,6 +2338,7 @@ function renderResumoPorPlaca() {
     else if(cat==='manutenção'||cat==='manutencao'||cat==='serviços/peças'||cat==='servicos/pecas'||cat==='peças'||cat==='pecas') pp.manut+=val;
     else if(cat==='borracharia') pp.borra+=val;
     else if(cat==='documentação'||cat==='documentacao'||cat==='licenciamento') pp.doc+=val;
+    else if(cat==='combustível'||cat==='combustivel') pp.aba+=val;
     else pp.outros+=val;
   });
 
