@@ -745,6 +745,10 @@ function respErr(e) {
       <div class="sb-item" id="nav-clientes" onclick="navigate('clientes')">
         <i class="ti ti-users"></i><span>Clientes</span>
       </div>
+      <div class="sb-section" id="section-financeiro">Financeiro</div>
+      <div class="sb-item" id="nav-financeiro" onclick="navigate('financeiro')">
+        <i class="ti ti-cash"></i><span>Financeiro</span>
+      </div>
       <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
@@ -922,6 +926,7 @@ var TOOLS = {
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
   clientes:  { src:"clientes.html",              cat:"Comercial",   label:"Clientes",               icon:"ti-users"            },
+  financeiro:{ src:"financeiro.html",            cat:"Financeiro",  label:"Financeiro",             icon:"ti-cash"             },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
   kanban_pin: { src:"pinheiro.html",              cat:"Operacional", label:"Pinheiro",              icon:"ti-columns"          },
   kanban_inf: { src:"infra.html",                 cat:"Operacional", label:"Infra",                 icon:"ti-columns"          },
@@ -961,6 +966,8 @@ function applyUser(user){
   setTimeout(function(){ aplicarPermissoes(login); }, 200);
   // Restore user colors after login
   setTimeout(carregarCorSalva, 100);
+  // Alerta de novas solicitações no Financeiro (só pra Lisa Marie)
+  iniciarAlertaFilaFinanceiro(user);
 }
 
 async function aplicarPermissoes(login){
@@ -995,7 +1002,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","financeiro"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
@@ -1008,7 +1015,7 @@ function aplicarMenuPermissoes(p){
       el.style.display=p.includes(k)?"flex":"none";
     }
   });
-  var sm={rh:["diarias"],comercial:["cotacao","relatorio","clientes"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
+  var sm={rh:["diarias"],comercial:["cotacao","relatorio","clientes"],financeiro:["financeiro"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -1016,10 +1023,10 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","financeiro"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
-  ["section-geral","section-rh","section-comercial","section-operacional","section-melhoria"].forEach(function(s){
+  ["section-geral","section-rh","section-comercial","section-financeiro","section-operacional","section-melhoria"].forEach(function(s){
     var el=document.getElementById(s); if(el) el.style.display="flex";
   });
 }
@@ -1483,8 +1490,38 @@ async function savePerfilModal(){
   </div>
 </div>
 
+<!-- MODAL ALERTA — NOVA SOLICITAÇÃO NO FINANCEIRO (estilo "novo e-mail") -->
+<div id="fila-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="fila-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📧</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="fila-alerta-titulo">Nova solicitação no Financeiro</div>
+        <div style="font-size:11px;color:#6B7280" id="fila-alerta-sub">Fila do Dia — Contas a Pagar</div>
+      </div>
+      <button onclick="fecharAlertaFila()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="fila-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaFila()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaFila();navigate('financeiro')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver no Financeiro</button>
+    </div>
+  </div>
+</div>
+<style>@keyframes filaAlertaPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}</style>
+
 <script>
 var CAL_URL = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
+var FINANCEIRO_URL = 'https://script.google.com/macros/s/AKfycbx2WTA0VrEk339HfK3gHxyoSo0L8ufFgJJZ1fwRmMELLaKc3IMMr1S8-cPxv1FohyDXYQ/exec';
 
 var TYPE_LABEL = { evento:'Evento', reuniao:'Reunião', alerta:'Alerta', lembrete:'Lembrete' };
 var TYPE_COLOR = { evento:'#3B82F6', reuniao:'#8B5CF6', alerta:'#F97316', lembrete:'#F5B800' };
@@ -1580,6 +1617,89 @@ async function mostrarAgendaDia(user) {
 
 function fecharAgenda() {
   document.getElementById('agenda-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE NOVA SOLICITAÇÃO NO FINANCEIRO (só para Lisa Marie) ──
+   Fica de olho na aba "Contas a Pagar" da planilha do Financeiro e, ao
+   detectar uma solicitação nova que ainda está pendente, mostra um aviso
+   estilo "novo e-mail", mesmo que o usuário esteja em outra tela do
+   sistema (o financeiro.html só roda quando essa aba está aberta, então
+   esse monitoramento vive aqui no shell, que fica sempre carregado).
+   Observação: a planilha de Contas a Pagar não guarda Vencimento (esse
+   dado só existe dentro do financeiro.html), então esse alerta dispara
+   pra qualquer solicitação nova pendente, não só as que vencem hoje. */
+var _filaFinanceiroIntervalId = null;
+function iniciarAlertaFilaFinanceiro(user){
+  if(_filaFinanceiroIntervalId){ clearInterval(_filaFinanceiroIntervalId); _filaFinanceiroIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var ehLisa = nome.indexOf('lisa')===0 || login.indexOf('lisa')===0;
+  if(!ehLisa) return; // só pra Lisa Marie
+  setTimeout(verificarNovaSolicitacaoFinanceiro, 3000); // dá um tempo pro login/permissões carregarem primeiro
+  _filaFinanceiroIntervalId = setInterval(verificarNovaSolicitacaoFinanceiro, 45000);
+}
+
+async function verificarNovaSolicitacaoFinanceiro(){
+  if(!FINANCEIRO_URL) return;
+  try{
+    var r = await fetch(FINANCEIRO_URL);
+    var rows = await r.json();
+    if(!Array.isArray(rows)) return;
+
+    var pendentes = rows.filter(function(row){ return row.solicitacao !== 'PAGAMENTO EFETUADO'; });
+    var chaveVistos = 'financeiro_fila_vista';
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+
+    var chavesAtuais = pendentes.map(function(row){ return (row.codigo||'')+'|'+(row.favorecido||''); });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+      return;
+    }
+
+    var novos = pendentes.filter(function(row){
+      var chave = (row.codigo||'')+'|'+(row.favorecido||'');
+      return vistos.indexOf(chave) === -1;
+    });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+
+    if(novos.length > 0) mostrarAlertaFila(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaFila(novos){
+  var titulo = document.getElementById('fila-alerta-titulo');
+  var sub = document.getElementById('fila-alerta-sub');
+  var body = document.getElementById('fila-alerta-body');
+
+  titulo.textContent = novos.length === 1
+    ? 'Nova solicitação no Financeiro'
+    : novos.length + ' novas solicitações no Financeiro';
+  sub.textContent = 'Fila do Dia — Contas a Pagar';
+
+  body.innerHTML = novos.map(function(row){
+    var valor = Number(row.valorTotal)||0;
+    var valorFmt = 'R$\u00A0' + valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💰</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(row.favorecido||'Sem nome')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.empresa||'')+(row.efetuar?' · '+row.efetuar:'')+'</div>'+
+      '</div>'+
+      '<div style="font-size:12px;font-weight:700;color:#F5B800;white-space:nowrap;flex-shrink:0">'+valorFmt+'</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('fila-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaFila(){
+  document.getElementById('fila-alerta-overlay').style.display = 'none';
 }
 
 /* ── TEMA CLARO/ESCURO ───────────────────────────────── */
