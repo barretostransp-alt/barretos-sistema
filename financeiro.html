@@ -1069,6 +1069,17 @@ function postSheetPix_(payload){
 }
 // Código usado como chave na planilha: o do card do kanban quando existe,
 // ou um identificador sintético (GERAL-<id>) para lançamentos manuais.
+// Acumula instituições bancárias diferentes na mesma célula (ex: "Sicoob/Sicredi")
+// em vez de sobrescrever — mesma lógica usada no Apps Script.
+function acumularInstituicaoBancaria_(atual, novo){
+  atual = (atual||'').toString().trim();
+  novo = (novo||'').toString().trim();
+  if(!novo) return atual;
+  if(!atual) return novo;
+  var partes = atual.split('/').map(s=>s.trim()).filter(Boolean);
+  if(partes.indexOf(novo) === -1) partes.push(novo);
+  return partes.join('/');
+}
 function codigoSheet_(l){
   return (l.cardCodigo && l.cardCodigo.trim()) ? l.cardCodigo.trim() : ('GERAL-'+l.id);
 }
@@ -1668,6 +1679,8 @@ function saveLancamento(){
    Abas confirmadas: BARRETO'S, INFRA, GONÇALVES, PINHEIRO. */
 function atualizarAbaSugerida(){ /* reservado para lógica futura, se precisarmos mapear aba->empresa automaticamente */ }
 
+var custoOperacionalCardAtual = null; // Custo Operacional Total do card, vindo do kanban — usado como teto de segurança
+
 function openModalPix(){
   ['p-codigo','p-favorecido','p-descricao','p-valor','p-adiantamento','p-titular','p-banco-favorecido','p-chave-pix','p-obs','p-vendedor','p-acrescimo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('p-categoria').value='Frete/Motorista';
@@ -1679,6 +1692,7 @@ function openModalPix(){
   document.getElementById('p-vencimento').value=new Date().toISOString().slice(0,10);
   document.getElementById('p-import-status').textContent='';
   document.getElementById('p-aviso-duplicidade').innerHTML='';
+  custoOperacionalCardAtual = null;
   document.getElementById('modal-pix').classList.add('open');
   atualizarValorEnfasePix();
 }
@@ -1721,7 +1735,10 @@ async function buscarCardKanban(){
     document.getElementById('p-tipo-pix').value = card["TIPO CHAVE PIX"]||"";
     document.getElementById('p-chave-pix').value = card["CHAVE PIX"]||"";
     document.getElementById('p-vendedor').value = card["VENDEDOR"]||"";
-    statusEl.innerHTML = '<span class="txt-green">✓ Dados importados do card '+codigo+(card["VENDEDOR"]?' · Vendedor: '+card["VENDEDOR"]:'')+'.</span>';
+    var custoOperRaw = card["CUSTO OPERACIONAL TOTAL"];
+    custoOperacionalCardAtual = custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!=='' ? parseFloat(String(custoOperRaw).replace(',','.')) : null;
+    statusEl.innerHTML = '<span class="txt-green">✓ Dados importados do card '+codigo+(card["VENDEDOR"]?' · Vendedor: '+card["VENDEDOR"]:'')+'.</span>'
+      + (custoOperacionalCardAtual!==null ? ' <span class="txt-dim">(Custo Operacional Total: '+fmtMoeda(custoOperacionalCardAtual)+')</span>' : '');
     atualizarValorEnfasePix();
     atualizarAvisoDuplicidade();
   }catch(e){
@@ -1747,6 +1764,27 @@ function savePix(){
   var titularConflito = document.getElementById('p-titular').value;
   var conflito = getConflitoDuplicidade(cardCodigo, tipoValor, titularConflito, null);
   if(conflito){ alert(conflito); return; }
+
+  // Trava de segurança: a soma de tudo que já foi solicitado pra esse card
+  // (de qualquer titular) mais essa nova solicitação não pode ultrapassar o
+  // Custo Operacional Total informado no card do kanban — vale tanto pra
+  // uma 3ª solicitação em diante quanto pra própria 1ª (a do motorista, que
+  // já usamos como referência do valor total).
+  if(custoOperacionalCardAtual !== null && cardCodigo){
+    var pctParaCalculo = parseFloat(document.getElementById('p-adiantamento').value)||0;
+    var valorDestaSolicitacao = calcValorEnfase(valor, tipoValor, pctParaCalculo);
+    var somaExistente = lancamentos
+      .filter(l=>l.origem==='pix' && l.cardCodigo && l.cardCodigo.trim().toUpperCase()===cardCodigo.toUpperCase())
+      .reduce((s,l)=>s+calcValorEnfase(l.valor,l.tipoValor,l.adiantamento),0);
+    var totalComEssa = somaExistente + valorDestaSolicitacao;
+    if(totalComEssa > custoOperacionalCardAtual + 0.01){
+      alert('Essa solicitação faria o total pago nesse card ultrapassar o Custo Operacional Total do kanban ('+fmtMoeda(custoOperacionalCardAtual)+').\n\n'
+        + 'Já comprometido com esse card: '+fmtMoeda(somaExistente)+'\n'
+        + 'Esta solicitação: '+fmtMoeda(valorDestaSolicitacao)+'\n'
+        + 'Total ficaria em: '+fmtMoeda(totalComEssa));
+      return;
+    }
+  }
   var novo = {
     id: Date.now(),
     origem: "pix",
@@ -2032,7 +2070,7 @@ function construirLinhasPlanilhaBase(rows){
     }
     var reg = mapa[chave];
     reg.forma = formaPagamentoSheet_(l) || reg.forma;
-    reg.bancoOrigem = l.bancoOrigem || reg.bancoOrigem;
+    reg.bancoOrigem = acumularInstituicaoBancaria_(reg.bancoOrigem, l.bancoOrigem);
     reg.docFavorecido = l.doc || reg.docFavorecido;
     if(ehPix){ reg.pix = l.chavePix||reg.pix; reg.banco = l.banco||reg.banco; }
 
