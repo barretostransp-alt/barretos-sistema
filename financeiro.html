@@ -1735,10 +1735,12 @@ async function buscarCardKanban(){
     document.getElementById('p-tipo-pix').value = card["TIPO CHAVE PIX"]||"";
     document.getElementById('p-chave-pix').value = card["CHAVE PIX"]||"";
     document.getElementById('p-vendedor').value = card["VENDEDOR"]||"";
-    var custoOperRaw = card["CUSTO OPERACIONAL TOTAL"];
+    var custoOperRaw = card["CUSTO OPERACIONAL TOTAL"] ?? card["CUSTO TOTAL OPERACIONAL"];
     custoOperacionalCardAtual = custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!=='' ? parseFloat(String(custoOperRaw).replace(',','.')) : null;
     statusEl.innerHTML = '<span class="txt-green">✓ Dados importados do card '+codigo+(card["VENDEDOR"]?' · Vendedor: '+card["VENDEDOR"]:'')+'.</span>'
-      + (custoOperacionalCardAtual!==null ? ' <span class="txt-dim">(Custo Operacional Total: '+fmtMoeda(custoOperacionalCardAtual)+')</span>' : '');
+      + (custoOperacionalCardAtual!==null
+        ? ' <span class="txt-dim">(Custo Operacional Total: '+fmtMoeda(custoOperacionalCardAtual)+')</span>'
+        : ' <span class="txt-orange" style="color:var(--orange)">(⚠ Custo Operacional Total não encontrado nesse card — trava de segurança não vai se aplicar)</span>');
     atualizarValorEnfasePix();
     atualizarAvisoDuplicidade();
   }catch(e){
