@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RH · Recrutamento & Seleção — Grupo Barreto's</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth.js/1.7.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<style>
+:root{
+  --bg:#090A0D;
+  --bg-elev:#101218;
+  --bg-elev-2:#161822;
+  --border:#232633;
+  --gold:#FBC929;
+  --gold-2:#F5B800;
+  --text:#EDEEF2;
+  --text-dim:#9498A6;
+  --text-faint:#5D6172;
+  --green:#3ECF8E;
+  --red:#F1554C;
+  --blue:#4F9DFF;
+  --radius:14px;
+  --topbar-bg:rgba(9,10,13,0.9);
+}
+body.tema-claro{
+  --bg:#F2F3F6;
+  --bg-elev:#FFFFFF;
+  --bg-elev-2:#EEF0F4;
+  --border:#DCE0E8;
+  --gold:#C99A00;
+  --gold-2:#B98600;
+  --text:#14161C;
+  --text-dim:#575B68;
+  --text-faint:#8A8E9B;
+  --green:#1E9E63;
+  --red:#D93830;
+  --blue:#2E7DE1;
+  --topbar-bg:rgba(242,243,246,0.9);
+}
+body.tema-claro .btn-gold{color:#1A1200;}
+body.tema-claro .brand-mark{color:#1A1200;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  min-height:100vh;
+  display:flex;
+  overflow-x:hidden;
+}
+h1,h2,h3,.brand,.nav-label{font-family:'Syne',sans-serif;}
+.mono,.kpi-num,.score-num,table td.num{font-family:'Barlow',sans-serif;}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+  width:264px;
+  flex-shrink:0;
+  background:var(--bg-elev);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  position:sticky;
+  top:0;
+}
+.brand{
+  padding:22px 20px 18px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  border-bottom:1px solid var(--border);
+}
+.brand-mark{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-2));
+  display:flex;align-items:center;justify-content:center;
+  color:#0A0A0D;font-weight:800;font-size:15px;
+}
+.brand-text{font-size:15.5px;font-weight:700;letter-spacing:.2px;}
+.brand-sub{font-size:10.5px;color:var(--text-faint);font-family:'DM Sans',sans-serif;letter-spacing:.4px;text-transform:uppercase;}
+
+.nav{padding:16px 12px;flex:1;overflow-y:auto;}
+.nav-label{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:1px;padding:10px 10px 6px;font-weight:700;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;
+  color:var(--text-dim);font-size:13.5px;font-weight:500;
+  cursor:pointer;transition:.15s;
+  margin-bottom:2px;
+}
+.nav-item i{font-size:17px;}
+.nav-item:hover{background:var(--bg-elev-2);color:var(--text);}
+.nav-item.active{background:rgba(251,201,41,0.1);color:var(--gold);}
+
+.vagas-list{margin-top:4px;}
+.vaga-mini{
+  padding:10px 12px;border-radius:10px;cursor:pointer;
+  margin-bottom:4px;transition:.15s;border:1px solid transparent;
+}
+.vaga-mini:hover{background:var(--bg-elev-2);}
+.vaga-mini.active{background:rgba(251,201,41,0.08);border-color:rgba(251,201,41,0.25);}
+.vaga-mini-title{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vaga-mini-meta{font-size:10.5px;color:var(--text-faint);margin-top:2px;display:flex;justify-content:space-between;}
+.vaga-mini-badge{font-size:9.5px;padding:1px 6px;border-radius:20px;font-weight:700;}
+
+.sidebar-foot{
+  padding:14px 18px;border-top:1px solid var(--border);
+  font-size:11px;color:var(--text-faint);
+  display:flex;align-items:center;gap:8px;
+}
+.user-dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+
+/* ---------- MAIN ---------- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow-y:auto;}
+.topbar{
+  position:sticky;top:0;z-index:20;
+  background:var(--topbar-bg);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  padding:16px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.topbar-title{font-size:19px;font-weight:700;}
+.topbar-sub{font-size:12px;color:var(--text-faint);margin-top:2px;}
+.topbar-actions{display:flex;align-items:center;gap:10px;}
+
+.select-empresa{
+  background:var(--bg-elev-2);border:1px solid var(--border);color:var(--text);
+  padding:8px 12px;border-radius:9px;font-size:12.5px;font-family:'DM Sans',sans-serif;
+  cursor:pointer;
+}
+.btn{
+  border:none;padding:9px 16px;border-radius:9px;font-size:13px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s;font-family:'DM Sans',sans-serif;
+}
+.btn-gold{background:var(--gold);color:#111;}
+.btn-gold:hover{background:var(--gold-2);}
+.btn-ghost{background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--gold);}
+.btn-sm{padding:6px 11px;font-size:12px;}
+
+.content{padding:24px 28px 60px;}
+
+/* ---------- KPI CARDS ---------- */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.kpi-card{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;
+}
+.kpi-label{font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.kpi-num{font-size:28px;font-weight:700;margin-top:6px;}
+.kpi-foot{font-size:11px;color:var(--text-dim);margin-top:4px;}
+.kpi-gold{color:var(--gold);}
+.kpi-green{color:var(--green);}
+
+/* ---------- PANELS ---------- */
+.panel{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;margin-bottom:18px;
+}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.panel-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.panel-title i{color:var(--gold);}
+
+.funnel{display:flex;gap:8px;flex-wrap:wrap;}
+.funnel-stage{
+  flex:1;min-width:110px;background:var(--bg-elev-2);border:1px solid var(--border);
+  border-radius:10px;padding:12px;text-align:center;
+}
+.funnel-num{font-size:20px;font-weight:700;font-family:'Barlow',sans-serif;}
+.funnel-label{font-size:10.5px;color:var(--text-faint);margin-top:3px;text-transform:uppercase;letter-spacing:.3px;}
+
+/* ---------- VAGAS GRID (dashboard) ---------- */
+.vagas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.vaga-card{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;cursor:pointer;transition:.15s;
+}
+.vaga-card:hover{border-color:var(--gold);transform:translateY(-1px);}
+.vaga-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.vaga-card-title{font-size:14.5px;font-weight:700;}
+.vaga-card-dept{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+.badge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.2px;white-space:nowrap;}
+.badge-aberta{background:rgba(62,207,142,0.15);color:var(--green);}
+.badge-pausada{background:rgba(251,201,41,0.15);color:var(--gold);}
+.badge-fechada{background:rgba(241,85,76,0.15);color:var(--red);}
+.vaga-card-mid{display:flex;gap:14px;margin:12px 0;font-size:11.5px;color:var(--text-dim);}
+.vaga-card-mid span{display:flex;align-items:center;gap:5px;}
+.vaga-card-bar{height:5px;border-radius:4px;background:var(--bg-elev-2);overflow:hidden;margin-top:4px;}
+.vaga-card-bar div{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));}
+
+/* ---------- VAGA DETAIL ---------- */
+.detail-grid{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start;}
+.req-list{list-style:none;margin-top:10px;}
+.req-list li{
+  font-size:12.5px;color:var(--text-dim);padding:7px 0;border-bottom:1px dashed var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.req-list li i{color:var(--gold);font-size:14px;}
+.textarea-field{
+  width:100%;background:var(--bg-elev-2);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;padding:10px 12px;font-size:12.5px;font-family:'DM Sans',sans-serif;resize:vertical;
+}
+
+.upload-zone{
+  border:1.5px dashed var(--border);border-radius:12px;
+  padding:26px 18px;text-align:center;cursor:pointer;transition:.15s;
+  background:var(--bg-elev-2);
+}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--gold);background:rgba(251,201,41,0.05);}
+.upload-zone i{font-size:30px;color:var(--gold);}
+.upload-zone p{font-size:12.5px;color:var(--text-dim);margin-top:8px;}
+.upload-zone .hint{font-size:11px;color:var(--text-faint);margin-top:2px;}
+
+/* candidatos table */
+.cand-table{width:100%;border-collapse:collapse;margin-top:14px;}
+.cand-table th{
+  text-align:left;font-size:10.5px;color:var(--text-faint);text-transform:uppercase;
+  letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700;
+}
+.cand-table td{padding:11px 10px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle;}
+.cand-table tr{cursor:pointer;transition:.15s;}
+.cand-table tbody tr:hover{background:var(--bg-elev-2);}
+.cand-name{font-weight:600;}
+.cand-file{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+
+.score-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+  font-weight:700;font-size:12.5px;font-family:'Barlow',sans-serif;
+}
+.score-alta{background:rgba(62,207,142,0.15);color:var(--green);}
+.score-media{background:rgba(251,201,41,0.15);color:var(--gold);}
+.score-baixa{background:rgba(241,85,76,0.15);color:var(--red);}
+
+.status-sel{
+  background:var(--bg-elev-2);border:1px solid var(--border);color:var(--text);
+  padding:5px 9px;border-radius:7px;font-size:11.5px;font-family:'DM Sans',sans-serif;cursor:pointer;
+}
+
+.empty-state{
+  text-align:center;padding:50px 20px;color:var(--text-faint);
+}
+.empty-state i{font-size:38px;color:var(--border);margin-bottom:10px;display:block;}
+.empty-state p{font-size:13px;}
+
+/* ---------- SIDE PANEL (candidato) ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;
+  opacity:0;pointer-events:none;transition:.2s;
+}
+.overlay.open{opacity:1;pointer-events:auto;}
+.side-panel{
+  position:fixed;top:0;right:-460px;width:440px;max-width:92vw;height:100vh;
+  background:var(--bg-elev);border-left:1px solid var(--border);z-index:50;
+  transition:right .25s ease;overflow-y:auto;
+}
+.side-panel.open{right:0;}
+.side-panel-head{
+  padding:20px 22px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:flex-start;
+  position:sticky;top:0;background:var(--bg-elev);z-index:2;
+}
+.side-panel-body{padding:20px 22px;}
+.close-btn{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;}
+.close-btn:hover{color:var(--text);}
+
+.score-ring-wrap{display:flex;align-items:center;gap:16px;margin-bottom:18px;}
+.score-ring{position:relative;width:88px;height:88px;flex-shrink:0;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring-num{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:700;font-family:'Barlow',sans-serif;
+}
+
+.sec-title{
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-faint);
+  font-weight:700;margin:18px 0 8px;
+}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:11.5px;padding:4px 10px;border-radius:20px;font-weight:600;}
+.tag-forte{background:rgba(62,207,142,0.12);color:var(--green);}
+.tag-atencao{background:rgba(241,85,76,0.12);color:var(--red);}
+.resumo-ia{
+  font-size:12.5px;line-height:1.6;color:var(--text-dim);
+  background:var(--bg-elev-2);border-radius:10px;padding:12px 14px;border:1px solid var(--border);
+}
+.cv-preview{
+  font-size:11px;line-height:1.55;color:var(--text-faint);
+  background:var(--bg-elev-2);border-radius:10px;padding:12px 14px;border:1px solid var(--border);
+  max-height:180px;overflow-y:auto;white-space:pre-wrap;font-family:'Barlow',sans-serif;
+}
+
+/* ---------- MODAL nova vaga ---------- */
+.modal{
+  position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.6);padding:20px;
+}
+.modal.open{display:flex;}
+.modal-box{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:16px;
+  width:560px;max-width:100%;max-height:90vh;overflow-y:auto;padding:24px;
+}
+.modal-box h2{font-size:18px;margin-bottom:16px;}
+.field{margin-bottom:14px;}
+.field label{font-size:11.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.3px;font-weight:700;display:block;margin-bottom:6px;}
+.field input,.field select,.field textarea{
+  width:100%;background:var(--bg-elev-2);border:1px solid var(--border);color:var(--text);
+  padding:9px 12px;border-radius:9px;font-size:13px;font-family:'DM Sans',sans-serif;
+}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+
+.loading-inline{display:flex;align-items:center;gap:8px;color:var(--gold);font-size:12.5px;padding:10px 0;}
+.spin{width:14px;height:14px;border:2px solid rgba(251,201,41,.25);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.solides-note{
+  display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-faint);
+  background:var(--bg-elev-2);border:1px solid var(--border);border-radius:9px;padding:8px 12px;margin-top:14px;
+}
+.solides-note i{color:var(--gold);font-size:15px;}
+
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
+
+@media(max-width:1000px){
+  .sidebar{display:none;}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .detail-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+<div class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">GB</div>
+    <div>
+      <div class="brand-text">Grupo Barreto's</div>
+      <div class="brand-sub">RH · Recrutamento</div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-item active" data-view="dashboard"><i class="ti ti-layout-dashboard"></i> Painel Geral</div>
+    <div class="nav-item" data-view="vagas"><i class="ti ti-briefcase"></i> Vagas Abertas</div>
+    <div class="nav-item" data-view="talentos"><i class="ti ti-users"></i> Banco de Talentos</div>
+
+    <div class="nav-label" style="margin-top:14px;">Vagas em andamento</div>
+    <div class="vagas-list" id="sidebarVagasList"></div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="user-dot"></div> Perfil: <b style="color:var(--text)">RH · Gestor</b>
+  </div>
+</div>
+
+<!-- ================= MAIN ================= -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="viewTitle">Painel Geral</div>
+      <div class="topbar-sub" id="viewSub">Visão consolidada do processo seletivo</div>
+    </div>
+    <div class="topbar-actions">
+      <select class="select-empresa" id="filtroEmpresa">
+        <option value="todas">Todas as empresas</option>
+        <option value="barretos">Barreto's Transportes e Serviços</option>
+        <option value="infra">Barreto's Sites e Infraestrutura</option>
+        <option value="goncalves">Gonçalves Soluções em Logística</option>
+        <option value="pinheiro">Pinheiro Transportes e Serviços</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="btnTalentos"><i class="ti ti-users"></i> Banco de Talentos</button>
+      <button class="btn btn-gold" id="btnNovaVaga"><i class="ti ti-plus"></i> Nova Vaga</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ---------- DASHBOARD ---------- -->
+    <div id="view-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Vagas Abertas</div>
+          <div class="kpi-num" id="kpiVagas">0</div>
+          <div class="kpi-foot">em processo seletivo ativo</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Candidatos Triados</div>
+          <div class="kpi-num kpi-gold" id="kpiCandidatos">0</div>
+          <div class="kpi-foot">currículos analisados por IA</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Aderência Média</div>
+          <div class="kpi-num kpi-green" id="kpiAderencia">—</div>
+          <div class="kpi-foot">score médio de compatibilidade</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Aprovados p/ Entrevista</div>
+          <div class="kpi-num" id="kpiAprovados">0</div>
+          <div class="kpi-foot">candidatos com aderência ≥ 75%</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><i class="ti ti-filter"></i> Funil de Seleção</div>
+        </div>
+        <div class="funnel" id="funnelWrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><i class="ti ti-briefcase"></i> Vagas em Andamento</div>
+          <button class="btn btn-ghost btn-sm" onclick="switchView('vagas')">Ver todas <i class="ti ti-arrow-right"></i></button>
+        </div>
+        <div class="vagas-grid" id="dashVagasGrid"></div>
+      </div>
+
+      <div class="solides-note">
+        <i class="ti ti-plug-connected"></i>
+        Estrutura de etapas e triagem preparada no padrão Sólides RH (Triagem → Entrevista RH → Entrevista Gestor → Proposta → Contratado). Integração direta com a conta Sólides pode ser conectada depois, junto ao Apps Script.
+      </div>
+    </div>
+
+    <!-- ---------- LISTA DE VAGAS ---------- -->
+    <div id="view-vagas" style="display:none;">
+      <div class="vagas-grid" id="vagasGridFull"></div>
+    </div>
+
+    <!-- ---------- BANCO DE TALENTOS ---------- -->
+    <div id="view-talentos" style="display:none;">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><i class="ti ti-users"></i> Banco de Talentos</div>
+        </div>
+        <table class="cand-table">
+          <thead><tr><th>Candidato</th><th>Vaga de origem</th><th>Aderência</th><th>Status</th><th>Recebido em</th></tr></thead>
+          <tbody id="talentosBody"></tbody>
+        </table>
+        <div class="empty-state" id="talentosEmpty" style="display:none;">
+          <i class="ti ti-mailbox"></i><p>Nenhum candidato no banco de talentos ainda.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- DETALHE DA VAGA ---------- -->
+    <div id="view-detalhe" style="display:none;">
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:16px;" onclick="switchView('vagas')"><i class="ti ti-arrow-left"></i> Voltar às vagas</button>
+
+      <div class="detail-grid">
+        <!-- coluna esquerda: dados da vaga -->
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title" id="detalheTitulo"><i class="ti ti-briefcase"></i> —</div>
+              <span class="badge" id="detalheBadge"></span>
+            </div>
+            <div class="topbar-sub" id="detalheMeta" style="margin-bottom:12px;"></div>
+
+            <div class="sec-title">Descrição da vaga</div>
+            <textarea class="textarea-field" id="detalheDescricao" rows="4" placeholder="Descreva as responsabilidades e o contexto da vaga..."></textarea>
+
+            <div class="sec-title">Requisitos e competências desejadas</div>
+            <textarea class="textarea-field" id="detalheRequisitos" rows="5" placeholder="Ex: CNH categoria E, experiência com roteirização, Excel avançado..."></textarea>
+            <button class="btn btn-gold btn-sm" style="margin-top:10px;width:100%;justify-content:center;" onclick="salvarVaga()"><i class="ti ti-device-floppy"></i> Salvar alterações</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title"><i class="ti ti-file-upload"></i> Enviar Currículo</div></div>
+            <div class="upload-zone" id="uploadZone">
+              <i class="ti ti-cloud-upload"></i>
+              <p>Arraste o currículo aqui ou clique para selecionar</p>
+              <div class="hint">PDF ou Word (.pdf, .doc, .docx) · leitura e avaliação automática de aderência</div>
+              <input type="file" id="fileInput" accept=".pdf,.doc,.docx" hidden multiple>
+            </div>
+            <div id="uploadStatus"></div>
+          </div>
+        </div>
+
+        <!-- coluna direita: candidatos -->
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><i class="ti ti-users"></i> Candidatos Triados</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="topbar-sub" id="countCandidatos">0 candidatos</span>
+              <button class="btn btn-ghost btn-sm" onclick="limparCandidatosVagaAtual()" title="Remove todos os candidatos desta vaga, para reenviar os currículos do zero">
+                <i class="ti ti-trash"></i> Limpar candidatos
+              </button>
+            </div>
+          </div>
+          <table class="cand-table" id="candTable" style="display:none;">
+            <thead>
+              <tr><th>Candidato</th><th>Aderência</th><th>Etapa</th><th></th></tr>
+            </thead>
+            <tbody id="candTableBody"></tbody>
+          </table>
+          <div class="empty-state" id="candEmpty">
+            <i class="ti ti-file-search"></i>
+            <p>Nenhum currículo enviado para esta vaga ainda.<br>Envie um PDF ou Word para avaliar a aderência automaticamente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= SIDE PANEL CANDIDATO ================= -->
+<div class="overlay" id="overlay"></div>
+<div class="side-panel" id="candPanel">
+  <div class="side-panel-head">
+    <div>
+      <div style="font-size:16px;font-weight:700;" id="cpNome">—</div>
+      <div class="topbar-sub" id="cpVaga">—</div>
+    </div>
+    <button class="close-btn" onclick="closeCandPanel()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="side-panel-body">
+    <div class="score-ring-wrap">
+      <div class="score-ring">
+        <svg width="88" height="88" viewBox="0 0 88 88">
+          <circle cx="44" cy="44" r="38" stroke="var(--border)" stroke-width="8" fill="none"/>
+          <circle id="cpRingProgress" cx="44" cy="44" r="38" stroke="#FBC929" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="238.7" stroke-dashoffset="238.7"/>
+        </svg>
+        <div class="score-ring-num" id="cpScoreNum">0%</div>
+      </div>
+      <div>
+        <div class="sec-title" style="margin-top:0;">Etapa atual</div>
+        <select class="status-sel" id="cpStatus" onchange="atualizarStatusCandidato()">
+          <option>Triagem</option>
+          <option>Entrevista RH</option>
+          <option>Entrevista Gestor</option>
+          <option>Proposta</option>
+          <option>Contratado</option>
+          <option>Reprovado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sec-title">Resumo da Análise</div>
+    <div class="resumo-ia" id="cpResumo">—</div>
+
+    <div class="sec-title">Pontos fortes</div>
+    <div class="tag-list" id="cpFortes"></div>
+
+    <div class="sec-title">Pontos de atenção / lacunas</div>
+    <div class="tag-list" id="cpAtencao"></div>
+
+    <div class="sec-title">Arquivo · <span id="cpArquivo" style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
+    <div class="cv-preview" id="cpTexto">—</div>
+  </div>
+</div>
+
+<!-- ================= MODAL NOVA VAGA ================= -->
+<div class="modal" id="modalVaga">
+  <div class="modal-box">
+    <h2><i class="ti ti-briefcase" style="color:var(--gold)"></i> Nova Vaga</h2>
+    <div class="field-row">
+      <div class="field"><label>Título da vaga</label><input id="nvTitulo" placeholder="Ex: Motorista Carreteiro"></div>
+      <div class="field"><label>Departamento</label><input id="nvDepto" placeholder="Ex: Operação"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Empresa</label>
+        <select id="nvEmpresa">
+          <option value="barretos">Barreto's Transportes e Serviços</option>
+          <option value="infra">Barreto's Sites e Infraestrutura</option>
+          <option value="goncalves">Gonçalves Soluções em Logística</option>
+          <option value="pinheiro">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tipo de contratação</label>
+        <select id="nvTipo"><option>CLT</option><option>PJ</option><option>Temporário</option><option>Estágio</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Local</label><input id="nvLocal" placeholder="Ex: Arujá/SP"></div>
+    <div class="field"><label>Descrição da vaga</label><textarea id="nvDescricao" rows="3" placeholder="Responsabilidades e contexto do dia a dia..."></textarea></div>
+    <div class="field"><label>Requisitos e competências desejadas</label><textarea id="nvRequisitos" rows="4" placeholder="Um requisito por linha, ex:&#10;CNH categoria E&#10;Experiência mínima de 2 anos&#10;Disponibilidade para viagens"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="fecharModalVaga()">Cancelar</button>
+      <button class="btn btn-gold" onclick="criarVaga()"><i class="ti ti-check"></i> Criar Vaga</button>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ============================================================
+   INTEGRAÇÃO COM APPS SCRIPT (Google Sheets como banco de dados)
+   Mesmo padrão do resto do sistema: URL fixa aqui no arquivo,
+   POST sem Content-Type customizado (evita preflight de CORS).
+   Cole abaixo a URL /exec gerada ao implantar apps_script_rh.gs.
+============================================================= */
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwN1v2n3ZDf2QNGz7LaIU-Kyzkg4vDfiPzqk-w23VEuXD7f6mEX8B_-0FI5NJwQmWA/exec";
+
+const EMPRESAS = {
+  barretos:"Barreto's Transportes e Serviços",
+  infra:"Barreto's Sites e Infraestrutura",
+  goncalves:"Gonçalves Soluções em Logística",
+  pinheiro:"Pinheiro Transportes e Serviços"
+};
+
+const ETAPAS = ["Triagem","Entrevista RH","Entrevista Gestor","Proposta","Contratado","Reprovado"];
+
+let state = {
+  vagas: [],
+  vagaAtivaId: null,
+  candidatoAtivoId: null
+};
+let carregandoDados = false;
+let modalOuPainelAberto = () => document.getElementById('modalVaga').classList.contains('open') || document.getElementById('candPanel').classList.contains('open');
+
+function urlConfigurada(){
+  return WEBAPP_URL && !WEBAPP_URL.startsWith("COLE_AQUI");
+}
+
+// Cache local só para pintar a tela instantaneamente ao abrir;
+// a fonte da verdade é sempre a planilha.
+function lerCacheLocal(){
+  try{
+    const raw = localStorage.getItem('rh_vagas_cache');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function salvarCacheLocal(){
+  try{ localStorage.setItem('rh_vagas_cache', JSON.stringify(state.vagas)); }catch(e){}
+}
+
+async function loadAllData(mostrarCarregando){
+  if(!urlConfigurada()){
+    // Sem Apps Script configurado ainda: roda tudo local (modo de teste)
+    state.vagas = lerCacheLocal();
+    return;
+  }
+  if(carregandoDados) return;
+  carregandoDados = true;
+  if(mostrarCarregando) setTopoCarregando(true);
+  try{
+    const resp = await fetch(WEBAPP_URL);
+    const data = await resp.json();
+    state.vagas = data.vagas || [];
+    salvarCacheLocal();
+  }catch(err){
+    console.error('Falha ao carregar dados do RH:', err);
+    if(!state.vagas.length) state.vagas = lerCacheLocal();
+  }finally{
+    carregandoDados = false;
+    if(mostrarCarregando) setTopoCarregando(false);
+  }
+}
+
+function setTopoCarregando(ligado){
+  const el = document.getElementById('viewSub');
+  if(!el) return;
+  if(ligado) el.dataset.origTexto = el.textContent;
+  el.textContent = ligado ? 'Carregando dados da planilha...' : (el.dataset.origTexto || el.textContent);
+}
+
+async function enviarAoServidor(payload){
+  if(!urlConfigurada()) return; // modo de teste local — não envia nada
+  try{
+    await fetch(WEBAPP_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }catch(err){
+    console.error('Falha ao gravar na planilha:', err);
+    alert('Não foi possível salvar na planilha agora. A alteração ficou só nesta tela — tente novamente em instantes.');
+  }
+}
+
+// Mantém a tela em dia com a planilha (útil quando mais de uma pessoa usa o RH ao mesmo tempo)
+function iniciarAutoRefresh(){
+  if(!urlConfigurada()) return;
+  setInterval(async ()=>{
+    if(modalOuPainelAberto()) return;
+    await loadAllData(false);
+    renderAll();
+  }, 30000);
+}
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+
+
+/* ============================================================
+   NAVEGAÇÃO
+============================================================= */
+function switchView(view){
+  ['dashboard','vagas','talentos','detalhe'].forEach(v=>{
+    document.getElementById('view-'+v).style.display = (v===view) ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
+    el.classList.toggle('active', el.dataset.view===view);
+  });
+  const titles = {
+    dashboard:["Painel Geral","Visão consolidada do processo seletivo"],
+    vagas:["Vagas Abertas","Gerencie os processos seletivos ativos"],
+    talentos:["Banco de Talentos","Todos os candidatos já triados pela IA"],
+    detalhe:[document.getElementById('detalheTitulo').textContent,"Detalhe da vaga e candidatos"]
+  };
+  if(titles[view]){
+    document.getElementById('viewTitle').textContent = titles[view][0];
+    document.getElementById('viewSub').textContent = titles[view][1];
+  }
+  renderAll();
+}
+document.querySelectorAll('.nav-item[data-view]').forEach(el=>{
+  el.addEventListener('click',()=>switchView(el.dataset.view));
+});
+document.getElementById('btnTalentos').addEventListener('click',()=>switchView('talentos'));
+document.getElementById('filtroEmpresa').addEventListener('change', renderAll);
+
+/* ============================================================
+   RENDER
+============================================================= */
+function empresaFiltro(){ return document.getElementById('filtroEmpresa').value; }
+function vagasFiltradas(){
+  const f = empresaFiltro();
+  return f==='todas' ? state.vagas : state.vagas.filter(v=>v.empresa===f);
+}
+
+function renderAll(){
+  renderSidebarVagas();
+  renderKpis();
+  renderFunnel();
+  renderVagasGrid('dashVagasGrid', 6);
+  renderVagasGrid('vagasGridFull', 999);
+  renderTalentos();
+  if(state.vagaAtivaId) renderDetalheVaga();
+}
+
+function renderSidebarVagas(){
+  const el = document.getElementById('sidebarVagasList');
+  const list = vagasFiltradas();
+  el.innerHTML = list.length ? list.map(v=>`
+    <div class="vaga-mini ${v.id===state.vagaAtivaId?'active':''}" onclick="abrirVaga('${v.id}')">
+      <div class="vaga-mini-title">${escapeHtml(v.titulo)}</div>
+      <div class="vaga-mini-meta"><span>${v.candidatos.length} candidato(s)</span><span class="vaga-mini-badge ${badgeClass(v.status)}">${v.status}</span></div>
+    </div>
+  `).join('') : `<div style="font-size:11.5px;color:var(--text-faint);padding:8px 10px;">Nenhuma vaga cadastrada</div>`;
+}
+
+function badgeClass(status){
+  return status==='Aberta' ? 'badge-aberta' : status==='Pausada' ? 'badge-pausada' : 'badge-fechada';
+}
+
+function renderKpis(){
+  const list = vagasFiltradas();
+  const candidatos = list.flatMap(v=>v.candidatos);
+  document.getElementById('kpiVagas').textContent = list.filter(v=>v.status==='Aberta').length;
+  document.getElementById('kpiCandidatos').textContent = candidatos.length;
+  const media = candidatos.length ? Math.round(candidatos.reduce((s,c)=>s+c.score,0)/candidatos.length) : null;
+  document.getElementById('kpiAderencia').textContent = media!==null ? media+'%' : '—';
+  document.getElementById('kpiAprovados').textContent = candidatos.filter(c=>c.score>=75).length;
+}
+
+function renderFunnel(){
+  const candidatos = vagasFiltradas().flatMap(v=>v.candidatos);
+  const wrap = document.getElementById('funnelWrap');
+  wrap.innerHTML = ETAPAS.map(etapa=>{
+    const n = candidatos.filter(c=>c.status===etapa).length;
+    return `<div class="funnel-stage"><div class="funnel-num">${n}</div><div class="funnel-label">${etapa}</div></div>`;
+  }).join('');
+}
+
+function renderVagasGrid(elId, limit){
+  const el = document.getElementById(elId);
+  const list = vagasFiltradas().slice(0, limit);
+  if(!list.length){
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="ti ti-briefcase-off"></i><p>Nenhuma vaga cadastrada ainda. Clique em "Nova Vaga" para começar.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(v=>{
+    const media = v.candidatos.length ? Math.round(v.candidatos.reduce((s,c)=>s+c.score,0)/v.candidatos.length) : 0;
+    return `
+    <div class="vaga-card" onclick="abrirVaga('${v.id}')">
+      <div class="vaga-card-top">
+        <div><div class="vaga-card-title">${escapeHtml(v.titulo)}</div><div class="vaga-card-dept">${escapeHtml(v.departamento)} · ${EMPRESAS[v.empresa]}</div></div>
+        <span class="badge ${badgeClass(v.status)}">${v.status}</span>
+      </div>
+      <div class="vaga-card-mid">
+        <span><i class="ti ti-users"></i> ${v.candidatos.length} candidato(s)</span>
+        <span><i class="ti ti-map-pin"></i> ${escapeHtml(v.local||'—')}</span>
+      </div>
+      <div class="topbar-sub" style="margin-bottom:2px;">Aderência média</div>
+      <div class="vaga-card-bar"><div style="width:${media}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTalentos(){
+  const candidatos = [];
+  vagasFiltradas().forEach(v=> v.candidatos.forEach(c=> candidatos.push({...c, vagaTitulo:v.titulo, vagaId:v.id})));
+  candidatos.sort((a,b)=>b.score-a.score);
+  const body = document.getElementById('talentosBody');
+  const empty = document.getElementById('talentosEmpty');
+  if(!candidatos.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  body.innerHTML = candidatos.map(c=>`
+    <tr onclick="abrirCandidato('${c.vagaId}','${c.id}')">
+      <td class="cand-name">${escapeHtml(c.nome)}</td>
+      <td>${escapeHtml(c.vagaTitulo)}</td>
+      <td>${scorePill(c.score)}</td>
+      <td>${escapeHtml(c.status)}</td>
+      <td class="mono">${c.dataUpload}</td>
+    </tr>
+  `).join('');
+}
+
+function scorePill(score){
+  const cls = score>=75?'score-alta':score>=50?'score-media':'score-baixa';
+  return `<span class="score-pill ${cls}"><i class="ti ti-target-arrow"></i> ${score}%</span>`;
+}
+
+/* ============================================================
+   VAGAS: criar / abrir / salvar
+============================================================= */
+document.getElementById('btnNovaVaga').addEventListener('click',()=>{
+  document.getElementById('modalVaga').classList.add('open');
+});
+function fecharModalVaga(){ document.getElementById('modalVaga').classList.remove('open'); }
+
+function criarVaga(){
+  const titulo = document.getElementById('nvTitulo').value.trim();
+  if(!titulo){ alert('Informe o título da vaga.'); return; }
+  const vaga = {
+    id: uid(),
+    titulo,
+    departamento: document.getElementById('nvDepto').value.trim() || '—',
+    empresa: document.getElementById('nvEmpresa').value,
+    tipo: document.getElementById('nvTipo').value,
+    local: document.getElementById('nvLocal').value.trim(),
+    status: 'Aberta',
+    descricao: document.getElementById('nvDescricao').value.trim(),
+    requisitos: document.getElementById('nvRequisitos').value.trim(),
+    dataAbertura: new Date().toLocaleDateString('pt-BR'),
+    candidatos: []
+  };
+  state.vagas.unshift(vaga);
+  salvarCacheLocal();
+  enviarAoServidor({ action:'criarVaga', ...vaga, candidatos: undefined });
+  ['nvTitulo','nvDepto','nvLocal','nvDescricao','nvRequisitos'].forEach(id=>document.getElementById(id).value='');
+  fecharModalVaga();
+  abrirVaga(vaga.id);
+}
+
+function abrirVaga(id){
+  state.vagaAtivaId = id;
+  switchView('detalhe');
+}
+
+function getVagaAtiva(){ return state.vagas.find(v=>v.id===state.vagaAtivaId); }
+
+function limparCandidatosVagaAtual(){
+  const v = getVagaAtiva();
+  if(!v) return;
+  if(!v.candidatos.length){ return; }
+  if(!confirm(`Remover todos os ${v.candidatos.length} candidato(s) triado(s) desta vaga? Essa ação não pode ser desfeita.`)) return;
+  v.candidatos = [];
+  salvarCacheLocal();
+  enviarAoServidor({ action:'limparCandidatosVaga', vagaId: v.id });
+  renderDetalheVaga();
+  renderAll();
+}
+
+function renderDetalheVaga(){
+  const v = getVagaAtiva();
+  if(!v) return;
+  document.getElementById('detalheTitulo').innerHTML = `<i class="ti ti-briefcase"></i> ${escapeHtml(v.titulo)}`;
+  document.getElementById('detalheBadge').className = 'badge ' + badgeClass(v.status);
+  document.getElementById('detalheBadge').textContent = v.status;
+  document.getElementById('detalheMeta').textContent = `${v.departamento} · ${EMPRESAS[v.empresa]} · ${v.tipo} · ${v.local||'local não informado'} · aberta em ${v.dataAbertura}`;
+  document.getElementById('detalheDescricao').value = v.descricao || '';
+  document.getElementById('detalheRequisitos').value = v.requisitos || '';
+  document.getElementById('viewTitle').textContent = v.titulo;
+
+  const cands = [...v.candidatos].sort((a,b)=>b.score-a.score);
+  document.getElementById('countCandidatos').textContent = `${cands.length} candidato(s)`;
+  const table = document.getElementById('candTable');
+  const empty = document.getElementById('candEmpty');
+  const body = document.getElementById('candTableBody');
+  if(!cands.length){
+    table.style.display='none'; empty.style.display='block';
+  }else{
+    table.style.display=''; empty.style.display='none';
+    body.innerHTML = cands.map(c=>`
+      <tr onclick="abrirCandidato('${v.id}','${c.id}')">
+        <td><div class="cand-name">${escapeHtml(c.nome)}</div><div class="cand-file"><i class="ti ti-paperclip"></i> ${escapeHtml(c.arquivoNome)}</div></td>
+        <td>${scorePill(c.score)}</td>
+        <td>${escapeHtml(c.status)}</td>
+        <td style="text-align:right;color:var(--text-faint);"><i class="ti ti-chevron-right"></i></td>
+      </tr>
+    `).join('');
+  }
+}
+
+function salvarVaga(){
+  const v = getVagaAtiva();
+  if(!v) return;
+  v.descricao = document.getElementById('detalheDescricao').value.trim();
+  v.requisitos = document.getElementById('detalheRequisitos').value.trim();
+  salvarCacheLocal();
+  enviarAoServidor({ action:'atualizarVaga', id: v.id, descricao: v.descricao, requisitos: v.requisitos });
+  renderAll();
+}
+
+/* ============================================================
+   UPLOAD & EXTRAÇÃO DE TEXTO (PDF / Word)
+============================================================= */
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+uploadZone.addEventListener('click',()=>fileInput.click());
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('dragover');});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop',e=>{
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+
+async function handleFiles(files){
+  const v = getVagaAtiva();
+  if(!v){ return; }
+  for(const file of files){
+    await processarCurriculo(file, v);
+  }
+  fileInput.value = '';
+}
+
+async function extrairTextoPdf(arrayBuffer){
+  const pdf = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  let texto = '';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    texto += content.items.map(it=>it.str).join(' ') + '\n';
+  }
+  return texto;
+}
+async function extrairTextoDocx(arrayBuffer){
+  const result = await mammoth.extractRawText({arrayBuffer});
+  return result.value;
+}
+
+// Fallback para PDFs sem camada de texto (ex: currículos exportados do Canva,
+// prints de tela ou digitalizados como imagem): renderiza cada página em
+// canvas e aplica OCR.
+// Cuidado especial: alguns currículos chegam como um único print de tela
+// MUITO comprido (ex: scroll de página inteira virando 1 página de PDF com
+// proporção tipo 1:7). Escalar isso num canvas só pode ultrapassar o limite
+// de tamanho de canvas que os navegadores aceitam (Chrome trava perto de
+// 16384px numa dimensão) e o OCR falha silenciosamente. Por isso a escala é
+// calculada a partir do tamanho real da página, e páginas que mesmo assim
+// ficariam altas demais são processadas em fatias horizontais.
+async function extrairTextoPdfViaOcr(arrayBuffer, onProgress){
+  const pdf = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  const maxPages = Math.min(pdf.numPages, 4);
+  const LIMITE_SEGURO = 3500; // bem abaixo do limite dos navegadores, com folga
+  let texto = '';
+  for(let i=1;i<=maxPages;i++){
+    const page = await pdf.getPage(i);
+    const base = page.getViewport({scale:1});
+
+    // Escolhe a maior escala possível sem estourar o limite seguro de canvas
+    let scale = Math.min(2.2, LIMITE_SEGURO/base.width, LIMITE_SEGURO/base.height);
+    scale = Math.max(scale, 0.4); // não deixa a imagem ficar ilegível demais
+    const viewport = page.getViewport({scale});
+
+    if(viewport.height <= LIMITE_SEGURO){
+      if(onProgress) onProgress(i, maxPages, 1, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({canvasContext: ctx, viewport}).promise;
+      const { data:{ text } } = await Tesseract.recognize(canvas, 'por');
+      texto += text + '\n';
+    } else {
+      // Página fora do padrão (ex: print de tela inteira) — processa em
+      // fatias verticais, cada uma dentro do limite seguro de canvas.
+      const partes = Math.min(Math.ceil(viewport.height/LIMITE_SEGURO), 10);
+      for(let p=0; p<partes; p++){
+        if(onProgress) onProgress(i, maxPages, p+1, partes);
+        const offsetY = p*LIMITE_SEGURO;
+        const alturaParte = Math.min(LIMITE_SEGURO, viewport.height-offsetY);
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = alturaParte;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(0, -offsetY); // desloca o desenho pra essa fatia cair no topo do canvas
+        await page.render({canvasContext: ctx, viewport}).promise;
+        const { data:{ text } } = await Tesseract.recognize(canvas, 'por');
+        texto += text + '\n';
+      }
+    }
+  }
+  return texto;
+}
+
+function setUploadStatus(html){
+  document.getElementById('uploadStatus').innerHTML = html;
+}
+
+async function processarCurriculo(file, vaga){
+  setUploadStatus(`<div class="loading-inline"><div class="spin"></div> Lendo "${escapeHtml(file.name)}"...</div>`);
+  try{
+    const buffer = await file.arrayBuffer();
+    let texto = '';
+    const nomeArq = file.name.toLowerCase();
+    if(nomeArq.endsWith('.pdf')){
+      texto = await extrairTextoPdf(buffer);
+    }else if(nomeArq.endsWith('.docx') || nomeArq.endsWith('.doc')){
+      texto = await extrairTextoDocx(buffer);
+    }else{
+      setUploadStatus(`<div style="color:var(--red);font-size:12px;">Formato não suportado. Envie PDF ou Word.</div>`);
+      return;
+    }
+    texto = texto.replace(/\s+/g,' ').trim();
+
+    if(texto.length < 30 && nomeArq.endsWith('.pdf')){
+      // PDF sem camada de texto (imagem/escaneado) — tenta OCR antes de desistir
+      try{
+        const bufferOcr = await file.arrayBuffer();
+        texto = await extrairTextoPdfViaOcr(bufferOcr, (pagina, total, parte, partes)=>{
+          const sufixoParte = partes>1 ? ` (parte ${parte}/${partes})` : '';
+          setUploadStatus(`<div class="loading-inline"><div class="spin"></div> Currículo parece ser uma imagem — aplicando OCR (página ${pagina}/${total}${sufixoParte})...</div>`);
+        });
+        texto = texto.replace(/\s+/g,' ').trim();
+      }catch(ocrErr){
+        console.error(ocrErr);
+      }
+    }
+
+    if(texto.length < 30){
+      setUploadStatus(`<div style="color:var(--red);font-size:12px;">Não foi possível extrair texto legível do arquivo, mesmo com OCR. Tente uma foto/scan com melhor qualidade ou peça o currículo em Word.</div>`);
+      return;
+    }
+
+    setUploadStatus(`<div class="loading-inline"><div class="spin"></div> Analisando aderência à vaga...</div>`);
+    const analise = analisarCurriculoLocal(texto, vaga);
+
+    const candidato = {
+      id: uid(),
+      nome: analise.nome_candidato || file.name.replace(/\.(pdf|docx?|DOC)$/i,''),
+      arquivoNome: file.name,
+      textoExtraido: texto.slice(0, 6000),
+      score: clampScore(analise.score),
+      pontosFortes: analise.pontos_fortes || [],
+      pontosAtencao: analise.pontos_de_atencao || [],
+      resumoIA: analise.resumo || 'Análise indisponível.',
+      status: 'Triagem',
+      dataUpload: new Date().toLocaleDateString('pt-BR')
+    };
+    vaga.candidatos.push(candidato);
+    salvarCacheLocal();
+    enviarAoServidor({ action:'criarCandidato', vagaId: vaga.id, ...candidato });
+    renderAll();
+    setUploadStatus(`<div style="color:var(--green);font-size:12px;"><i class="ti ti-check"></i> "${escapeHtml(file.name)}" analisado — aderência ${candidato.score}%.</div>`);
+    setTimeout(()=>setUploadStatus(''), 4000);
+  }catch(err){
+    console.error(err);
+    setUploadStatus(`<div style="color:var(--red);font-size:12px;">Erro ao processar o arquivo: ${escapeHtml(err.message||'falha desconhecida')}.</div>`);
+  }
+}
+
+function clampScore(n){
+  n = Number(n);
+  if(isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/* ============================================================
+   ANÁLISE DE ADERÊNCIA — por palavras-chave e regras, 100% local
+   (sem chamada a nenhuma API externa — roda inteiro no navegador)
+
+   Observação: a versão anterior chamava a API da Anthropic direto do
+   navegador (fetch sem chave). Isso só funciona dentro do preview de
+   artefatos do Claude.ai, que intermedia a chamada por trás dos panos.
+   Publicado no domínio do sistema (GitHub Pages) e aberto num navegador
+   comum, essa chamada é bloqueada por CORS e sempre dá "Failed to
+   fetch" — por isso nenhum currículo conseguia ser analisado.
+
+   Se no futuro quiserem uma análise com IA de verdade (entendendo
+   nuances, não só palavras-chave), o caminho é criar um Apps Script
+   que guarde a chave da API do lado do servidor e sirva de proxy —
+   mesmo padrão usado no resto do sistema (Financeiro, Kanban etc.).
+============================================================= */
+function normalizarTexto_(s){
+  return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+// Palavras que não devem contar como "palavra-chave" mesmo tendo 4+ letras:
+// preposições/conectores comuns e termos genéricos de currículo que aparecem
+// em praticamente qualquer candidato (ex: toda vaga tem uma seção "Experiência
+// Profissional", isso sozinho não prova nada sobre a vaga específica).
+const STOPWORDS_CURRICULO_ = new Set([
+  'para','como','ter','sera','uma','este','esta','deste','desta','pelo','pela',
+  'pelos','pelas','pode','podem','pois','mais','menos','muito','todo','toda',
+  'todos','todas','sobre','dentro','fora','quando','onde','qual','quais','essa',
+  'esse','esses','essas','aquele','aquela','outros','outras','sendo','tendo',
+  'apos','ainda','tambem','alem','cada','qualquer','sempre','nunca','isso',
+  'isto','aquilo','entre','desde','durante','seus','suas','seu','sua','nosso',
+  'nossa','experiencia','conhecimento','conhecimentos','diferencial',
+  'comprovada','comprovado','pratica','pratico','necessaria','necessario'
+]);
+
+function ehSigla_(palavraOriginal){
+  return /^[A-Z]{2,5}$/.test(palavraOriginal);
+}
+
+// Extrai as palavras que realmente carregam significado numa frase de
+// requisito/título — descarta preposições e termos genéricos de currículo,
+// mas preserva siglas curtas (CNH, MOPP, RH...) mesmo sendo curtas.
+function termosSignificativos_(frase){
+  const termos = [];
+  (frase||'').split(/\s+/).forEach(p=>{
+    const pn = normalizarTexto_(p).replace(/[^a-z0-9]/g,'');
+    if(!pn) return;
+    if(ehSigla_(p) || (pn.length>=4 && !STOPWORDS_CURRICULO_.has(pn))) termos.push(pn);
+  });
+  return termos;
+}
+
+// Quebra o campo de requisitos da vaga em itens individuais (por vírgula,
+// ponto e vírgula, quebra de linha ou marcador de lista)
+function extrairRequisitos_(texto){
+  if(!texto) return [];
+  return texto.split(/[\n;,•]+/).map(s=>s.trim()).filter(s=>s.length>1);
+}
+
+// Soma os intervalos de datas tipo "01/2017 – 05/2020" encontrados no
+// currículo, como estimativa de anos de experiência
+function calcularAnosExperiencia_(texto){
+  const re = /(\d{1,2})\/(\d{4})\s*[–\-a]{1,3}\s*(\d{1,2})\/(\d{4})/g;
+  let totalMeses = 0, m;
+  while((m = re.exec(texto))){
+    const inicio = new Date(Number(m[2]), Number(m[1])-1);
+    const fim = new Date(Number(m[4]), Number(m[3])-1);
+    const meses = (fim.getFullYear()-inicio.getFullYear())*12 + (fim.getMonth()-inicio.getMonth());
+    if(meses>0 && meses<600) totalMeses += meses;
+  }
+  return Math.round(totalMeses/12);
+}
+
+// Tenta achar o nome do candidato numa das primeiras linhas do currículo
+// (heurística: linha em maiúsculas, 2 a 6 palavras)
+function extrairNomeCandidato_(texto){
+  const linhas = texto.split('\n').map(l=>l.trim()).filter(Boolean);
+  for(let i=0;i<Math.min(linhas.length,6);i++){
+    const l = linhas[i];
+    if(/^[A-ZÀ-Ú][A-ZÀ-Ú\s.]{4,60}$/.test(l) && l.split(/\s+/).length<=6){
+      return l.split(/\s+/).map(w=>w.charAt(0)+w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+  return '';
+}
+
+function analisarCurriculoLocal(textoCurriculo, vaga){
+  const textoNorm = normalizarTexto_(textoCurriculo);
+  const requisitos = extrairRequisitos_(vaga.requisitos);
+
+  const atendidos = [];
+  const faltantes = [];
+  requisitos.forEach(req=>{
+    const termos = termosSignificativos_(req);
+    if(!termos.length) return; // requisito só com palavras genéricas — não dá pra avaliar, ignora
+    const encontrado = termos.some(t=>textoNorm.indexOf(t)!==-1);
+    (encontrado ? atendidos : faltantes).push(req);
+  });
+
+  const totalReq = atendidos.length + faltantes.length;
+  let score = totalReq>0 ? Math.round((atendidos.length/totalReq)*100) : 50;
+
+  const anosExperiencia = calcularAnosExperiencia_(textoCurriculo);
+  if(anosExperiencia>=5) score = Math.min(100, score+10);
+  else if(anosExperiencia>=2) score = Math.min(100, score+5);
+
+  // Checagem do cargo em si: se nenhuma palavra do TÍTULO da vaga (ex:
+  // "motorista", "carreteiro") aparece em lugar nenhum do currículo, isso é
+  // um sinal forte de que a área de atuação não bate — mesmo que o
+  // candidato tenha batido em requisitos genéricos isolados, o score fica
+  // travado num teto baixo.
+  const termosTitulo = termosSignificativos_(vaga.titulo);
+  const tituloBate = termosTitulo.length ? termosTitulo.some(t=>textoNorm.indexOf(t)!==-1) : true;
+  if(!tituloBate) score = Math.min(score, 35);
+
+  const resumo = !tituloBate
+    ? `O currículo não menciona nada relacionado ao cargo "${vaga.titulo}" — provavelmente é de outra área de atuação, mesmo que bata em algum requisito isolado.`
+    : (totalReq>0
+      ? `O currículo atende ${atendidos.length} de ${totalReq} requisito(s) identificados na vaga`
+        + (anosExperiencia ? `, com aproximadamente ${anosExperiencia} ano(s) de experiência somada(s) identificados no texto.` : '.')
+      : `Não foram informados requisitos específicos na vaga para comparação — avaliação baseada no conteúdo geral do currículo.`);
+
+  return {
+    nome_candidato: extrairNomeCandidato_(textoCurriculo),
+    score,
+    pontos_fortes: atendidos.slice(0,4),
+    pontos_de_atencao: faltantes.slice(0,4),
+    resumo
+  };
+}
+
+/* ============================================================
+   PAINEL LATERAL DO CANDIDATO
+============================================================= */
+function abrirCandidato(vagaId, candId){
+  const vaga = state.vagas.find(v=>v.id===vagaId);
+  const cand = vaga.candidatos.find(c=>c.id===candId);
+  if(!cand) return;
+  state.candidatoAtivoId = candId;
+  state.vagaAtivaId = vagaId;
+
+  document.getElementById('cpNome').textContent = cand.nome;
+  document.getElementById('cpVaga').textContent = vaga.titulo + ' · ' + EMPRESAS[vaga.empresa];
+  document.getElementById('cpScoreNum').textContent = cand.score + '%';
+  document.getElementById('cpStatus').value = cand.status;
+  document.getElementById('cpResumo').textContent = cand.resumoIA;
+  document.getElementById('cpArquivo').textContent = cand.arquivoNome;
+  document.getElementById('cpTexto').textContent = cand.textoExtraido;
+
+  const circumference = 238.7;
+  const offset = circumference - (cand.score/100)*circumference;
+  const ring = document.getElementById('cpRingProgress');
+  ring.style.stroke = cand.score>=75 ? '#3ECF8E' : cand.score>=50 ? '#FBC929' : '#F1554C';
+  ring.setAttribute('stroke-dashoffset', offset);
+
+  document.getElementById('cpFortes').innerHTML = cand.pontosFortes.length
+    ? cand.pontosFortes.map(p=>`<span class="tag tag-forte"><i class="ti ti-check"></i> ${escapeHtml(p)}</span>`).join('')
+    : `<span style="font-size:11.5px;color:var(--text-faint);">Nenhum ponto destacado.</span>`;
+  document.getElementById('cpAtencao').innerHTML = cand.pontosAtencao.length
+    ? cand.pontosAtencao.map(p=>`<span class="tag tag-atencao"><i class="ti ti-alert-triangle"></i> ${escapeHtml(p)}</span>`).join('')
+    : `<span style="font-size:11.5px;color:var(--text-faint);">Nenhuma lacuna identificada.</span>`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('candPanel').classList.add('open');
+}
+function closeCandPanel(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('candPanel').classList.remove('open');
+}
+document.getElementById('overlay').addEventListener('click', closeCandPanel);
+
+function atualizarStatusCandidato(){
+  const vaga = state.vagas.find(v=>v.id===state.vagaAtivaId);
+  const cand = vaga.candidatos.find(c=>c.id===state.candidatoAtivoId);
+  cand.status = document.getElementById('cpStatus').value;
+  salvarCacheLocal();
+  enviarAoServidor({ action:'atualizarStatusCandidato', id: cand.id, status: cand.status });
+  renderAll();
+}
+
+/* ============================================================
+   UTIL
+============================================================= */
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============================================================
+   TEMA CLARO/ESCURO — mesmo padrão usado nos demais módulos:
+   lê localStorage.barretos_tema ao abrir e escuta postMessage
+   do shell.html quando o usuário alterna o tema em tempo real.
+============================================================= */
+function aplicarTema(tema){
+  document.body.classList.toggle('tema-claro', tema === 'claro');
+}
+aplicarTema(localStorage.getItem('barretos_tema'));
+window.addEventListener('message', (e)=>{
+  if(e.data && e.data.type === 'barretos_tema'){
+    aplicarTema(e.data.tema);
+  }
+});
+
+/* ============================================================
+   INIT
+============================================================= */
+(async function init(){
+  await loadAllData(true);
+  renderAll();
+  switchView('dashboard');
+  iniciarAutoRefresh();
+})();
+</script>
+</body>
+</html>
