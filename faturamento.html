@@ -111,6 +111,11 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;overflo
 .tbl tr:hover td{background:rgba(255,255,255,.02)}
 .tbl-empty{text-align:center;padding:32px;color:var(--txt-dim);font-size:13px}
 #tbody-pagar tr,#tbody-receber tr{cursor:pointer}
+.grid-resumo{display:flex;flex-direction:column}
+.grid-resumo .g-linha{display:grid;grid-template-columns:28% 18% 18% 18% 18%;column-gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center;font-size:12px}
+.grid-resumo .g-cabecalho{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);background:var(--surface2);border-bottom:2px solid var(--border)}
+.grid-resumo .g-linha:last-child{border-bottom:none}
+.grid-resumo .g-linha:not(.g-cabecalho):hover{background:rgba(255,255,255,.02)}
 #tbody-pagar tr:hover td,#tbody-receber tr:hover td{background:rgba(245,184,0,.04)!important}
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;
@@ -325,19 +330,16 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
           <span class="panel-title">Faturamento por Empresa</span>
         </div>
         <div class="panel-body" style="padding:0">
-          <table class="tbl" style="table-layout:fixed">
-            <colgroup>
-              <col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%">
-            </colgroup>
-            <thead><tr>
-              <th>Empresa</th>
-              <th class="txt-center">Faturamento</th>
-              <th class="txt-center">Custo Operacional</th>
-              <th class="txt-center">Lucro Líquido</th>
-              <th class="txt-center">Margem</th>
-            </tr></thead>
-            <tbody id="tbody-resumo-empresas"><tr><td colspan="5" class="tbl-empty">Carregando…</td></tr></tbody>
-          </table>
+          <div class="grid-resumo">
+            <div class="g-linha g-cabecalho">
+              <div>Empresa</div>
+              <div class="txt-center">Faturamento</div>
+              <div class="txt-center">Custo Operacional</div>
+              <div class="txt-center">Lucro Líquido</div>
+              <div class="txt-center">Margem</div>
+            </div>
+            <div id="tbody-resumo-empresas"><div class="tbl-empty">Carregando…</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -707,24 +709,24 @@ function renderResumoEmpresas(){
 
   var tbody = document.getElementById('tbody-resumo-empresas');
   if(!base.length){
-    tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Nenhum registro no período selecionado</td></tr>';
+    tbody.innerHTML = '<div class="tbl-empty">Nenhum registro no período selecionado</div>';
   } else {
     tbody.innerHTML = linhas.map(function(l){
       var margem = l[1].faturamento!==0 ? (l[1].custoOp/l[1].faturamento) : null;
-      return `<tr>
-        <td>${l[0]}</td>
-        <td class="txt-center txt-mono">${fmtMoeda(l[1].faturamento)}</td>
-        <td class="txt-center txt-mono">${fmtMoeda(l[1].custoOp)}</td>
-        <td class="txt-center txt-mono" style="color:${l[1].lucroLiquido<0?'var(--red)':'var(--green)'}">${fmtMoeda(l[1].lucroLiquido)}</td>
-        <td class="txt-center txt-mono">${fmtPct(margem)}</td>
-      </tr>`;
-    }).join('') + `<tr style="font-weight:700;background:var(--surface2)">
-        <td>Total Geral</td>
-        <td class="txt-center txt-mono">${fmtMoeda(totalF)}</td>
-        <td class="txt-center txt-mono">${fmtMoeda(totalC)}</td>
-        <td class="txt-center txt-mono" style="color:${totalL<0?'var(--red)':'var(--green)'}">${fmtMoeda(totalL)}</td>
-        <td class="txt-center txt-mono">${fmtPct(totalF!==0?totalC/totalF:null)}</td>
-      </tr>`;
+      return `<div class="g-linha">
+        <div>${l[0]}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(l[1].faturamento)}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(l[1].custoOp)}</div>
+        <div class="txt-center txt-mono" style="color:${l[1].lucroLiquido<0?'var(--red)':'var(--green)'}">${fmtMoeda(l[1].lucroLiquido)}</div>
+        <div class="txt-center txt-mono">${fmtPct(margem)}</div>
+      </div>`;
+    }).join('') + `<div class="g-linha" style="font-weight:700;background:var(--surface2)">
+        <div>Total Geral</div>
+        <div class="txt-center txt-mono">${fmtMoeda(totalF)}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(totalC)}</div>
+        <div class="txt-center txt-mono" style="color:${totalL<0?'var(--red)':'var(--green)'}">${fmtMoeda(totalL)}</div>
+        <div class="txt-center txt-mono">${fmtPct(totalF!==0?totalC/totalF:null)}</div>
+      </div>`;
   }
 
   document.getElementById('dash-kpis-gerais').innerHTML = `
