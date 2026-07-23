@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
 <style>
 :root {
   --gold:#F5B800; --gold-dim:rgba(245,184,0,.12); --gold-border:rgba(245,184,0,.3);
@@ -248,6 +249,43 @@ body.tema-claro .modal{background:#FFFFFF!important;border-color:#E2E8F0!importa
 body.tema-claro .modal-header,body.tema-claro .modal-footer{background:#F8FAFC!important;border-color:#E2E8F0!important;}
 body.tema-claro .side-panel{background:#FFFFFF!important;}
 body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+
+/* ── Botão hambúrguer (só existe visualmente no mobile) ── */
+.btn-hamburger{display:none;background:none;border:none;color:var(--txt);font-size:20px;
+  padding:6px;margin-right:6px;border-radius:7px;cursor:pointer;flex-shrink:0}
+.btn-hamburger:active{background:var(--surface2)}
+#sidebar-overlay-mobile{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:150}
+#sidebar-overlay-mobile.open{display:block}
+
+/* ── Layout mobile: telas estreitas (dentro do iframe do app mobile,
+   ou navegador de celular direto) — tudo cabe numa tela só, sem
+   precisar rolar de lado. ── */
+@media (max-width: 820px){
+  .sidebar{position:fixed;top:0;left:0;bottom:0;z-index:160;
+    transform:translateX(-100%);transition:transform .22s ease;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .btn-hamburger{display:flex;align-items:center;justify-content:center}
+  .main{width:100%;min-width:0}
+  .topbar{padding:0 10px;gap:8px}
+  .topbar-title{min-width:0}
+  .topbar-title span#topbar-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar-sub{display:none} /* some no mobile pra economizar espaço */
+  .topbar > .only-gestor[style*="margin-left"]{display:none!important} /* filtro de CNPJ do topbar some — cabe demais no dashboard/detalhamento */
+  .topbar-right{gap:6px}
+  .topbar-right .btn span,.topbar-right .btn{white-space:nowrap}
+  .content{padding:12px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi-val{font-size:16px}
+  .filter-bar{flex-direction:column;align-items:stretch;gap:6px}
+  .filter-bar > *{width:100%;min-width:0!important}
+  /* Tabelas largas (Contas a Pagar/Receber) ficam dentro de uma área com
+     rolagem PRÓPRIA, contida — a página em volta nunca precisa rolar de
+     lado, só a tabela em si, se for o caso. */
+  .panel-body{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .side-panel{width:100%;max-width:100%}
+  .modal{width:calc(100% - 24px);max-width:none;margin:0 12px}
+  .modal .form-grid-2{grid-template-columns:1fr} /* campos em dupla coluna viram 1 coluna só */
+}
 </style>
 </head>
 <body>
@@ -255,7 +293,9 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
 <!-- ═══════════════════════════════════════════════
      SIDEBAR
 ════════════════════════════════════════════════ -->
-<nav class="sidebar">
+<div id="sidebar-overlay-mobile" onclick="toggleSidebarMobile(false)"></div>
+<nav class="sidebar" id="sidebar-nav">
+
   <div class="sidebar-logo">
     <div class="sidebar-logo-icon"><i class="ti ti-currency-dollar"></i></div>
     <div>
@@ -305,6 +345,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
 ════════════════════════════════════════════════ -->
 <div class="main">
   <div class="topbar">
+    <button class="btn-hamburger" id="btn-hamburger" onclick="toggleSidebarMobile()"><i class="ti ti-menu-2"></i></button>
     <div class="topbar-title">
       <i class="ti ti-layout-dashboard" id="topbar-icon"></i>
       <span id="topbar-title">Dashboard</span>
@@ -374,14 +415,10 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
           <option>Salário</option>
           <option>Outros</option>
         </select>
-        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">De</span>
-        <input class="filter-input" type="date" id="f-pagar-ini" onchange="renderTabela('pagar')" style="min-width:135px">
-        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Até</span>
-        <input class="filter-input" type="date" id="f-pagar-fim" onchange="renderTabela('pagar')" style="min-width:135px">
-        <button class="btn btn-ghost btn-sm" onclick="setPeriodoMesAtual()" style="white-space:nowrap"><i class="ti ti-calendar-event" style="font-size:13px"></i> Mês Atual</button>
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap"><i class="ti ti-calendar" style="font-size:12px;vertical-align:-2px"></i> Período</span>
+        <select class="filter-input" id="f-pagar-mes" onchange="renderTabela('pagar')" style="min-width:190px"></select>
         <button class="btn btn-ghost btn-sm" onclick="exportCSV('pagar')" style="white-space:nowrap"><i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel</button>
       </div>
-      <div style="font-size:11px;color:var(--txt-dim);margin:-6px 0 10px" id="pagar-periodo-label"></div>
       <div class="panel">
         <div class="panel-body" style="padding:0">
           <table class="tbl">
@@ -404,6 +441,8 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
           <option value="A Receber">A Receber</option>
           <option value="Recebido">Recebido</option>
         </select>
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap"><i class="ti ti-calendar" style="font-size:12px;vertical-align:-2px"></i> Período</span>
+        <select class="filter-input" id="f-receber-mes" onchange="renderTabela('receber')" style="min-width:190px"></select>
         <button class="btn btn-ghost btn-sm" onclick="openModalFatura()" style="white-space:nowrap"><i class="ti ti-file-upload" style="font-size:13px"></i> Nova Fatura (PDF)</button>
         <button class="btn btn-ghost btn-sm" onclick="exportCSV('receber')" style="white-space:nowrap"><i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel</button>
       </div>
@@ -411,10 +450,10 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <div class="panel-body" style="padding:0">
           <table class="tbl">
             <thead><tr>
-              <th>Vencimento</th><th>Cliente</th><th>Descrição</th><th>Categoria</th>
+              <th>Data de Cobrança</th><th>Vencimento</th><th>Cliente</th><th>Descrição</th><th>Categoria</th>
               <th class="txt-right">Valor</th><th>Status</th><th></th>
             </tr></thead>
-            <tbody id="tbody-receber"><tr><td colspan="7" class="tbl-empty">Nenhum lançamento</td></tr></tbody>
+            <tbody id="tbody-receber"><tr><td colspan="8" class="tbl-empty">Nenhum lançamento</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -819,7 +858,11 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         </select>
       </div>
     </div>
-    <div class="form-grid" style="margin-top:12px">
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Data de Cobrança <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" type="date" id="r-data-cobranca">
+      </div>
       <div class="form-group">
         <label class="form-label">Observação</label>
         <input class="form-input" id="r-obs" placeholder="Opcional">
@@ -930,7 +973,7 @@ function acharNoCacheLocalPagar_(cache, codigo, favorecido){
 function reconstruirPagarDaPlanilha_(rows, cache){
   var out = [];
   rows.forEach(function(row, i){
-    var codigo = row.codigo || '';
+    var codigo = String(row.codigo||'');
     var favorecido = row.favorecido || '';
     var valorTotal = Number(row.valorTotal)||0;
     var acrescimo = Number(row.acrescimo)||0;
@@ -994,7 +1037,7 @@ function reconstruirReceberDaPlanilha_(rows, cache){
       vencimento: dataPlanilhaParaISO_(row.vencimento),
       favorecido: row.cliente || '',
       doc: row.docCliente || '',
-      numeroFatura: (row.codigo||'').indexOf('GERAL-')===0 ? '' : (row.codigo||''),
+      numeroFatura: String(row.codigo||'').indexOf('GERAL-')===0 ? '' : String(row.codigo||''),
       categoria: row.categoria || 'Cliente',
       descricao: row.descricao || '',
       valor: Number(row.valor)||0,
@@ -1005,6 +1048,7 @@ function reconstruirReceberDaPlanilha_(rows, cache){
       status: row.status === 'RECEBIDO' ? 'Recebido' : 'A Receber',
       dataPagamento: dataPlanilhaParaISO_(row.dataRecebimento),
       responsavel: '',
+      dataCobranca: dataPlanilhaParaISO_(row.dataCobranca),
       obs: row.observacao || '',
       historico: parseHistoricoCobranca_(row.historico)
     };
@@ -1020,6 +1064,8 @@ function persist(){
 }
 
 function renderAll(){
+  popularFiltroMes('pagar');
+  popularFiltroMes('receber');
   renderDashboard();
   renderFila();
   renderTabela('pagar');
@@ -1155,6 +1201,7 @@ function sincronizarCriarReceber_(l){
     valor: Number(l.valor)||0,
     dataEmissao: l.dataLanc || '',
     vencimento: l.vencimento || '',
+    dataCobranca: l.dataCobranca || '',
     observacao: l.obs || ''
   });
 }
@@ -1323,21 +1370,29 @@ function getLinhasFiltradas(tipo){
 
   if(tipo==='pagar'){
     var catEl = document.getElementById('f-pagar-categoria');
-    var iniEl = document.getElementById('f-pagar-ini');
-    var fimEl = document.getElementById('f-pagar-fim');
     if(catEl && catEl.value) rows = rows.filter(l=>l.categoria===catEl.value);
-    if(iniEl && iniEl.value) rows = rows.filter(l=>l.vencimento >= iniEl.value);
-    if(fimEl && fimEl.value) rows = rows.filter(l=>l.vencimento <= fimEl.value);
   }
-  rows.sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
+
+  var mesEl = document.getElementById('f-'+tipo+'-mes');
+  if(mesEl && mesEl.value){
+    rows = rows.filter(l=>(l.vencimento||'').slice(0,7)===mesEl.value);
+  }
+
+  if(tipo==='receber'){
+    // Contas a Receber: classificado pela Data de Cobrança, da menor pra maior
+    // (sem data de cobrança preenchida vai pro final da lista)
+    rows.sort((a,b)=>(a.dataCobranca||'9999-99-99').localeCompare(b.dataCobranca||'9999-99-99'));
+  } else {
+    rows.sort((a,b)=>a.vencimento.localeCompare(b.vencimento)); // Contas a Pagar: por Vencimento, da menor pra maior
+  }
   return rows;
 }
 
 function renderTabela(tipo){
-  if(tipo==='pagar') atualizarLabelPeriodoPagar();
   var rows = getLinhasFiltradas(tipo);
   var tbody = document.getElementById('tbody-'+tipo);
-  if(!rows.length){ tbody.innerHTML = `<tr><td colspan="7" class="tbl-empty">Nenhum lançamento encontrado</td></tr>`; return; }
+  var colspan = tipo==='receber' ? 8 : 7;
+  if(!rows.length){ tbody.innerHTML = `<tr><td colspan="${colspan}" class="tbl-empty">Nenhum lançamento encontrado</td></tr>`; return; }
 
   tbody.innerHTML = rows.map(l=>{
     var diff = diffDias(l.vencimento);
@@ -1346,6 +1401,7 @@ function renderTabela(tipo){
     var nomeExibido = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
     return `<tr onclick="openSidePanel(${l.id})">
+      ${tipo==='receber' ? `<td class="txt-mono">${fmtData(l.dataCobranca)}</td>` : ''}
       <td class="txt-mono" style="color:${vencCol}">${fmtData(l.vencimento)}</td>
       <td>${nomeExibido}</td>
       <td class="txt-dim">${l.descricao}</td>
@@ -1361,24 +1417,29 @@ function renderTabela(tipo){
 function filterTabela(tipo, val){ renderTabela(tipo); }
 function filterStatusTabela(tipo, val){ renderTabela(tipo); }
 
-/* ── Período de Contas a Pagar (mês vigente por padrão) ── */
-function setPeriodoMesAtual(){
-  var hoje = new Date();
-  var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  var fim = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
-  document.getElementById('f-pagar-ini').value = ini.toISOString().slice(0,10);
-  document.getElementById('f-pagar-fim').value = fim.toISOString().slice(0,10);
-  renderTabela('pagar');
-}
-function atualizarLabelPeriodoPagar(){
-  var iniEl = document.getElementById('f-pagar-ini'), fimEl = document.getElementById('f-pagar-fim');
-  var lbl = document.getElementById('pagar-periodo-label');
-  if(!lbl) return;
-  if(iniEl.value && fimEl.value){
-    lbl.textContent = 'Exibindo período: ' + fmtData(iniEl.value) + ' até ' + fmtData(fimEl.value);
-  }else{
-    lbl.textContent = 'Exibindo todos os períodos';
-  }
+/* ── Filtro de período (mesmo padrão do Dashboard do Faturamento) ──
+   Mês vigente como padrão, com opção de ver mês a mês ou "Todos os Meses". ── */
+function popularFiltroMes(tipo){
+  var sel = document.getElementById('f-'+tipo+'-mes');
+  if(!sel) return;
+  var tipoLabel = tipo==='pagar' ? 'Pagar' : 'Receber';
+  var valorAnterior = sel.value;
+  var mesesDisponiveis = new Set();
+  lancamentos.filter(l=>l.tipo===tipoLabel).forEach(function(l){
+    if(l.vencimento) mesesDisponiveis.add(l.vencimento.slice(0,7));
+  });
+  var mesAtual = new Date().toISOString().slice(0,7);
+  mesesDisponiveis.add(mesAtual); // garante que o mês vigente sempre apareça
+  var mesesArr = Array.from(mesesDisponiveis).sort().reverse();
+  var valorSelecionado = sel.options.length ? valorAnterior : mesAtual; // 1ª carga cai no mês vigente
+
+  sel.innerHTML = '<option value="">Todos os Meses</option>' + mesesArr.map(function(m){
+    var partes = m.split('-');
+    var nomeMes = new Date(Number(partes[0]), Number(partes[1])-1, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    nomeMes = nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+    return `<option value="${m}">${nomeMes}${m===mesAtual?' (atual)':''}</option>`;
+  }).join('');
+  sel.value = valorSelecionado || '';
 }
 
 
@@ -1462,6 +1523,7 @@ function openSidePanel(id){
         ${campoData('Vencimento','vencimento',l.vencimento)}
         ${campoNumero('Valor','valor',l.valor)}
       </div>
+      ${campoData('Data de Cobrança','dataCobranca',l.dataCobranca)}
       ${campoSelect('Categoria','categoria',l.categoria,categorias)}
       ${campoTexto('Descrição','descricao',l.descricao)}
       ${campoSelect('Empresa do Grupo (emitente)','empresaCnpj',l.empresaCnpj,empresas)}
@@ -1833,7 +1895,7 @@ if(typeof pdfjsLib !== 'undefined'){
 }
 
 function openModalFatura(){
-  ['r-cliente','r-doc-cliente','r-numero-fatura','r-descricao','r-obs','r-valor'].forEach(id=>document.getElementById(id).value='');
+  ['r-cliente','r-doc-cliente','r-numero-fatura','r-descricao','r-obs','r-valor','r-data-cobranca'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('r-arquivo').value = '';
   document.getElementById('r-categoria').value = 'Cliente';
   document.getElementById('r-empresa').value = filtroEmpresa || '';
@@ -1861,12 +1923,31 @@ async function lerFaturaPDF(){
       var content = await page.getTextContent();
       textoCompleto += reconstruirTextoVisual_(content.items) + '\n';
     }
-    var campos = {};
+
     if(textoCompleto.trim().length < 40){
-      statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada (sem texto selecionável) — não dá pra ler automaticamente. Preencha manualmente.</span>';
-      return;
+      // Sem camada de texto — provavelmente uma imagem/print/digitalização.
+      // Antes de desistir, tenta OCR (lê a página como imagem).
+      if(typeof Tesseract === 'undefined'){
+        statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada e a biblioteca de OCR não carregou. Preencha manualmente.</span>';
+        return;
+      }
+      try{
+        var bufferOcr = await arquivo.arrayBuffer();
+        textoCompleto = await extrairTextoFaturaViaOcr_(bufferOcr, function(pagina, total, parte, partes){
+          var sufixoParte = partes>1 ? (' (parte '+parte+'/'+partes+')') : '';
+          statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> PDF parece ser uma imagem — aplicando OCR (página '+pagina+'/'+total+sufixoParte+')…';
+        });
+      }catch(ocrErr){
+        statusEl.innerHTML = '<span class="txt-red">Não consegui aplicar OCR neste PDF ('+(ocrErr.message||'falha desconhecida')+'). Preencha manualmente.</span>';
+        return;
+      }
+      if(textoCompleto.trim().length < 20){
+        statusEl.innerHTML = '<span class="txt-red">Mesmo com OCR, não consegui extrair texto legível deste PDF. Preencha manualmente.</span>';
+        return;
+      }
     }
-    campos = parseDuplicataTexto(textoCompleto);
+
+    var campos = parseDuplicataTexto(textoCompleto);
     aplicarCamposFatura(campos);
     var reconhecidos = Object.keys(campos).filter(k=>campos[k]).length;
     statusEl.innerHTML = reconhecidos
@@ -1875,6 +1956,55 @@ async function lerFaturaPDF(){
   }catch(e){
     statusEl.innerHTML = '<span class="txt-red">Erro ao ler o PDF ('+(e.message||'falha desconhecida')+'). Preencha manualmente.</span>';
   }
+}
+
+// Fallback de OCR para PDFs sem camada de texto (ex: digitalizados/prints).
+// Cuidado especial: alguns documentos chegam como um único print de tela
+// MUITO comprido (proporção fora do padrão A4) — escalar isso num canvas só
+// pode ultrapassar o limite de tamanho que os navegadores aceitam (Chrome
+// trava perto de 16384px numa dimensão), fazendo o OCR falhar silenciosamente.
+// Por isso a escala é calculada a partir do tamanho real da página, e
+// páginas que mesmo assim ficariam altas demais são processadas em fatias.
+async function extrairTextoFaturaViaOcr_(arrayBuffer, onProgress){
+  var pdf = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  var maxPages = Math.min(pdf.numPages, 4);
+  var LIMITE_SEGURO = 3500; // bem abaixo do limite dos navegadores, com folga
+  var texto = '';
+  for(var i=1; i<=maxPages; i++){
+    var page = await pdf.getPage(i);
+    var base = page.getViewport({scale:1});
+
+    var scale = Math.min(2.2, LIMITE_SEGURO/base.width, LIMITE_SEGURO/base.height);
+    scale = Math.max(scale, 0.4);
+    var viewport = page.getViewport({scale:scale});
+
+    if(viewport.height <= LIMITE_SEGURO){
+      if(onProgress) onProgress(i, maxPages, 1, 1);
+      var canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      var ctx = canvas.getContext('2d');
+      await page.render({canvasContext: ctx, viewport: viewport}).promise;
+      var resultado = await Tesseract.recognize(canvas, 'por');
+      texto += resultado.data.text + '\n';
+    } else {
+      var partes = Math.min(Math.ceil(viewport.height/LIMITE_SEGURO), 10);
+      for(var p2=0; p2<partes; p2++){
+        if(onProgress) onProgress(i, maxPages, p2+1, partes);
+        var offsetY = p2*LIMITE_SEGURO;
+        var alturaParte = Math.min(LIMITE_SEGURO, viewport.height-offsetY);
+        var canvas2 = document.createElement('canvas');
+        canvas2.width = viewport.width;
+        canvas2.height = alturaParte;
+        var ctx2 = canvas2.getContext('2d');
+        ctx2.translate(0, -offsetY);
+        await page.render({canvasContext: ctx2, viewport: viewport}).promise;
+        var resultado2 = await Tesseract.recognize(canvas2, 'por');
+        texto += resultado2.data.text + '\n';
+      }
+    }
+  }
+  return texto;
 }
 
 // pdf.js entrega os itens de texto na ordem em que foram desenhados no PDF,
@@ -2013,13 +2143,27 @@ function saveFatura(){
   var vencimento = document.getElementById('r-vencimento').value;
   var valor = parseFloat(document.getElementById('r-valor').value);
   var empresa = document.getElementById('r-empresa').value;
+  var numeroFatura = document.getElementById('r-numero-fatura').value.trim();
   if(!cliente || !vencimento || !valor){
     alert('Preencha ao menos Cliente, Vencimento e Valor.');
     return;
   }
+
+  // Trava de duplicidade: não deixa salvar um Nº de Fatura/Duplicata que já
+  // existe em Contas a Receber, seja qual for o cliente.
+  if(numeroFatura){
+    var duplicado = lancamentos.find(function(l){
+      return l.tipo==='Receber' && (l.numeroFatura||'').trim().toUpperCase() === numeroFatura.toUpperCase();
+    });
+    if(duplicado){
+      alert('Já existe uma fatura com o código "'+numeroFatura+'" cadastrada (cliente: '+(duplicado.favorecido||'—')+', vencimento: '+fmtData(duplicado.vencimento)+').\n\nNão é possível salvar um lançamento duplicado. Se for uma correção, edite o lançamento existente pelo detalhamento em vez de criar um novo.');
+      return;
+    }
+  }
+
   if(!empresa && !confirm('Nenhuma empresa do grupo foi selecionada como emitente. Salvar assim mesmo?')) return;
 
-  var descricao = document.getElementById('r-descricao').value.trim() || ('Fatura '+(document.getElementById('r-numero-fatura').value||''));
+  var descricao = document.getElementById('r-descricao').value.trim() || ('Fatura '+numeroFatura);
   var novo = {
     id: Date.now(),
     origem: "lancamento",
@@ -2028,7 +2172,7 @@ function saveFatura(){
     vencimento: vencimento,
     favorecido: cliente,
     doc: document.getElementById('r-doc-cliente').value.trim(),
-    numeroFatura: document.getElementById('r-numero-fatura').value.trim(),
+    numeroFatura: numeroFatura,
     categoria: document.getElementById('r-categoria').value,
     descricao: descricao,
     valor: valor,
@@ -2039,6 +2183,7 @@ function saveFatura(){
     status: 'A Receber',
     dataPagamento: "",
     responsavel: "",
+    dataCobranca: document.getElementById('r-data-cobranca').value || '',
     obs: document.getElementById('r-obs').value.trim()
   };
   lancamentos.push(novo);
@@ -2133,8 +2278,8 @@ function exportCSV(tipo){
       'EFETUAR','VALOR TOTAL','ACRÉSCIMO','ADIANTAMENTO','PAGO','SALDO','PAGO'];
     linhas = construirLinhasPlanilhaBase(rows);
   } else {
-    header = ['Vencimento','Favorecido','Descricao','Categoria','Valor','Status'];
-    linhas = rows.map(l=>[fmtData(l.vencimento),l.favorecido,l.descricao,l.categoria,l.valor,l.status]);
+    header = ['Data de Cobrança','Vencimento','Favorecido','Descricao','Categoria','Valor','Status'];
+    linhas = rows.map(l=>[fmtData(l.dataCobranca),fmtData(l.vencimento),l.favorecido,l.descricao,l.categoria,l.valor,l.status]);
   }
 
   var texto = [header.join(';')].concat(linhas.map(l=>l.join(';'))).join('\n');
@@ -2163,6 +2308,15 @@ function showView(name){
   document.getElementById('topbar-icon').className = 'ti '+t[0];
   document.getElementById('topbar-title').textContent = t[1];
   document.getElementById('topbar-sub').textContent = t[2];
+  toggleSidebarMobile(false); // ao trocar de aba no mobile, a gaveta fecha sozinha
+}
+
+/* ── Gaveta da sidebar no mobile ── */
+function toggleSidebarMobile(forcar){
+  var aberta = document.getElementById('sidebar-nav').classList.contains('mobile-open');
+  var novoEstado = (forcar===undefined) ? !aberta : forcar;
+  document.getElementById('sidebar-nav').classList.toggle('mobile-open', novoEstado);
+  document.getElementById('sidebar-overlay-mobile').classList.toggle('open', novoEstado);
 }
 
 /* ── Modo Gestor / Colaborador (perfil de acesso) ──
@@ -2186,7 +2340,7 @@ function setMode(mode){
    Sem sessão (uso standalone/testes fora do shell), mantém o seletor manual. */
 function detectarModoPorSessao(){
   try{
-    var raw = sessionStorage.getItem('barretos_user');
+    var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
     if(!raw) return null;
     var user = JSON.parse(raw);
     var nome = (user.nome || '').toString().trim().toLowerCase();
@@ -2224,7 +2378,6 @@ if(modoDaSessao){
 } else {
   setMode('gestor'); // sem sessão do shell (uso standalone/testes) — mantém seletor manual visível
 }
-setPeriodoMesAtual();
 loadAllData();
 
 /* ── Atualização automática (a cada 30s) ──
