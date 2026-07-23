@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faturamento — Barreto's</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --gold:#F5B800; --gold-dim:rgba(245,184,0,.12); --gold-border:rgba(245,184,0,.3);
+  --bg:#0E0F12; --surface:#161820; --surface2:#1D1F27; --surface3:#252731;
+  --border:#2A2D38; --border2:#353848;
+  --txt:#E4E6F0; --txt-dim:#7B7F96; --txt-muted:#4A4E63;
+  --red:#E24B4A; --red-dim:rgba(226,75,74,.12); --red-border:rgba(226,75,74,.3);
+  --green:#2EBD85; --green-dim:rgba(46,189,133,.1); --green-border:rgba(46,189,133,.3);
+  --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --orange:#F5832A;
+  --radius:8px; --radius-lg:12px; --sidebar-w:220px;
+  font-family:'Barlow',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;overflow:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:18px 14px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{width:32px;height:32px;background:var(--gold);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-logo-icon i{color:#111;font-size:17px}
+.sidebar-logo-text{font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.2}
+.sidebar-logo-sub{font-size:9px;color:var(--txt-dim);font-weight:400;letter-spacing:.06em}
+.sidebar-section{padding:14px 14px 4px;font-size:9px;font-weight:700;color:var(--txt-muted);
+  letter-spacing:.1em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 12px;margin:1px 6px;
+  border-radius:7px;cursor:pointer;color:var(--txt-dim);font-size:12px;font-weight:500;
+  transition:all .15s;position:relative;user-select:none}
+.nav-item i{font-size:16px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+.nav-item.active{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
+.nav-item.active i{color:var(--gold)}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;
+  padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nav-badge.warn{background:var(--orange)}
+.nav-badge.ok{background:var(--green)}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 14px}
+.sidebar-footer{margin-top:auto;padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.sidebar-config{background:none;border:1px solid var(--border);border-radius:7px;
+  color:var(--txt-dim);padding:6px 10px;font-size:11px;font-weight:500;cursor:pointer;
+  display:flex;align-items:center;gap:6px;width:100%;transition:all .15s;font-family:inherit}
+.sidebar-config:hover{border-color:var(--gold);color:var(--gold)}
+.mode-switch{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:10px}
+.mode-switch select{background:none;border:none;color:var(--gold);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer}
+.mode-switch select option{background:var(--surface2);color:var(--txt)}
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;height:100vh}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px}
+.topbar-title i{color:var(--gold);font-size:18px}
+.topbar-sub{font-size:11px;color:var(--txt-dim);margin-left:4px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;
+  font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.btn-primary{background:var(--gold);color:#111}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--txt-dim)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn-danger{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red)}
+.btn-green{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green)}
+.btn-sm{padding:5px 10px;font-size:11px}
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+.view{display:none}
+.view.active{display:block}
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold)}
+.kpi-card.red::before{background:var(--red)}
+.kpi-card.green::before{background:var(--green)}
+.kpi-card.blue::before{background:var(--blue)}
+.kpi-card.orange::before{background:var(--orange)}
+.kpi-icon{font-size:20px;margin-bottom:4px}
+.kpi-icon.gold{color:var(--gold)}
+.kpi-icon.red{color:var(--red)}
+.kpi-icon.green{color:var(--green)}
+.kpi-icon.blue{color:var(--blue)}
+.kpi-icon.orange{color:var(--orange)}
+.kpi-val{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.2;white-space:nowrap;overflow:hidden}
+.kpi-lbl{font-size:11px;color:var(--txt-dim);font-weight:500}
+.kpi-delta{font-size:10px;color:var(--txt-muted);margin-top:2px}
+/* ── PANEL ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px}
+.panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.panel-title{font-size:13px;font-weight:700;color:var(--txt);flex:1}
+.panel-body{padding:16px}
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt-dim);border-bottom:2px solid var(--border);
+  white-space:nowrap;background:var(--surface2)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.tbl-empty{text-align:center;padding:32px;color:var(--txt-dim);font-size:13px}
+#tbody-pagar tr,#tbody-receber tr{cursor:pointer}
+#tbody-pagar tr:hover td,#tbody-receber tr:hover td{background:rgba(245,184,0,.04)!important}
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;
+  font-size:10px;font-weight:700;letter-spacing:.04em}
+.badge-green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+.badge-red{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+.badge-gold{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
+.badge-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(74,143,232,.3)}
+.badge-gray{background:rgba(123,127,150,.1);color:var(--txt-dim);border:1px solid var(--border)}
+.badge-orange{background:rgba(245,131,42,.1);color:var(--orange);border:1px solid rgba(245,131,42,.3)}
+/* ── FORMS ── */
+.form-grid{display:grid;gap:12px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-grid-3{grid-template-columns:1fr 1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim)}
+.form-label .req{color:var(--red)}
+.form-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:8px 12px;font-size:13px;color:var(--txt);font-family:inherit;transition:all .15s;width:100%}
+.form-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,184,0,.1)}
+.form-input::placeholder{color:var(--txt-muted)}
+select.form-input option{background:var(--surface2);color:var(--txt)}
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+  padding:20px;max-width:600px;width:100%;max-height:88vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.modal-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.modal-title{font-size:15px;font-weight:700;flex:1}
+.modal-close{background:none;border:none;color:var(--txt-dim);cursor:pointer;
+  font-size:20px;padding:2px;border-radius:5px;transition:all .15s}
+.modal-close:hover{color:var(--txt);background:rgba(255,255,255,.06)}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;
+  border-top:1px solid var(--border)}
+.modal-section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--gold);margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.modal-section-title:first-child{margin-top:0}
+/* ── MISC ── */
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-row{display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:24px;color:var(--txt-dim);font-size:12px}
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}
+.alert-warn{background:rgba(245,131,42,.08);border:1px solid rgba(245,131,42,.25);color:var(--orange)}
+.alert-info{background:var(--blue-dim);border:1px solid rgba(74,143,232,.25);color:var(--blue)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.txt-right{text-align:right}
+.txt-center{text-align:center}
+.txt-mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.txt-green{color:var(--green)}
+.txt-red{color:var(--red)}
+.txt-gold{color:var(--gold)}
+.txt-dim{color:var(--txt-dim)}
+.mb-0{margin-bottom:0}
+/* ── ALERT ITEM ── */
+.alert-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:var(--surface2);border-radius:7px;margin-bottom:6px;font-size:12px;cursor:pointer;transition:background .15s}
+.alert-item:hover{background:var(--surface3)}
+.alert-item i{font-size:16px;flex-shrink:0}
+.alert-item-main{flex:1}
+.alert-item-main strong{display:block;font-weight:600}
+.alert-item-main span{color:var(--txt-dim);font-size:11px}
+.alert-item-val{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px}
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:6px 10px;font-size:12px;color:var(--txt);font-family:inherit;min-width:160px}
+.filter-input:focus{outline:none;border-color:var(--gold)}
+/* ── CÓDIGO CHIP ── */
+.cod-chip{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+  background:var(--surface3);border:1px solid var(--border2);border-radius:4px;
+  padding:2px 7px;letter-spacing:.06em;display:inline-block}
+/* ── SIDE PANEL ── */
+.side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:none}
+.side-panel-overlay.open{display:block}
+.side-panel{position:fixed;top:0;right:0;bottom:0;width:440px;background:var(--surface);
+  border-left:1px solid var(--border2);z-index:91;transform:translateX(100%);
+  transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden}
+.side-panel.open{transform:translateX(0)}
+.side-panel-header{padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0}
+.side-panel-title{font-size:14px;font-weight:700;flex:1}
+.side-panel-body{flex:1;overflow-y:auto;padding:16px 18px}
+.side-panel-footer{padding:12px 18px;border-top:1px solid var(--border);
+  display:flex;gap:8px;flex-shrink:0}
+.sp-field{margin-bottom:12px}
+.sp-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--txt-dim);margin-bottom:4px}
+.sp-val{font-size:13px;font-weight:500}
+/* ── INLINE STATUS SELECT ── */
+.status-sel{background:none;border:1px solid;border-radius:4px;padding:3px 8px;
+  font-size:10px;font-weight:700;font-family:'Barlow',sans-serif;cursor:pointer;
+  letter-spacing:.04em;transition:all .15s}
+.status-sel option{background:var(--surface2);color:var(--txt)}
+.status-av{color:var(--orange);border-color:rgba(245,131,42,.4);background:rgba(245,131,42,.06)}
+.status-pg{color:var(--green);border-color:var(--green-border);background:var(--green-dim)}
+.status-vd{color:var(--red);border-color:var(--red-border);background:var(--red-dim)}
+/* ── FILA DE PAGAMENTOS (modo simplificado) ── */
+.fila-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.fila-card-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:18px}
+.fila-card-main{flex:1;min-width:0}
+.fila-card-main strong{display:block;font-size:13px;font-weight:700}
+.fila-card-main span{font-size:11px;color:var(--txt-dim)}
+.fila-card-val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;white-space:nowrap}
+.empty-state{text-align:center;padding:48px 20px;color:var(--txt-dim)}
+.empty-state i{font-size:36px;color:var(--txt-muted);margin-bottom:10px;display:block}
+.empty-state strong{display:block;color:var(--txt);font-size:14px;margin-bottom:4px}
+.empty-state span{font-size:12px}
+/* only-gestor visibility controlled via JS body[data-mode] */
+body[data-mode="colaborador"] .only-gestor{display:none!important}
+</style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--surface2:#F1F3F6;--surface3:#E7EAF0;--border:#E2E6ED;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--orange:#EA580C;--red:#DC2626;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *{color:#E5E7EB!important;}
+body.tema-claro .topbar-title i{color:var(--gold)!important;}
+body.tema-claro .alert-item{background:#FFF7ED!important;}
+body.tema-claro .alert-item *{color:#1C1917!important;}
+body.tema-claro table th{background:#F8FAFC!important;color:#374151!important;border-color:#E5E7EB!important;}
+body.tema-claro table td{background:#FFFFFF!important;color:#111827!important;border-color:#F1F5F9!important;}
+body.tema-claro table tr:hover td{background:#F8FAFC!important;}
+body.tema-claro .cod-chip{background:#D9D9D9!important;color:#1E293B!important;border-color:#C0C0C0!important;}
+body.tema-claro .badge-gray{background:#E2E8F0!important;color:#475569!important;}
+body.tema-claro .panel{background:#FFFFFF!important;border-color:#E2E8F0!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important;}
+body.tema-claro .kpi-card{background:#F8FAFC!important;border:1px solid #E2E8F0!important;}
+body.tema-claro .filter-input,body.tema-claro .form-input{background:#F8FAFC!important;border-color:#E2E8F0!important;color:#111827!important;}
+body.tema-claro select.form-input option{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro .modal{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .modal-header,body.tema-claro .modal-footer{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .side-panel{background:#FFFFFF!important;}
+body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon"><i class="ti ti-file-invoice"></i></div>
+    <div>
+      <div class="sidebar-logo-text">Faturamento</div>
+      <div class="sidebar-logo-sub">Barreto's</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">Principal</div>
+  <div class="nav-item active" onclick="showView('dashboard')" data-view="dashboard">
+    <i class="ti ti-layout-dashboard"></i>Dashboard
+  </div>
+  <div class="nav-item" onclick="showView('detalhamento')" data-view="detalhamento">
+    <i class="ti ti-table"></i>Detalhamento
+    <span class="nav-badge" id="badge-total" style="display:none"></span>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="mode-switch" id="mode-switch-manual" style="display:none">
+      <span class="txt-dim" style="font-weight:600">PERFIL</span>
+      <select id="mode-select" onchange="setMode(this.value)">
+        <option value="gestor">Gestão Completa</option>
+        <option value="colaborador">Simplificado</option>
+      </select>
+    </div>
+    <button class="sidebar-config" onclick="alert('Configuração de Sheets/Apps Script é feita direto no apps_script_faturamento.gs.')">
+      <i class="ti ti-settings" style="font-size:14px"></i>
+      <span>Configurar Sheets</span>
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--orange);margin-left:auto"></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN
+════════════════════════════════════════════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">
+      <i class="ti ti-layout-dashboard" id="topbar-icon"></i>
+      <span id="topbar-title">Dashboard</span>
+      <span class="topbar-sub" id="topbar-sub">Resumo do faturamento por empresa</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="loadAllData()">
+        <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModalRegistro()">
+        <i class="ti ti-plus" style="font-size:13px"></i> Novo Registro
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ─── DASHBOARD ─── -->
+    <div id="view-dashboard" class="view active">
+      <div class="filter-bar">
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap"><i class="ti ti-calendar" style="font-size:13px;vertical-align:-2px"></i> Período</span>
+        <select class="filter-input" id="dash-mes-filtro" onchange="renderAll()" style="min-width:200px"></select>
+      </div>
+      <div class="kpi-grid" id="dash-kpis-gerais"></div>
+      <div class="panel">
+        <div class="panel-header">
+          <i class="ti ti-building-bank" style="color:var(--gold)"></i>
+          <span class="panel-title">Faturamento por Empresa</span>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <table class="tbl" style="table-layout:fixed">
+            <colgroup>
+              <col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%">
+            </colgroup>
+            <thead><tr>
+              <th>Empresa</th>
+              <th class="txt-center">Faturamento</th>
+              <th class="txt-center">Custo Operacional</th>
+              <th class="txt-center">Lucro Líquido</th>
+              <th class="txt-center">Margem</th>
+            </tr></thead>
+            <tbody id="tbody-resumo-empresas"><tr><td colspan="5" class="tbl-empty">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DETALHAMENTO ─── -->
+    <div id="view-detalhamento" class="view">
+      <div class="filter-bar">
+        <input class="filter-input" id="f-texto" placeholder="Buscar cliente, motorista, CT-e…" oninput="renderTabela()" style="min-width:220px">
+        <select class="filter-input" id="f-empresa" onchange="renderTabela()" style="min-width:230px">
+          <option value="">Todas as empresas</option>
+          <option value="Barreto's Transportes e Serviços">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
+        </select>
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">De</span>
+        <input class="filter-input" type="date" id="f-ini" onchange="renderTabela()" style="min-width:135px">
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Até</span>
+        <input class="filter-input" type="date" id="f-fim" onchange="renderTabela()" style="min-width:135px">
+        <button class="btn btn-ghost btn-sm" onclick="setPeriodoMesAtual()" style="white-space:nowrap"><i class="ti ti-calendar-event" style="font-size:13px"></i> Mês Atual</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarExcel()" style="white-space:nowrap"><i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel</button>
+      </div>
+      <div style="font-size:11px;color:var(--txt-dim);margin:-6px 0 10px" id="periodo-label"></div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <thead><tr>
+              <th>Data</th><th>Cliente</th><th>Empresa</th><th>Motorista</th><th>Vendedor</th>
+              <th>Cód.</th><th>CT-e</th><th class="txt-right">Total Frete</th>
+              <th class="txt-right">Lucro Líquido</th><th class="txt-right">%</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-detalhamento"><tr><td colspan="11" class="tbl-empty">Nenhum registro</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SIDE PANEL — DETALHES DO REGISTRO
+════════════════════════════════════════════════ -->
+<div id="sp-overlay" class="side-panel-overlay" onclick="closeSidePanel()"></div>
+<div id="side-panel-registro" class="side-panel">
+  <div class="side-panel-header">
+    <i class="ti ti-file-invoice" style="color:var(--gold);font-size:18px"></i>
+    <span class="side-panel-title">Detalhes do Registro</span>
+    <button class="modal-close" onclick="closeSidePanel()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="side-panel-body" id="sp-body"></div>
+  <div class="side-panel-footer">
+    <button class="btn btn-danger btn-sm" onclick="excluirRegistroAtual()"><i class="ti ti-trash"></i> Excluir Registro</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL — NOVO REGISTRO DE FATURAMENTO
+════════════════════════════════════════════════ -->
+<div id="modal-registro" class="modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <i class="ti ti-file-invoice" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title">Novo Registro de Faturamento</span>
+      <button class="modal-close" onclick="closeModalRegistro()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="modal-section-title"><i class="ti ti-file-upload" style="font-size:13px"></i> Anexar CT-e (PDF)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Arquivo PDF</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" type="file" id="r-arquivo" accept="application/pdf" style="padding:6px 8px">
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="lerCtePdf()"><i class="ti ti-scan" style="font-size:13px"></i> Ler PDF</button>
+        </div>
+      </div>
+    </div>
+    <div id="r-status-pdf" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-link" style="font-size:13px"></i> Vincular Card do Kanban</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Empresa / Aba no Kanban</label>
+        <select class="form-input" id="r-aba">
+          <option value="Barreto's Transportes e Serviços" data-aba="BARRETO'S">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura" data-aba="INFRA">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística" data-aba="GONÇALVES">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços" data-aba="PINHEIRO">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Código do Card (COD) <span class="req">*</span></label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="r-cod" placeholder="Ex: G25100">
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="buscarCardKanbanFat()"><i class="ti ti-download" style="font-size:13px"></i> Buscar</button>
+        </div>
+      </div>
+    </div>
+    <div id="r-status-kanban" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-file-description" style="font-size:13px"></i> Dados do Registro</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Cliente <span class="req">*</span></label>
+        <input class="form-input" id="r-cliente" placeholder="Preenchido pela leitura do PDF">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Empresa (emitente) <span class="req">*</span></label>
+        <select class="form-input" id="r-empresa">
+          <option value="">—</option>
+          <option value="Barreto's Transportes e Serviços">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Motorista</label>
+        <input class="form-input" id="r-motorista" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vendedor</label>
+        <input class="form-input" id="r-vendedor" placeholder="Preenchido pelo card do kanban">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Veículo</label>
+        <input class="form-input" id="r-veiculo" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data Faturamento</label>
+        <input class="form-input" type="date" id="r-data-faturamento">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Origem</label>
+        <input class="form-input" id="r-origem" placeholder="Cidade">
+      </div>
+      <div class="form-group">
+        <label class="form-label">UF</label>
+        <input class="form-input" id="r-uf" placeholder="SP" maxlength="2" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Destino</label>
+        <input class="form-input" id="r-destino" placeholder="Cidade">
+      </div>
+      <div class="form-group">
+        <label class="form-label">UF Destino</label>
+        <input class="form-input" id="r-uf2" placeholder="SP" maxlength="2" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">NF-e</label>
+        <input class="form-input" id="r-nfe" placeholder="Nº da nota fiscal">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CT-e <span class="req">*</span></label>
+        <input class="form-input" id="r-cte" placeholder="Nº do CT-e">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">MDF <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-mdf" placeholder="Opcional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CIOT <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-ciot" placeholder="Opcional">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Vale Pedágio <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-vale-pedagio" placeholder="Opcional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">GNRE (R$) <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-gnre" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Total Frete (R$) <span class="req">*</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-total-frete" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor Freteiro (R$) <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(Custo Operacional do card)</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-valor-freteiro" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <input class="form-input" id="r-observacoes" placeholder='Ex: "-" ou "CTE Cancelado"' oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+
+    <div class="only-gestor" style="background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:12px 14px;margin-top:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Prévia do Resultado</div>
+      <div class="grid-2" style="gap:10px 20px">
+        <div><span class="txt-dim" style="font-size:11px">Imposto (12%)</span><div class="txt-mono" id="prev-imposto" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Barretos</span><div class="txt-mono" id="prev-barretos" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Custo Operacional</span><div class="txt-mono" id="prev-custo-op" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Lucro Bruto</span><div class="txt-mono" id="prev-lucro-bruto" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Lucro Líquido</span><div class="txt-mono" id="prev-lucro-liquido" style="font-weight:800;color:var(--gold)">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Margem (%)</span><div class="txt-mono" id="prev-percentual" style="font-weight:700">—</div></div>
+      </div>
+      <div id="prev-aviso-cancelado" style="display:none;margin-top:8px;font-size:11px;color:var(--red)"><i class="ti ti-alert-triangle" style="font-size:12px"></i> Observação indica CT-e cancelado — só o imposto será contabilizado como prejuízo.</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalRegistro()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="salvarRegistro()"><i class="ti ti-check"></i> Salvar Registro</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FATURAMENTO — Barreto's
+   Sincronização de mão dupla com o Apps Script: carrega da planilha
+   real ao abrir e a cada 30s, e grava na planilha a cada ação.
+   ═══════════════════════════════════════════════════════════════ */
+
+var WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyOKO_85pXh1EqJO3_GejIfz8SkItWZ5r1zyKJUBGQu6hOCdJEM1gVAhuTCuOIVkzWlXg/exec";
+var KANBAN_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
+
+var registros = [];
+var currentSideId = null;
+var filtroEmpresaAtual = "";
+
+/* ── Carregamento / persistência (mão dupla) ── */
+async function loadAllData(){
+  if(!WEBAPP_URL){
+    document.getElementById('tbody-detalhamento').innerHTML = '<tr><td colspan="11" class="tbl-empty">Cole a URL do Apps Script na constante WEBAPP_URL pra conectar com a planilha real.</td></tr>';
+    return;
+  }
+  try{
+    var res = await fetch(WEBAPP_URL);
+    var dados = await res.json();
+    registros = Array.isArray(dados) ? dados.map(function(r, i){ r._id = r.cod+'|'+r.cte+'|'+i; return r; }) : [];
+  }catch(e){
+    console.error('Falha ao buscar da planilha de Faturamento.', e);
+  }
+  renderAll();
+}
+function postFat_(payload){
+  if(!WEBAPP_URL) return Promise.resolve();
+  return fetch(WEBAPP_URL, {method:'POST', body: JSON.stringify(payload)})
+    .catch(e=>console.error('Falha ao sincronizar com a planilha de Faturamento.', e));
+}
+
+function renderAll(){
+  popularFiltroMesDashboard();
+  renderResumoEmpresas();
+  renderTabela();
+  var badge = document.getElementById('badge-total');
+  if(registros.length){ badge.style.display='inline-block'; badge.textContent=registros.length; }
+  else badge.style.display='none';
+}
+
+/* ── Filtro de período do Dashboard: mês vigente por padrão, com opção
+   de ver mês a mês ou "Todos os Meses" (ano inteiro/geral) ── */
+function popularFiltroMesDashboard(){
+  var sel = document.getElementById('dash-mes-filtro');
+  var valorAnterior = sel.value;
+  var mesesDisponiveis = new Set();
+  registros.forEach(function(r){
+    var iso = dataPlanilhaParaISO_(r.dataFaturamento);
+    if(iso) mesesDisponiveis.add(iso.slice(0,7)); // YYYY-MM
+  });
+  var mesAtual = new Date().toISOString().slice(0,7);
+  mesesDisponiveis.add(mesAtual); // garante que o mês vigente sempre apareça, mesmo sem registros ainda
+  var mesesArr = Array.from(mesesDisponiveis).sort().reverse();
+
+  // Mantém a seleção do usuário se já tiver escolhido algo antes; senão
+  // (primeira carga), cai no mês vigente — regra padrão do sistema.
+  var valorSelecionado = sel.options.length ? valorAnterior : mesAtual;
+
+  sel.innerHTML = '<option value="">Todos os Meses</option>' + mesesArr.map(function(m){
+    var partes = m.split('-');
+    var nomeMes = new Date(Number(partes[0]), Number(partes[1])-1, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    nomeMes = nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+    return `<option value="${m}">${nomeMes}${m===mesAtual?' (atual)':''}</option>`;
+  }).join('');
+  sel.value = valorSelecionado || '';
+}
+
+/* ── Cálculo do resultado (mesma lógica do Apps Script) ── */
+function mesmoMesDoFaturamento(dataFaturamentoISO){
+  if(!dataFaturamentoISO) return true; // sem data pra comparar, assume mesmo mês (mais conservador: zera o imposto)
+  var iso = dataPlanilhaParaISO_(dataFaturamentoISO) || dataFaturamentoISO;
+  var dataEmissao = new Date(iso+'T00:00:00');
+  if(isNaN(dataEmissao.getTime())) return true;
+  var hoje = new Date();
+  return hoje.getFullYear()===dataEmissao.getFullYear() && hoje.getMonth()===dataEmissao.getMonth();
+}
+function calcularResultado(totalFrete, valorFreteiro, gnre, observacoes, dataFaturamento){
+  totalFrete = Number(totalFrete); if(!isFinite(totalFrete)) totalFrete = 0;
+  valorFreteiro = Number(valorFreteiro); if(!isFinite(valorFreteiro)) valorFreteiro = 0;
+  gnre = Number(gnre); if(!isFinite(gnre)) gnre = 0;
+  var cancelado = /cancelad/i.test(String(observacoes||''));
+  var imposto = totalFrete * 0.12;
+  var barretos, custoOp, lucroBruto, lucroLiquido, percentual;
+  if(cancelado){
+    var mesmoMes = mesmoMesDoFaturamento(dataFaturamento);
+    barretos = 0; custoOp = 0; lucroBruto = 0;
+    if(mesmoMes){ imposto = 0; lucroLiquido = 0; }
+    else { lucroLiquido = -imposto; }
+    percentual = null;
+  } else {
+    barretos = totalFrete;
+    custoOp = valorFreteiro + gnre;
+    lucroBruto = barretos - custoOp;
+    lucroLiquido = lucroBruto - imposto;
+    percentual = barretos !== 0 ? (custoOp/barretos) : null;
+  }
+  return {imposto, barretos, custoOp, lucroBruto, lucroLiquido, percentual, cancelado};
+}
+
+/* ── Helpers de formatação ── */
+function fmtMoeda(v){ return "R$\u00A0" + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(v){ return (v===null||v===undefined||v==='') ? '—' : (Number(v)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
+function fmtData(iso){ if(!iso) return "—"; var p=String(iso).split("-"); return p.length===3 ? (p[2]+"/"+p[1]+"/"+p[0]) : iso; }
+function dataPlanilhaParaISO_(data){
+  if(!data) return '';
+  var s = String(data);
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10); // já está em ISO (registro recém-criado, antes do 1º reload)
+  var p = s.split('/');
+  return p.length===3 ? (p[2]+'-'+p[1]+'-'+p[0]) : '';
+}
+
+/* ── Dashboard: resumo por empresa (equivalente à aba RESULTADO) ── */
+var EMPRESAS_GRUPO = ["Barreto's Transportes e Serviços","Barreto's Transportes Sites e Infraestrutura","Gonçalves Soluções em Logística","Pinheiro Transportes e Serviços"];
+
+function renderResumoEmpresas(){
+  var mesSelecionado = document.getElementById('dash-mes-filtro').value; // '' = Todos os Meses
+  var base = mesSelecionado
+    ? registros.filter(function(r){ return dataPlanilhaParaISO_(r.dataFaturamento).slice(0,7) === mesSelecionado; })
+    : registros;
+
+  var porEmpresa = {};
+  EMPRESAS_GRUPO.forEach(function(e){ porEmpresa[e] = {faturamento:0, custoOp:0, lucroLiquido:0}; });
+  var outros = {faturamento:0, custoOp:0, lucroLiquido:0};
+  var qtdCancelados = 0;
+
+  base.forEach(function(r){
+    var alvo = porEmpresa[r.empresa] || outros;
+    alvo.faturamento += Number(r.barretos)||0;
+    alvo.custoOp += Number(r.custoOp)||0;
+    alvo.lucroLiquido += Number(r.lucroLiquido)||0;
+    if(/cancelad/i.test(r.observacoes||'')) qtdCancelados++;
+  });
+
+  var linhas = EMPRESAS_GRUPO.map(function(e){ return [e, porEmpresa[e]]; });
+  if(outros.faturamento || outros.custoOp || outros.lucroLiquido) linhas.push(['Outras/Não identificadas', outros]);
+
+  var totalF=0, totalC=0, totalL=0;
+  linhas.forEach(function(l){ totalF+=l[1].faturamento; totalC+=l[1].custoOp; totalL+=l[1].lucroLiquido; });
+
+  var tbody = document.getElementById('tbody-resumo-empresas');
+  if(!base.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="tbl-empty">Nenhum registro no período selecionado</td></tr>';
+  } else {
+    tbody.innerHTML = linhas.map(function(l){
+      var margem = l[1].faturamento!==0 ? (l[1].custoOp/l[1].faturamento) : null;
+      return `<tr>
+        <td>${l[0]}</td>
+        <td class="txt-center txt-mono">${fmtMoeda(l[1].faturamento)}</td>
+        <td class="txt-center txt-mono">${fmtMoeda(l[1].custoOp)}</td>
+        <td class="txt-center txt-mono" style="color:${l[1].lucroLiquido<0?'var(--red)':'var(--green)'}">${fmtMoeda(l[1].lucroLiquido)}</td>
+        <td class="txt-center txt-mono">${fmtPct(margem)}</td>
+      </tr>`;
+    }).join('') + `<tr style="font-weight:700;background:var(--surface2)">
+        <td>Total Geral</td>
+        <td class="txt-center txt-mono">${fmtMoeda(totalF)}</td>
+        <td class="txt-center txt-mono">${fmtMoeda(totalC)}</td>
+        <td class="txt-center txt-mono" style="color:${totalL<0?'var(--red)':'var(--green)'}">${fmtMoeda(totalL)}</td>
+        <td class="txt-center txt-mono">${fmtPct(totalF!==0?totalC/totalF:null)}</td>
+      </tr>`;
+  }
+
+  document.getElementById('dash-kpis-gerais').innerHTML = `
+    <div class="kpi-card gold"><i class="ti ti-report-money kpi-icon gold"></i>
+      <div class="kpi-val">${fmtMoeda(totalF)}</div><div class="kpi-lbl">Faturamento Total</div></div>
+    <div class="kpi-card orange"><i class="ti ti-receipt-2 kpi-icon orange"></i>
+      <div class="kpi-val">${fmtMoeda(totalC)}</div><div class="kpi-lbl">Custo Operacional Total</div></div>
+    <div class="kpi-card ${totalL<0?'red':'green'}"><i class="ti ti-trending-up kpi-icon ${totalL<0?'red':'green'}"></i>
+      <div class="kpi-val">${fmtMoeda(totalL)}</div><div class="kpi-lbl">Lucro Líquido Total</div></div>
+    <div class="kpi-card blue"><i class="ti ti-file-invoice kpi-icon blue"></i>
+      <div class="kpi-val">${base.length}</div><div class="kpi-lbl">Registros no Total</div></div>
+    <div class="kpi-card red"><i class="ti ti-file-off kpi-icon red"></i>
+      <div class="kpi-val">${qtdCancelados}</div><div class="kpi-lbl">CT-e's Cancelados</div></div>
+  `;
+}
+
+/* ── Detalhamento (tabela) ── */
+function getLinhasFiltradas(){
+  var rows = registros.slice();
+  var texto = (document.getElementById('f-texto').value||'').toLowerCase();
+  var empresa = document.getElementById('f-empresa').value;
+  var ini = document.getElementById('f-ini').value;
+  var fim = document.getElementById('f-fim').value;
+  if(texto) rows = rows.filter(r=>[r.cliente,r.motorista,r.cte,r.cod].join(' ').toLowerCase().includes(texto));
+  if(empresa) rows = rows.filter(r=>r.empresa===empresa);
+  if(ini) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) >= ini);
+  if(fim) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) <= fim);
+  rows.sort((a,b)=>dataPlanilhaParaISO_(b.dataFaturamento).localeCompare(dataPlanilhaParaISO_(a.dataFaturamento)));
+  return rows;
+}
+function renderTabela(){
+  atualizarLabelPeriodo();
+  var rows = getLinhasFiltradas();
+  var tbody = document.getElementById('tbody-detalhamento');
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="11" class="tbl-empty">Nenhum registro encontrado</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r){
+    var cancelado = /cancelad/i.test(r.observacoes||'');
+    return `<tr onclick="openSidePanel('${r._id}')">
+      <td class="txt-mono">${fmtData(dataPlanilhaParaISO_(r.dataFaturamento))}</td>
+      <td>${r.cliente||'—'}</td>
+      <td><span class="badge badge-gray">${r.empresa||'—'}</span></td>
+      <td class="txt-dim">${r.motorista||'—'}</td>
+      <td class="txt-dim">${r.vendedor||'—'}</td>
+      <td><span class="cod-chip">${r.cod||'—'}</span></td>
+      <td class="txt-mono">${r.cte||'—'}</td>
+      <td class="txt-right txt-mono">${fmtMoeda(r.totalFrete)}</td>
+      <td class="txt-right txt-mono" style="color:${Number(r.lucroLiquido)<0?'var(--red)':'var(--green)'}">${fmtMoeda(r.lucroLiquido)}${cancelado?' <span class="badge badge-red" style="margin-left:4px">CANC.</span>':''}</td>
+      <td class="txt-right txt-mono">${fmtPct(r.percentual)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openSidePanel('${r._id}')"><i class="ti ti-eye" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+function setPeriodoMesAtual(){
+  var hoje = new Date();
+  var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  var fim = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+  document.getElementById('f-ini').value = ini.toISOString().slice(0,10);
+  document.getElementById('f-fim').value = fim.toISOString().slice(0,10);
+  renderTabela();
+}
+function atualizarLabelPeriodo(){
+  var ini = document.getElementById('f-ini').value, fim = document.getElementById('f-fim').value;
+  var lbl = document.getElementById('periodo-label');
+  lbl.textContent = (ini && fim) ? ('Exibindo período: '+fmtData(ini)+' até '+fmtData(fim)) : 'Exibindo todos os períodos';
+}
+
+/* ── Navegação entre views ── */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  var navEl = document.querySelector('.nav-item[data-view="'+name+'"]');
+  if(navEl) navEl.classList.add('active');
+  var titles = {
+    dashboard: ['ti-layout-dashboard','Dashboard','Resumo do faturamento por empresa'],
+    detalhamento: ['ti-table','Detalhamento','Todos os registros de faturamento']
+  };
+  var t = titles[name];
+  document.getElementById('topbar-icon').className = 'ti '+t[0];
+  document.getElementById('topbar-title').textContent = t[1];
+  document.getElementById('topbar-sub').textContent = t[2];
+}
+function setMode(mode){ document.body.setAttribute('data-mode', mode); }
+
+/* ── Side Panel ── */
+function openSidePanel(id){
+  var r = registros.find(x=>x._id===id);
+  if(!r) return;
+  currentSideId = id;
+  var calc = calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento);
+
+  function campoTexto(label, field, valor, mono){
+    var v = (valor===undefined||valor===null?'':valor).toString().replace(/"/g,'&quot;');
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input${mono?' txt-mono':''}" value="${v}" onchange="atualizarCampoRegistro('${id}','${field}',this.value)"></div>`;
+  }
+  function campoNumero(label, field, valor){
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input txt-mono" type="number" step="0.01" value="${Number(valor)||0}" onchange="atualizarCampoRegistro('${id}','${field}',parseFloat(this.value)||0)"></div>`;
+  }
+  function campoData(label, field, valorBR){
+    var iso = dataPlanilhaParaISO_(valorBR);
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input" type="date" value="${iso}" onchange="atualizarCampoRegistro('${id}','${field}',this.value)"></div>`;
+  }
+  function campoEmpresa(label, field, valor){
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <select class="form-input" onchange="atualizarCampoRegistro('${id}','${field}',this.value)">
+        <option value="">—</option>
+        ${EMPRESAS_GRUPO.map(function(e){ return `<option ${e===valor?'selected':''}>${e}</option>`; }).join('')}
+      </select></div>`;
+  }
+  function campoSomenteLeitura(label, valor, cor){
+    return `<div class="sp-field"><div class="sp-label">${label}</div><div class="sp-val txt-mono" style="${cor?'font-weight:800;color:'+cor:''}">${valor}</div></div>`;
+  }
+
+  document.getElementById('sp-body').innerHTML = `
+    ${campoTexto('Cliente','cliente',r.cliente)}
+    <div class="grid-2">
+      ${campoEmpresa('Empresa','empresa',r.empresa)}
+      ${campoData('Data Faturamento','dataFaturamento',r.dataFaturamento)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Motorista','motorista',r.motorista)}
+      ${campoTexto('Vendedor','vendedor',r.vendedor)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Código do Card','cod',r.cod,true)}
+      ${campoTexto('Veículo','veiculo',r.veiculo)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Origem','origem',r.origem)}
+      ${campoTexto('UF','uf',r.uf,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Destino','destino',r.destino)}
+      ${campoTexto('UF Destino','uf2',r.uf2,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('NF-e','nfe',r.nfe,true)}
+      ${campoTexto('CT-e','cte',r.cte,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('MDF','mdf',r.mdf,true)}
+      ${campoTexto('CIOT','ciot',r.ciot,true)}
+    </div>
+    ${campoTexto('Observações','observacoes',r.observacoes)}
+    <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-calculator" style="font-size:12px"></i> Resultado</div>
+    <div class="grid-2">
+      ${campoNumero('Total Frete','totalFrete',r.totalFrete)}
+      ${campoNumero('Valor Freteiro','valorFreteiro',r.valorFreteiro)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Vale Pedágio','valePedagio',r.valePedagio,true)}
+      ${campoNumero('GNRE','gnre',r.gnre)}
+    </div>
+    <div class="grid-2" style="margin-top:4px">
+      ${campoSomenteLeitura('Imposto (12%)', fmtMoeda(calc.imposto))}
+      ${campoSomenteLeitura('Barretos', fmtMoeda(calc.barretos))}
+    </div>
+    <div class="grid-2">
+      ${campoSomenteLeitura('Custo Operacional', fmtMoeda(calc.custoOp))}
+      ${campoSomenteLeitura('Lucro Bruto', fmtMoeda(calc.lucroBruto))}
+    </div>
+    <div class="grid-2">
+      ${campoSomenteLeitura('Lucro Líquido', fmtMoeda(calc.lucroLiquido), calc.lucroLiquido<0?'var(--red)':'var(--green)')}
+      ${campoSomenteLeitura('Margem', fmtPct(calc.percentual))}
+    </div>
+    ${calc.cancelado?'<p class="txt-red" style="font-size:11px;margin-top:8px"><i class="ti ti-alert-triangle" style="font-size:12px"></i> CT-e cancelado — só o imposto foi contabilizado.</p>':''}
+  `;
+  document.getElementById('side-panel-registro').classList.add('open');
+  document.getElementById('sp-overlay').classList.add('open');
+}
+function closeSidePanel(){
+  document.getElementById('side-panel-registro').classList.remove('open');
+  document.getElementById('sp-overlay').classList.remove('open');
+  currentSideId = null;
+}
+async function atualizarCampoRegistro(id, field, value){
+  var r = registros.find(x=>x._id===id);
+  if(!r) return;
+  var codOriginal = r.cod, cteOriginal = r.cte; // usados pra achar a linha, mesmo se cod/cte forem o campo mudando
+  r[field] = value;
+
+  // Sempre recalcula o resultado depois de qualquer edição — inclusive
+  // mudar Observações pra "Cancelado" depois de já criado, ou corrigir um
+  // valor errado.
+  var calc = calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento);
+  Object.assign(r, calc);
+
+  await postFat_({action:'atualizarCampo', cod: codOriginal, cte: cteOriginal, campo: field, valor: value});
+  renderAll();
+  openSidePanel(id);
+}
+
+async function excluirRegistroAtual(){
+  if(currentSideId==null) return;
+  var r = registros.find(x=>x._id===currentSideId);
+  if(!r) return;
+  if(!confirm('Excluir este registro de faturamento?')) return;
+  registros = registros.filter(x=>x._id!==currentSideId);
+  await postFat_({action:'excluir', cod:r.cod, cte:r.cte});
+  closeSidePanel();
+  renderAll();
+}
+
+/* ── Modal Novo Registro ── */
+var custoOperacionalCardAtualFat = null;
+
+function openModalRegistro(){
+  ['r-cliente','r-motorista','r-vendedor','r-veiculo','r-origem','r-uf','r-destino','r-uf2',
+   'r-nfe','r-cte','r-mdf','r-ciot','r-vale-pedagio','r-gnre','r-total-frete','r-valor-freteiro','r-observacoes','r-cod'
+  ].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('r-empresa').value = '';
+  document.getElementById('r-data-faturamento').value = new Date().toISOString().slice(0,10);
+  document.getElementById('r-status-pdf').innerHTML = '';
+  document.getElementById('r-status-kanban').innerHTML = '';
+  custoOperacionalCardAtualFat = null;
+  atualizarPreviewCalculo();
+  document.getElementById('modal-registro').classList.add('open');
+}
+function closeModalRegistro(){ document.getElementById('modal-registro').classList.remove('open'); }
+
+function atualizarPreviewCalculo(){
+  var totalFrete = parseFloat(document.getElementById('r-total-frete').value)||0;
+  var valorFreteiro = parseFloat(document.getElementById('r-valor-freteiro').value)||0;
+  var gnre = parseFloat(document.getElementById('r-gnre').value)||0;
+  var obs = document.getElementById('r-observacoes').value;
+  var dataFat = document.getElementById('r-data-faturamento').value;
+  var calc = calcularResultado(totalFrete, valorFreteiro, gnre, obs, dataFat);
+  document.getElementById('prev-imposto').textContent = fmtMoeda(calc.imposto);
+  document.getElementById('prev-barretos').textContent = fmtMoeda(calc.barretos);
+  document.getElementById('prev-custo-op').textContent = fmtMoeda(calc.custoOp);
+  document.getElementById('prev-lucro-bruto').textContent = fmtMoeda(calc.lucroBruto);
+  document.getElementById('prev-lucro-liquido').textContent = fmtMoeda(calc.lucroLiquido);
+  document.getElementById('prev-lucro-liquido').style.color = calc.lucroLiquido<0 ? 'var(--red)' : 'var(--gold)';
+  document.getElementById('prev-percentual').textContent = fmtPct(calc.percentual);
+  document.getElementById('prev-aviso-cancelado').style.display = calc.cancelado ? 'block' : 'none';
+}
+
+async function salvarRegistro(){
+  var cliente = document.getElementById('r-cliente').value.trim();
+  var empresa = document.getElementById('r-empresa').value;
+  var cte = document.getElementById('r-cte').value.trim();
+  var cod = document.getElementById('r-cod').value.trim();
+  var totalFrete = parseFloat(document.getElementById('r-total-frete').value);
+  if(!cliente || !empresa || !cte || !cod || !totalFrete){
+    alert('Preencha ao menos Cliente, Empresa, CT-e, Código do Card e Total Frete.');
+    return;
+  }
+  var registro = {
+    cliente: cliente,
+    empresa: empresa,
+    motorista: document.getElementById('r-motorista').value.trim(),
+    vendedor: document.getElementById('r-vendedor').value.trim(),
+    cod: cod,
+    observacoes: document.getElementById('r-observacoes').value.trim(),
+    nfe: document.getElementById('r-nfe').value.trim(),
+    cte: cte,
+    mdf: document.getElementById('r-mdf').value.trim(),
+    ciot: document.getElementById('r-ciot').value.trim(),
+    veiculo: document.getElementById('r-veiculo').value.trim(),
+    origem: document.getElementById('r-origem').value.trim(),
+    uf: document.getElementById('r-uf').value.trim().toUpperCase(),
+    destino: document.getElementById('r-destino').value.trim(),
+    uf2: document.getElementById('r-uf2').value.trim().toUpperCase(),
+    dataFaturamento: document.getElementById('r-data-faturamento').value,
+    totalFrete: totalFrete,
+    valorFreteiro: parseFloat(document.getElementById('r-valor-freteiro').value)||0,
+    valePedagio: document.getElementById('r-vale-pedagio').value.trim(),
+    gnre: parseFloat(document.getElementById('r-gnre').value)||0
+  };
+
+  var btnSalvar = document.querySelector('#modal-registro .btn-primary');
+  var textoOriginal = btnSalvar.innerHTML;
+  btnSalvar.disabled = true;
+  btnSalvar.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Salvando…';
+
+  var payload = Object.assign({action:'criar'}, registro);
+  // Se o card foi vinculado ao kanban (Custo Operacional Total conhecido),
+  // manda o valor CRU pro servidor ratear entre todos os registros desse
+  // mesmo código — o servidor é quem decide o Valor Freteiro final de cada um.
+  if(custoOperacionalCardAtualFat !== null) payload.custoOperacionalTotal = custoOperacionalCardAtualFat;
+  await postFat_(payload);
+
+  // Busca de novo da planilha em vez de só empurrar localmente — assim já
+  // vem com o rateio aplicado (inclusive em registros que já existiam antes
+  // desse, do mesmo código de card).
+  await loadAllData();
+
+  btnSalvar.disabled = false;
+  btnSalvar.innerHTML = textoOriginal;
+  closeModalRegistro();
+}
+
+/* ── Busca do card no Kanban ── */
+async function buscarCardKanbanFat(){
+  var codigo = document.getElementById('r-cod').value.trim();
+  var abaSelect = document.getElementById('r-aba');
+  var aba = abaSelect.options[abaSelect.selectedIndex].getAttribute('data-aba');
+  var statusEl = document.getElementById('r-status-kanban');
+  if(!codigo){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando no kanban…';
+  try{
+    var res = await fetch(KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba));
+    var data = await res.json();
+    var cards = Array.isArray(data) ? data : (data.rows || data.data || []);
+    var card = cards.find(c => String(c["DT CODIGO"]||c["Chave"]||"").trim().toUpperCase() === codigo.toUpperCase());
+    if(!card){
+      statusEl.innerHTML = '<span class="txt-red">Card não encontrado nessa aba. Confira o código/empresa.</span>';
+      return;
+    }
+    document.getElementById('r-motorista').value = card["MOTORISTA"]||"";
+    document.getElementById('r-vendedor').value = card["VENDEDOR"]||"";
+    document.getElementById('r-veiculo').value = card["TIPO DE VEICULO"]||card["TIPO DE VEÍCULO"]||card["VEÍCULO"]||card["VEICULO"]||"";
+    if(!document.getElementById('r-empresa').value) document.getElementById('r-empresa').value = abaSelect.value;
+
+    var custoOperRaw = card["CUSTO OPERACIONAL TOTAL"] ?? card["CUSTO TOTAL OPERACIONAL"];
+    if(custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!==''){
+      custoOperacionalCardAtualFat = parseFloat(String(custoOperRaw).replace(',','.'));
+      // Prévia do rateio: conta quantos registros já existem (localmente)
+      // com esse mesmo código + este que está sendo criado agora. O
+      // servidor recalcula com a contagem real da planilha na hora de
+      // salvar, então esse número é só uma prévia.
+      var qtdExistentes = registros.filter(function(x){ return (x.cod||'').trim().toUpperCase()===codigo.toUpperCase(); }).length;
+      var qtdTotal = qtdExistentes + 1;
+      var valorRateadoPreview = custoOperacionalCardAtualFat / qtdTotal;
+      document.getElementById('r-valor-freteiro').value = valorRateadoPreview;
+      atualizarPreviewCalculo();
+      var textoRateio = qtdTotal > 1
+        ? ` Como esse código já tem ${qtdExistentes} registro(s), o Custo Operacional Total (${fmtMoeda(custoOperacionalCardAtualFat)}) foi dividido por ${qtdTotal}: ${fmtMoeda(valorRateadoPreview)} cada.`
+        : ` Valor Freteiro preenchido com o Custo Operacional Total (${fmtMoeda(custoOperacionalCardAtualFat)}).`;
+      statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.'+textoRateio+'</span>';
+    } else {
+      custoOperacionalCardAtualFat = null;
+      statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.</span> <span style="color:var(--orange)">(⚠ Custo Operacional Total não encontrado nesse card — preencha o Valor Freteiro manualmente.)</span>';
+    }
+  }catch(e){
+    statusEl.innerHTML = '<span class="txt-red">Não foi possível buscar agora ('+(e.message||'erro de conexão')+').</span>';
+  }
+}
+
+/* ── Leitura do CT-e (PDF) — mesma técnica de reconstrução visual do financeiro.html ── */
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+function reconstruirTextoVisualFat_(items){
+  var pontos = items
+    .map(function(it){ return { x: it.transform[4], y: it.transform[5], str: it.str }; })
+    .filter(function(p){ return p.str && p.str.trim() !== ''; });
+  pontos.sort(function(a,b){ return b.y - a.y; });
+  var linhas = [];
+  var tolerancia = 3;
+  pontos.forEach(function(p){
+    var linha = linhas.find(function(l){ return Math.abs(l.y - p.y) <= tolerancia; });
+    if(!linha){ linha = {y:p.y, itens:[]}; linhas.push(linha); }
+    linha.itens.push(p);
+  });
+  return linhas.map(function(l){
+    return l.itens.sort(function(a,b){ return a.x-b.x; }).map(function(i){ return i.str; }).join(' ');
+  }).join('\n');
+}
+
+async function lerCtePdf(){
+  var input = document.getElementById('r-arquivo');
+  var statusEl = document.getElementById('r-status-pdf');
+  var arquivo = input.files && input.files[0];
+  if(!arquivo){ statusEl.innerHTML = '<span class="txt-red">Selecione um arquivo PDF primeiro.</span>'; return; }
+  if(typeof pdfjsLib === 'undefined'){ statusEl.innerHTML = '<span class="txt-red">Biblioteca de leitura de PDF não carregou.</span>'; return; }
+
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Lendo PDF…';
+  try{
+    var buffer = await arquivo.arrayBuffer();
+    var doc = await pdfjsLib.getDocument({data: buffer}).promise;
+    var textoCompleto = '';
+    for(var p=1; p<=doc.numPages; p++){
+      var page = await doc.getPage(p);
+      var content = await page.getTextContent();
+      textoCompleto += reconstruirTextoVisualFat_(content.items) + '\n';
+    }
+    if(textoCompleto.trim().length < 40){
+      statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span>';
+      return;
+    }
+    var campos = parseCteTexto(textoCompleto);
+    aplicarCamposCte(campos);
+    var reconhecidos = Object.keys(campos).filter(k=>campos[k]).length;
+    statusEl.innerHTML = reconhecidos
+      ? '<span class="txt-green">✓ '+reconhecidos+' campo(s) preenchido(s) automaticamente pela leitura do CT-e. Confira antes de salvar.</span>'
+      : '<span class="txt-red">Não consegui reconhecer os campos deste PDF. Preencha manualmente.</span>';
+  }catch(e){
+    statusEl.innerHTML = '<span class="txt-red">Erro ao ler o PDF ('+(e.message||'falha desconhecida')+').</span>';
+  }
+}
+
+// Empresas do grupo por CNPJ do emitente (confirmados via CT-e reais) — fallback por nome
+var CNPJ_EMPRESAS_FAT = {
+  '34.973.374/0001-05': "Barreto's Transportes e Serviços",
+  '49.765.171/0001-09': "Barreto's Transportes Sites e Infraestrutura",
+  '35.303.041/0001-31': "Gonçalves Soluções em Logística"
+};
+
+function parseCteTexto(texto){
+  var linhas = texto.split('\n').map(function(l){ return l.replace(/\s+/g,' ').trim(); }).filter(Boolean);
+  var t = linhas.join(' ');
+  var campos = {};
+
+  // CNPJ do emitente (aparece logo no cabeçalho, rótulo "CNPJ:" isolado)
+  var mCnpj = t.match(/CNPJ:\s*([\d.\/-]+)/);
+  var cnpjEmitente = mCnpj ? mCnpj[1] : '';
+  if(cnpjEmitente && CNPJ_EMPRESAS_FAT[cnpjEmitente]) campos.empresa = CNPJ_EMPRESAS_FAT[cnpjEmitente];
+  else if(/SITES E INFRAESTRUTURA/i.test(t)) campos.empresa = "Barreto's Transportes Sites e Infraestrutura";
+  else if(/GON[ÇC]ALVES/i.test(t)) campos.empresa = "Gonçalves Soluções em Logística";
+  else if(/PINHEIRO/i.test(t)) campos.empresa = "Pinheiro Transportes e Serviços";
+  else if(/BARRETO/i.test(t)) campos.empresa = "Barreto's Transportes e Serviços";
+
+  // Cliente (Tomador do Serviço) — "TOMADOR DO SERVIÇO" aparece 2x no CT-e:
+  // uma vez como rótulo de coluna da tabelinha do topo (sem dois-pontos) e
+  // outra como o campo de verdade, com dois-pontos, seguido do nome da
+  // empresa — por isso exigimos o dois-pontos aqui, senão pega o rótulo
+  // errado (da tabelinha).
+  var idxTomador = linhas.findIndex(function(l){ return /TOMADOR DO SERVI[ÇC]O\s*:/i.test(l); });
+  if(idxTomador>=0){
+    var mesmaLinha = linhas[idxTomador].match(/TOMADOR DO SERVI[ÇC]O\s*:\s*(.+)/i);
+    var candidato = mesmaLinha && mesmaLinha[1].trim();
+    if(!candidato){
+      for(var i=idxTomador+1;i<Math.min(idxTomador+3, linhas.length);i++){
+        if(linhas[i]){ candidato = linhas[i]; break; }
+      }
+    }
+    if(candidato){
+      // Corta no primeiro rótulo seguinte (às vezes a reconstrução junta o
+      // nome da empresa com o início do endereço na mesma linha, ex:
+      // "ACTECH - ALUMINA CH TEC LTDA MUNICÍPIO: Ouro Preto - MG CEP: ...")
+      var mCorte = candidato.match(/^(.*?)\s+(?:MUNIC[ÍI]PIO|ENDERE[ÇC]O|CNPJ|CEP|FONE|PA[ÍI]S|INSC)\b/i);
+      if(mCorte) candidato = mCorte[1].trim();
+      campos.cliente = candidato;
+    }
+  }
+
+  // CT-e: padrão ###.###.### no cabeçalho (número do documento)
+  var mCte = t.match(/\b(\d{3}\.\d{3}\.\d{3})\b/);
+  if(mCte) campos.cte = String(parseInt(mCte[1].replace(/\./g,''), 10));
+
+  // NF-e (Documentos Originários) — pode ter mais de uma; junta todas com "/"
+  var nfeMatches = Array.from(t.matchAll(/NF-e\s+(\d+)/gi));
+  if(nfeMatches.length){
+    var nfes = nfeMatches.map(function(m){ return String(parseInt(m[1],10)); });
+    nfes = nfes.filter(function(v,i){ return nfes.indexOf(v)===i; }); // remove duplicatas
+    campos.nfe = nfes.join('/');
+  }
+
+  // Data/hora de emissão (data seguida de hora, formato único no documento)
+  var mData = t.match(/(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}:\d{2}/);
+  if(mData) campos.dataFaturamento = dataPlanilhaParaISO_(mData[1]);
+
+  // Origem / Destino: linha com "CIDADE - UF - CÓDIGO CIDADE - UF - CÓDIGO".
+  // Removemos antes os próprios rótulos "ORIGEM DA PRESTAÇÃO"/"DESTINO DA
+  // PRESTAÇÃO" do texto — sem isso, como não há traço nessas palavras, a
+  // regex "comia" o rótulo inteiro junto com o nome da cidade (não tinha
+  // onde parar antes do primeiro "-" de verdade).
+  var tSemRotulos = t
+    .replace(/ORIGEM DA PRESTA[ÇC][ÃA]O/gi, ' ')
+    .replace(/DESTINO DA PRESTA[ÇC][ÃA]O/gi, ' ');
+  var mRotas = tSemRotulos.match(/([A-ZÀ-Úa-zà-ú][A-ZÀ-Úa-zà-ú\s]*?)\s*-\s*([A-Z]{2})\s*-\s*\d{6,7}\s+([A-ZÀ-Úa-zà-ú][A-ZÀ-Úa-zà-ú\s]*?)\s*-\s*([A-Z]{2})\s*-\s*\d{6,7}/);
+  if(mRotas){
+    campos.origem = mRotas[1].trim();
+    campos.uf = mRotas[2];
+    campos.destino = mRotas[3].trim();
+    campos.uf2 = mRotas[4];
+  }
+
+  // Valor Total do Serviço (Total Frete)
+  var mValor = t.match(/VALOR TOTAL DO SERVI[ÇC]O[\s\S]{0,60}?([\d.,]+)/i);
+  if(mValor) campos.totalFrete = mValor[1].replace(/\./g,'').replace(',','.');
+
+  return campos;
+}
+function aplicarCamposCte(c){
+  if(c.empresa) document.getElementById('r-empresa').value = c.empresa;
+  if(c.cliente) document.getElementById('r-cliente').value = c.cliente;
+  if(c.cte) document.getElementById('r-cte').value = c.cte;
+  if(c.nfe) document.getElementById('r-nfe').value = c.nfe;
+  if(c.dataFaturamento) document.getElementById('r-data-faturamento').value = c.dataFaturamento;
+  if(c.origem) document.getElementById('r-origem').value = c.origem;
+  if(c.uf) document.getElementById('r-uf').value = c.uf;
+  if(c.destino) document.getElementById('r-destino').value = c.destino;
+  if(c.uf2) document.getElementById('r-uf2').value = c.uf2;
+  if(c.totalFrete){ document.getElementById('r-total-frete').value = c.totalFrete; atualizarPreviewCalculo(); }
+}
+
+/* ── Exportar Excel (mesmas 24 colunas da planilha real) ── */
+function exportarExcel(){
+  var rows = getLinhasFiltradas();
+  if(!rows.length){ alert('Nenhum registro para exportar.'); return; }
+  var header = ['CLIENTE','EMPRESA','MOTORISTA','VENDEDOR','COD','OBSERVAÇÕES','NFE','CTE','MDF','CIOT','VALE PEDÁGIO','VEÍCULO',
+    'ORIGEM','UF','DESTINO','UF2','DATA FATURAMENTO','TOTAL FRETE','VALOR FRETEIRO','GNRE',
+    'IMPOSTO','BARRETOS','CUSTO OP.','LUCRO BRUTO','LUCRO LÍQUIDO','PERCENTUAL'];
+  function num(v){ v=Number(v); return isFinite(v)?v.toFixed(2):'0.00'; }
+  var linhas = rows.map(function(r){
+    return [r.cliente,r.empresa,r.motorista,r.vendedor,r.cod,r.observacoes,r.nfe,r.cte,r.mdf,r.ciot,r.valePedagio,r.veiculo,
+      r.origem,r.uf,r.destino,r.uf2,fmtData(dataPlanilhaParaISO_(r.dataFaturamento)),
+      num(r.totalFrete),num(r.valorFreteiro),num(r.gnre),num(r.imposto),num(r.barretos),
+      num(r.custoOp),num(r.lucroBruto),num(r.lucroLiquido),(r.percentual!=null?(Number(r.percentual)*100).toFixed(2)+'%':'')
+    ].map(function(v){ return (v===undefined||v===null)?'':String(v).replace(/;/g,','); });
+  });
+  var texto = [header.join(';')].concat(linhas.map(l=>l.join(';'))).join('\n');
+  var blob = new Blob(['\uFEFF'+texto], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'faturamento.csv';
+  a.click();
+}
+
+/* ── Tema claro/escuro (mesmo padrão do resto do sistema) ── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t = localStorage.getItem('barretos_tema') || 'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message', function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+
+/* ── Init ── */
+setMode('gestor');
+setPeriodoMesAtual();
+loadAllData();
+
+setInterval(function(){
+  var side = document.getElementById('side-panel-registro');
+  var algumModalAberto = document.querySelector('.modal-overlay.open');
+  if((side && side.classList.contains('open')) || algumModalAberto) return;
+  loadAllData();
+}, 30000);
+</script>
+</body>
+</html>
