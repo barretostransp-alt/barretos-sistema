@@ -312,6 +312,9 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
     <i class="ti ti-list-check"></i>Fila do Dia
     <span class="nav-badge warn" id="badge-fila" style="display:none"></span>
   </div>
+  <div class="nav-item" onclick="showView('historico')" data-view="historico">
+    <i class="ti ti-history"></i>Histórico
+  </div>
 
   <div class="sidebar-divider only-gestor"></div>
   <div class="sidebar-section only-gestor">Financeiro</div>
@@ -398,6 +401,22 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <input class="filter-input" placeholder="Buscar favorecido ou descrição…" oninput="filterFila(this.value)" style="min-width:240px">
       </div>
       <div id="fila-list"></div>
+    </div>
+
+    <!-- ─── HISTÓRICO (visão pessoal, só leitura — pra quem só vê a Fila do Dia não se confundir e esquecer de solicitar algo) ─── -->
+    <div id="view-historico" class="view">
+      <div class="filter-bar">
+        <input class="filter-input" id="f-historico-texto" placeholder="Buscar favorecido ou descrição…" oninput="renderHistorico()" style="min-width:240px">
+      </div>
+      <div style="font-size:11px;color:var(--txt-dim);margin-bottom:10px" id="historico-sub"></div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <thead><tr><th>Vencimento</th><th>Favorecido</th><th>Descrição</th><th>Tipo</th><th class="txt-right">Valor</th><th>Status</th></tr></thead>
+            <tbody id="tbody-historico"><tr><td colspan="6" class="tbl-empty">Nenhuma solicitação sua encontrada</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ─── CONTAS A PAGAR ─── -->
@@ -986,6 +1005,7 @@ function reconstruirPagarDaPlanilha_(rows, cache){
     var temSaldo = row.saldo !== '' && row.saldo !== undefined && row.saldo !== null;
     var pagoAdiant = row.pagoAdiant === 'OK';
     var pagoSaldo = row.pagoSaldo === 'OK';
+    var pagoAcrescimo = row.pagoAcrescimo === 'OK';
     var cartaoLocal = acharNoCacheLocalPagar_(cache, codigo, favorecido);
     var ehGeral = codigo.indexOf('GERAL-') === 0;
 
@@ -1028,6 +1048,42 @@ function reconstruirPagarDaPlanilha_(rows, cache){
     } else {
       if(temAdiantamento) out.push(baseComum('Adiantamento', valorTotal, pagoAdiant));
       if(temSaldo) out.push(baseComum('Saldo', valorTotal, pagoSaldo));
+    }
+
+    // Acréscimo — reconstrói como um lançamento próprio a partir da coluna
+    // ACRÉSCIMO, usando a coluna PAGO ACRÉSCIMO da própria planilha pro
+    // status (funciona igual em qualquer navegador/dispositivo).
+    if(acrescimo > 0){
+      var camposLocais = cartaoLocal || {};
+      out.push({
+        id: Date.now() + Math.random()*1000 + i + 0.5,
+        origem: ehGeral ? 'lancamento' : 'pix',
+        tipo: 'Pagar',
+        dataLanc: dataPlanilhaParaISO_(row.data) || new Date().toISOString().slice(0,10),
+        vencimento: camposLocais.vencimento || dataPlanilhaParaISO_(row.data) || new Date().toISOString().slice(0,10),
+        favorecido: favorecido,
+        doc: camposLocais.doc || '',
+        categoria: camposLocais.categoria || 'Outros',
+        descricao: camposLocais.descricao || ('Acréscimo — card ' + codigo),
+        valor: acrescimo,
+        tipoValor: ehGeral ? undefined : 'Acréscimo',
+        adiantamento: 0,
+        forma: row.efetuar || '',
+        cardCodigo: ehGeral ? '' : codigo,
+        empresaCnpj: row.empresa || '',
+        bancoOrigem: '',
+        solicitante: row.solicitante || '',
+        vendedor: row.vendedor || '',
+        acrescimo: 0,
+        titular: favorecido,
+        banco: row.banco || '',
+        tipoPix: '',
+        chavePix: row.pix || '',
+        status: pagoAcrescimo ? 'Pago' : 'A Pagar',
+        dataPagamento: '',
+        responsavel: '',
+        obs: camposLocais.obs || ''
+      });
     }
   });
   return out;
@@ -1073,6 +1129,7 @@ function renderAll(){
   popularFiltroMes('receber');
   renderDashboard();
   renderFila();
+  renderHistorico();
   renderTabela('pagar');
   renderTabela('receber');
   updateBadges();
@@ -1172,8 +1229,7 @@ function sincronizarCriar_(l){
 function sincronizarPago_(l, pago){
   if(!l || l.tipo!=='Pagar') return;
   var tipoValor = tipoValorCalculo_(l);
-  if(tipoValor==='Acréscimo') return; // sem coluna de "pago" própria ainda — não sincroniza pra não contaminar o status do Adiantamento/Saldo/Total do mesmo card
-  var parcela = tipoValor==='Adiantamento' ? 'adiantamento' : tipoValor==='Saldo' ? 'saldo' : 'total';
+  var parcela = tipoValor==='Adiantamento' ? 'adiantamento' : tipoValor==='Saldo' ? 'saldo' : tipoValor==='Acréscimo' ? 'acrescimo' : 'total';
   postSheetPix_({
     action: 'marcarPago',
     codigo: codigoSheet_(l),
@@ -1401,6 +1457,60 @@ function renderFila(filtro){
   }).join('');
 }
 function filterFila(v){ renderFila(v); }
+
+/* ── Histórico pessoal (só leitura) — pra quem só vê a Fila do Dia
+   conferir suas próprias solicitações e não esquecer/duplicar nada.
+   Identifica "suas" solicitações pelo campo Vendedor do card (importado
+   do kanban), comparando apenas o PRIMEIRO NOME com o nome da sessão
+   logada (o card do kanban costuma trazer só o primeiro nome). ── */
+function getUsuarioAtual_(){
+  try{
+    var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function renderHistorico(){
+  var user = getUsuarioAtual_();
+  var nome = user ? (user.nome || user.login || '').trim() : '';
+  var sub = document.getElementById('historico-sub');
+  var tbody = document.getElementById('tbody-historico');
+
+  if(!nome){
+    sub.textContent = 'Não foi possível identificar seu usuário nesta sessão.';
+    tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Faça login pra ver seu histórico</td></tr>';
+    return;
+  }
+  var primeiroNome = nome.split(/\s+/)[0] || '';
+  sub.textContent = 'Solicitações vinculadas a "'+primeiroNome+'" (pelo campo Vendedor do card do kanban)';
+
+  var texto = (document.getElementById('f-historico-texto').value||'').toLowerCase();
+  var nomeNorm = primeiroNome.toLowerCase();
+  var itens = lancamentos.filter(function(l){
+    if(l.tipo!=='Pagar') return false;
+    var vendedorPrimeiroNome = (l.vendedor||'').trim().split(/\s+/)[0] || '';
+    if(vendedorPrimeiroNome.toLowerCase() !== nomeNorm) return false;
+    if(texto && !(l.favorecido.toLowerCase().includes(texto)||l.descricao.toLowerCase().includes(texto))) return false;
+    return true;
+  });
+  itens.sort((a,b)=>b.vencimento.localeCompare(a.vencimento)); // mais recente primeiro
+
+  if(!itens.length){
+    tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Nenhuma solicitação sua encontrada</td></tr>';
+    return;
+  }
+  tbody.innerHTML = itens.map(function(l){
+    var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
+    return `<tr>
+      <td class="txt-mono">${fmtData(l.vencimento)}</td>
+      <td>${l.favorecido}</td>
+      <td class="txt-dim">${l.descricao}</td>
+      <td><span class="badge badge-gray">${l.tipoValor||'—'}</span></td>
+      <td class="txt-right txt-mono">${fmtMoeda(valorPagar)}</td>
+      <td><span class="badge ${l.status==='Pago'?'badge-green':'badge-orange'}">${l.status}</span></td>
+    </tr>`;
+  }).join('');
+}
 
 /* ── Tabelas Contas a Pagar / Receber ── */
 function getLinhasFiltradas(tipo){
@@ -2351,6 +2461,7 @@ function showView(name){
   var titles = {
     dashboard: ['ti-layout-dashboard','Dashboard','Visão geral financeira'],
     fila: ['ti-list-check','Fila do Dia','Lançamentos vencendo hoje ou atrasados'],
+    historico: ['ti-history','Histórico','Suas solicitações — só consulta'],
     pagar: ['ti-arrow-up-circle','Contas a Pagar','Fornecedores, fretes e despesas'],
     receber: ['ti-arrow-down-circle','Contas a Receber','Clientes e faturamento']
   };
@@ -2358,6 +2469,7 @@ function showView(name){
   document.getElementById('topbar-icon').className = 'ti '+t[0];
   document.getElementById('topbar-title').textContent = t[1];
   document.getElementById('topbar-sub').textContent = t[2];
+  if(name==='historico') renderHistorico();
   toggleSidebarMobile(false); // ao trocar de aba no mobile, a gaveta fecha sozinha
 }
 
