@@ -976,6 +976,10 @@ function applyUser(user){
   setTimeout(carregarCorSalva, 100);
   // Alerta de novas solicitações no Financeiro (só pra Lisa Marie)
   iniciarAlertaFilaFinanceiro(user);
+  // Alerta de "você foi incluído em um evento" do Calendário (pra todo mundo)
+  iniciarAlertaEventoCalendario(user);
+  // Lembrete diário às 16h com os eventos do dia seguinte (pra todo mundo)
+  iniciarLembreteDiario(user);
 }
 
 async function aplicarPermissoes(login){
@@ -1525,6 +1529,34 @@ async function savePerfilModal(){
     </div>
   </div>
 </div>
+
+<!-- MODAL ALERTA — EVENTO DO CALENDÁRIO (participação nova ou lembrete do dia seguinte às 16h) -->
+<div id="evento-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="evento-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🗓️</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="evento-alerta-titulo">Você foi incluído(a) em um evento</div>
+        <div style="font-size:11px;color:#6B7280" id="evento-alerta-sub">Calendário</div>
+      </div>
+      <button onclick="fecharAlertaEvento()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="evento-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaEvento()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaEvento();navigate('calendario')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Calendário</button>
+    </div>
+  </div>
+</div>
 <style>@keyframes filaAlertaPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}</style>
 
 <script>
@@ -1708,6 +1740,173 @@ function mostrarAlertaFila(novos){
 
 function fecharAlertaFila(){
   document.getElementById('fila-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE PARTICIPAÇÃO EM EVENTO DO CALENDÁRIO (pra todo mundo) ──
+   Mesmo padrão do alerta de fila do Financeiro acima: fica de olho na
+   aba CALENDARIO da planilha e, quando o usuário logado aparece como
+   participante de um evento que ainda não tinha visto (foi incluído
+   agora), mostra um aviso estilo "novo e-mail" — funciona mesmo se a
+   pessoa estiver em outra tela do sistema, já que esse monitoramento
+   vive aqui no shell, que fica sempre carregado. */
+var _calendarioIntervalId = null;
+function iniciarAlertaEventoCalendario(user){
+  if(_calendarioIntervalId){ clearInterval(_calendarioIntervalId); _calendarioIntervalId = null; }
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  if(!login) return;
+  setTimeout(function(){ verificarNovoEventoCalendario(login); }, 4000);
+  _calendarioIntervalId = setInterval(function(){ verificarNovoEventoCalendario(login); }, 45000);
+}
+
+async function verificarNovoEventoCalendario(login){
+  if(!CAL_URL) return;
+  try{
+    var r = await fetch(CAL_URL + '?action=cal_listar');
+    var j = await r.json();
+    var rows = j.rows || [];
+
+    // Só eventos em que o usuário logado está entre os participantes
+    var meus = rows.filter(function(ev){
+      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
+      return parts.indexOf(login) >= 0;
+    });
+
+    var chaveVistos = 'calendario_eventos_vistos_' + login;
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+    var idsAtuais = meus.map(function(ev){ return String(ev.ID||ev.id||''); });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+      return;
+    }
+
+    var novos = meus.filter(function(ev){
+      return vistos.indexOf(String(ev.ID||ev.id||'')) === -1;
+    });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+
+    if(novos.length > 0) mostrarAlertaEventoCalendario(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaEventoCalendario(novos){
+  var titulo = document.getElementById('evento-alerta-titulo');
+  var sub = document.getElementById('evento-alerta-sub');
+  var body = document.getElementById('evento-alerta-body');
+
+  titulo.textContent = novos.length === 1
+    ? 'Você foi incluído(a) em um evento'
+    : 'Você foi incluído(a) em ' + novos.length + ' eventos';
+  sub.textContent = 'Calendário';
+
+  body.innerHTML = novos.map(function(ev){
+    var tipo    = ev.Tipo||ev.tipo||'evento';
+    var color   = TYPE_COLOR[tipo]||'#6B7280';
+    var icon    = TYPE_ICON[tipo]||'📌';
+    var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
+    var hora    = normHoraShell(ev.HoraIni||ev.horaIni||'');
+    var dataFmt = dataIni ? dataIni.split('-').reverse().join('/') : '';
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+dataFmt+(hora?' · '+hora:'')+(ev.Local||ev.local?' · '+(ev.Local||ev.local):'')+'</div>'+
+      '</div>'+
+      '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+(TYPE_LABEL[tipo]||tipo)+'</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('evento-alerta-overlay').style.display = 'flex';
+}
+
+/* ── LEMBRETE DIÁRIO ÀS 16H — eventos do dia seguinte (pra todo mundo) ──
+   Verifica a cada minuto se já passou das 16h e ainda não mostrou o
+   lembrete hoje; se sim, busca os eventos de amanhã do usuário logado
+   (como participante ou criador) e mostra um resumo — uma vez por dia,
+   por navegador. Não incomoda se a agenda de amanhã estiver vazia. */
+var _lembreteDiarioIntervalId = null;
+function iniciarLembreteDiario(user){
+  if(_lembreteDiarioIntervalId){ clearInterval(_lembreteDiarioIntervalId); _lembreteDiarioIntervalId = null; }
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  if(!login) return;
+  verificarLembreteDiario(login); // checa já ao carregar, caso já seja depois das 16h
+  _lembreteDiarioIntervalId = setInterval(function(){ verificarLembreteDiario(login); }, 60000);
+}
+
+async function verificarLembreteDiario(login){
+  var agora = new Date();
+  if(agora.getHours() < 16) return; // só dispara a partir das 16h
+
+  var hojeStr = toISOLocal(agora);
+  var chave = 'lembrete_diario_mostrado_' + login;
+  if(localStorage.getItem(chave) === hojeStr) return; // já mostrado hoje
+
+  if(!CAL_URL) return;
+  try{
+    var amanha = new Date(agora); amanha.setDate(agora.getDate()+1);
+    var amanhaStr = toISOLocal(amanha);
+
+    var r = await fetch(CAL_URL + '?action=cal_listar');
+    var j = await r.json();
+    var rows = j.rows || [];
+
+    var eventos = rows.filter(function(ev){
+      var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
+      var dataFim = normDateShell(ev.DataFim||ev.dataFim||dataIni);
+      if (amanhaStr < dataIni || amanhaStr > dataFim) return false;
+      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
+      var criador = (ev.Criador||ev.criador||'').trim().toLowerCase();
+      return parts.indexOf(login) >= 0 || criador === login;
+    });
+
+    localStorage.setItem(chave, hojeStr); // marca como mostrado hoje, mesmo sem eventos
+
+    if(!eventos.length) return; // agenda livre amanhã — não precisa incomodar
+
+    mostrarLembreteDiario(eventos, amanhaStr);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarLembreteDiario(eventos, amanhaStr){
+  var titulo = document.getElementById('evento-alerta-titulo');
+  var sub = document.getElementById('evento-alerta-sub');
+  var body = document.getElementById('evento-alerta-body');
+
+  var dataFmt = amanhaStr.split('-').reverse().join('/');
+  titulo.textContent = eventos.length === 1
+    ? 'Lembrete: 1 evento amanhã'
+    : 'Lembrete: ' + eventos.length + ' eventos amanhã';
+  sub.textContent = dataFmt;
+
+  body.innerHTML = eventos.map(function(ev){
+    var tipo    = ev.Tipo||ev.tipo||'evento';
+    var color   = TYPE_COLOR[tipo]||'#6B7280';
+    var icon    = TYPE_ICON[tipo]||'📌';
+    var hora    = normHoraShell(ev.HoraIni||ev.horaIni||'');
+    var horaFim = normHoraShell(ev.HoraFim||ev.horaFim||'');
+    var horaTxt = hora ? hora+(horaFim?' – '+horaFim:'') : 'Dia inteiro';
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+horaTxt+(ev.Local||ev.local?' · '+(ev.Local||ev.local):'')+'</div>'+
+      '</div>'+
+      '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+(TYPE_LABEL[tipo]||tipo)+'</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('evento-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaEvento(){
+  document.getElementById('evento-alerta-overlay').style.display = 'none';
 }
 
 /* ── TEMA CLARO/ESCURO ───────────────────────────────── */
