@@ -755,6 +755,9 @@ function respErr(e) {
       <div class="sb-item" id="nav-faturamento" onclick="navigate('faturamento')">
         <i class="ti ti-file-invoice"></i><span>Faturamento</span>
       </div>
+      <div class="sb-item" id="nav-conciliacao" onclick="navigate('conciliacao')">
+        <i class="ti ti-building-bank"></i><span>Conciliação Bancária</span>
+      </div>
       <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
@@ -935,6 +938,7 @@ var TOOLS = {
   clientes:  { src:"clientes.html",              cat:"Comercial",   label:"Clientes",               icon:"ti-users"            },
   financeiro:{ src:"financeiro.html",            cat:"Financeiro",  label:"Financeiro",             icon:"ti-cash"             },
   faturamento:{ src:"faturamento.html",          cat:"Financeiro",  label:"Faturamento",            icon:"ti-file-invoice"     },
+  conciliacao:{ src:"conciliacao_bancaria.html", cat:"Financeiro",  label:"Conciliação Bancária",  icon:"ti-building-bank"    },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
   kanban_pin: { src:"pinheiro.html",              cat:"Operacional", label:"Pinheiro",              icon:"ti-columns"          },
   kanban_inf: { src:"infra.html",                 cat:"Operacional", label:"Infra",                 icon:"ti-columns"          },
@@ -1014,7 +1018,7 @@ async function aplicarPermissoes(login){
 
 function aplicarMenuPermissoes(p){
   // Ferramentas controláveis por permissão
-  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     // Se a lista de permissões veio do servidor E tem itens, respeita
@@ -1027,7 +1031,7 @@ function aplicarMenuPermissoes(p){
       el.style.display=p.includes(k)?"flex":"none";
     }
   });
-  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","clientes"],financeiro:["financeiro","faturamento"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
+  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -1035,7 +1039,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento"].forEach(function(k){
+  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-geral","section-rh","section-comercial","section-financeiro","section-operacional","section-melhoria"].forEach(function(s){
@@ -1927,6 +1931,11 @@ function selecionarTema(t) {
     btnE.style.cssText = (t==='escuro' ? active : base);
     btnC.style.cssText = (t==='claro'  ? active : base);
   }
+  // Aplica no próprio shell e avisa todos os iframes ativos — antes essa
+  // função só mudava a cor dos botões e não fazia nada disso, então
+  // trocar o tema em tempo real (sem recarregar a página) não tinha efeito
+  document.body.classList.toggle('tema-claro', t === 'claro');
+  broadcastTema(t);
 }
 
 function broadcastTema(t) {
