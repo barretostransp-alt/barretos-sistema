@@ -299,12 +299,40 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         <label>Local / Link</label>
         <input class="fi" id="ev-local" placeholder="Sala, endereço ou link da reunião…">
       </div>
+      <div class="fg" id="fg-repeat">
+        <label>Repetir</label>
+        <select class="fi" id="ev-repeat" onchange="onRepeatChange()">
+          <option value="none">Não repetir</option>
+          <option value="diario">Diariamente</option>
+          <option value="semanal">Semanalmente</option>
+          <option value="quinzenal">Quinzenalmente</option>
+          <option value="mensal">Mensalmente</option>
+          <option value="trimestral">Trimestralmente</option>
+        </select>
+      </div>
+      <div class="fg" id="fg-repeat-dias" style="display:none">
+        <label>Repetir toda(s)</label>
+        <div class="users-grid" id="repeat-dias-select">
+          <div class="usel" data-dow="0" onclick="toggleRepeatDia(this)">Dom</div>
+          <div class="usel" data-dow="1" onclick="toggleRepeatDia(this)">Seg</div>
+          <div class="usel" data-dow="2" onclick="toggleRepeatDia(this)">Ter</div>
+          <div class="usel" data-dow="3" onclick="toggleRepeatDia(this)">Qua</div>
+          <div class="usel" data-dow="4" onclick="toggleRepeatDia(this)">Qui</div>
+          <div class="usel" data-dow="5" onclick="toggleRepeatDia(this)">Sex</div>
+          <div class="usel" data-dow="6" onclick="toggleRepeatDia(this)">Sáb</div>
+        </div>
+      </div>
+      <div class="fg" id="fg-repeat-ate" style="display:none">
+        <label>Repetir até *</label>
+        <input class="fi" id="ev-repeat-ate" type="date">
+      </div>
       <div class="fg" id="fg-participantes">
         <label>Participantes</label>
         <div class="users-grid" id="users-select"></div>
       </div>
     </div>
     <div class="modal-ft">
+      <button class="btn btn-danger" id="btn-deletar-serie" onclick="deletarSerie()" style="display:none"><i class="ti ti-trash" style="font-size:12px"></i> Excluir toda a série</button>
       <button class="btn btn-danger" id="btn-deletar" onclick="deletarEvento()" style="display:none"><i class="ti ti-trash" style="font-size:12px"></i> Excluir</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-gold" onclick="salvarEvento()" id="btn-salvar">Salvar</button>
@@ -401,39 +429,103 @@ async function salvarEvento() {
     participantes.push(state.currentUser.login);
   }
 
-  var payload = {
-    action: state.editingId ? 'cal_update' : 'cal_create',
-    id: state.editingId || '',
+  var dataFimOriginal = document.getElementById('ev-data-fim').value || dataIni;
+  // Duração do evento em dias (pra manter o mesmo intervalo em cada ocorrência gerada)
+  var duracaoDias = Math.round((new Date(dataFimOriginal+'T00:00:00') - new Date(dataIni+'T00:00:00')) / 86400000);
+  if (isNaN(duracaoDias) || duracaoDias < 0) duracaoDias = 0;
+
+  var basePayload = {
     tipo: tipo,
     titulo: titulo,
     desc: document.getElementById('ev-desc').value.trim(),
-    dataIni: dataIni,
     horaIni: document.getElementById('ev-hora-ini').value,
-    dataFim: document.getElementById('ev-data-fim').value || dataIni,
     horaFim: document.getElementById('ev-hora-fim').value,
     local: document.getElementById('ev-local').value.trim(),
     participantes: participantes.join(','),
     criador: state.currentUser ? state.currentUser.login : ''
   };
 
+  var repeatTipo = document.getElementById('ev-repeat').value;
+  var isNovaRecorrencia = !state.editingId && repeatTipo !== 'none';
+
+  var datasParaCriar = [dataIni];
+  var grupoRecorrencia = '';
+  if (isNovaRecorrencia) {
+    var repeatAte = document.getElementById('ev-repeat-ate').value;
+    if (!repeatAte) { toast('Informe até quando repetir', 'err'); return; }
+    var diasSemana = Array.from(document.querySelectorAll('#repeat-dias-select .usel.sel')).map(function(el){ return parseInt(el.dataset.dow, 10); });
+    datasParaCriar = gerarDatasRecorrencia(repeatTipo, dataIni, diasSemana, repeatAte);
+    grupoRecorrencia = 'REC-' + Date.now();
+  }
+
   var btnSalvar = document.getElementById('btn-salvar');
   btnSalvar.disabled = true;
-  btnSalvar.textContent = 'Salvando…';
+  btnSalvar.textContent = datasParaCriar.length > 1 ? 'Criando ' + datasParaCriar.length + ' eventos…' : 'Salvando…';
 
   try {
-    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
-    var j = await r.json();
-    if (j.success) {
-      toast(state.editingId ? 'Evento atualizado!' : 'Evento criado!', 'ok');
+    if (!isNovaRecorrencia) {
+      // Fluxo normal: cria ou atualiza um único evento (edição nunca mexe na série)
+      var payload = Object.assign({}, basePayload, {
+        action: state.editingId ? 'cal_update' : 'cal_create',
+        id: state.editingId || '',
+        dataIni: dataIni,
+        dataFim: dataFimOriginal
+      });
+      var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
+      var j = await r.json();
+      if (j.success) {
+        toast(state.editingId ? 'Evento atualizado!' : 'Evento criado!', 'ok');
+        closeModal();
+        await carregarDados();
+      } else {
+        toast(j.error || 'Erro ao salvar', 'err');
+      }
+    } else {
+      // Cria uma ocorrência por data calculada, todas com o mesmo grupoRecorrencia
+      var erros = 0;
+      for (var i = 0; i < datasParaCriar.length; i++) {
+        var dIni = datasParaCriar[i];
+        var dFim = toISO(new Date(new Date(dIni+'T00:00:00').getTime() + duracaoDias*86400000));
+        var payloadOcorrencia = Object.assign({}, basePayload, {
+          action: 'cal_create',
+          id: '',
+          dataIni: dIni,
+          dataFim: dFim,
+          grupoRecorrencia: grupoRecorrencia
+        });
+        try {
+          var rr = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payloadOcorrencia) });
+          var jj = await rr.json();
+          if (!jj.success) erros++;
+        } catch(e) { erros++; }
+      }
+      if (erros === 0) toast(datasParaCriar.length + ' eventos criados!', 'ok');
+      else toast((datasParaCriar.length - erros) + ' de ' + datasParaCriar.length + ' criados (' + erros + ' falharam)', erros === datasParaCriar.length ? 'err' : 'ok');
       closeModal();
       await carregarDados();
-    } else {
-      toast(j.error || 'Erro ao salvar', 'err');
     }
   } catch(e) { toast('Erro de conexão', 'err'); }
 
   btnSalvar.disabled = false;
   btnSalvar.textContent = 'Salvar';
+}
+
+async function deletarSerie() {
+  if (!state.editingId) return;
+  var ev = state.events.find(function(e){ return e.id === state.editingId; });
+  if (!ev || !ev.grupoRecorrencia) return;
+  if (!confirm('Excluir TODOS os eventos desta série recorrente? Essa ação não pode ser desfeita.')) return;
+  try {
+    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cal_delete_serie', grupoRecorrencia: ev.grupoRecorrencia }) });
+    var j = await r.json();
+    if (j.success) {
+      toast('Série excluída (' + (j.removidos||0) + ' eventos)', 'ok');
+      closeModal();
+      await carregarDados();
+    } else {
+      toast(j.error || 'Erro ao excluir a série', 'err');
+    }
+  } catch(e) { toast('Erro de conexão', 'err'); }
 }
 
 async function deletarEvento() {
@@ -735,6 +827,7 @@ function openModal(ev, defaultDate, defaultHora) {
 
   document.getElementById('modal-hd-title').textContent = isEdit ? 'Editar evento' : 'Novo evento';
   document.getElementById('btn-deletar').style.display = isEdit ? 'inline-flex' : 'none';
+  document.getElementById('btn-deletar-serie').style.display = (isEdit && ev.grupoRecorrencia) ? 'inline-flex' : 'none';
 
   // Tipo
   var tipo = ev ? ev.tipo : 'evento';
@@ -758,6 +851,14 @@ function openModal(ev, defaultDate, defaultHora) {
   document.getElementById('ev-data-fim').value = ev ? (ev.dataFim||ev.dataIni) : (defaultDate||toISO(new Date()));
   document.getElementById('ev-hora-fim').value = ev ? (ev.horaFim||'') : '';
   document.getElementById('ev-local').value   = ev ? (ev.local||'') : '';
+
+  // Recorrência — só disponível ao criar um evento novo (editar sempre mexe
+  // só na ocorrência aberta, igual Google Agenda quando você edita "só este evento")
+  document.getElementById('fg-repeat').style.display = isEdit ? 'none' : '';
+  document.getElementById('ev-repeat').value = 'none';
+  document.getElementById('ev-repeat-ate').value = '';
+  document.querySelectorAll('#repeat-dias-select .usel').forEach(function(el){ el.classList.remove('sel'); });
+  onRepeatChange();
 
   // Participantes
   var parts = ev ? (ev.participantes||'').split(',').filter(Boolean) : [];
@@ -796,6 +897,70 @@ function updateModalIco(tipo) {
 
 function toggleUserSel(el) {
   el.classList.toggle('sel');
+}
+
+// ══════════════════════════════════════════════════════
+//  RECORRÊNCIA — repete o mesmo evento em datas futuras
+//  (Diário/Semanal/Quinzenal/Mensal/Trimestral, igual Google Agenda)
+// ══════════════════════════════════════════════════════
+function onRepeatChange() {
+  var tipo = document.getElementById('ev-repeat').value;
+  var precisaDias = (tipo === 'semanal' || tipo === 'quinzenal');
+  document.getElementById('fg-repeat-dias').style.display = precisaDias ? '' : 'none';
+  document.getElementById('fg-repeat-ate').style.display = (tipo === 'none') ? 'none' : '';
+  // Ao ligar semanal/quinzenal, pré-marca o dia da semana da Data início
+  if (precisaDias && !document.querySelector('#repeat-dias-select .usel.sel')) {
+    var dataIni = document.getElementById('ev-data-ini').value;
+    if (dataIni) {
+      var dow = new Date(dataIni + 'T00:00:00').getDay();
+      var el = document.querySelector('#repeat-dias-select .usel[data-dow="'+dow+'"]');
+      if (el) el.classList.add('sel');
+    }
+  }
+}
+function toggleRepeatDia(el) {
+  el.classList.toggle('sel');
+}
+
+// Gera a lista de datas (yyyy-mm-dd) da série, a partir da data início até
+// "Repetir até" (inclusive). Limita a 200 ocorrências por segurança.
+function gerarDatasRecorrencia(tipo, dataIniStr, diasSemana, ateStr) {
+  var LIMITE = 200;
+  var datas = [];
+  var ini = new Date(dataIniStr + 'T00:00:00');
+  var ate = new Date(ateStr + 'T00:00:00');
+  if (ate < ini) return [dataIniStr];
+
+  if (tipo === 'diario') {
+    var d = new Date(ini);
+    while (d <= ate && datas.length < LIMITE) { datas.push(toISO(d)); d.setDate(d.getDate()+1); }
+  } else if (tipo === 'semanal' || tipo === 'quinzenal') {
+    var passo = tipo === 'quinzenal' ? 14 : 7;
+    var dias = diasSemana && diasSemana.length ? diasSemana : [ini.getDay()];
+    // Percorre semana a semana (a cada "passo" dias) a partir do início da
+    // semana de "ini", marcando os dias da semana selecionados
+    var inicioSemana = new Date(ini); inicioSemana.setDate(ini.getDate() - ini.getDay());
+    var semana = new Date(inicioSemana);
+    while (semana <= ate && datas.length < LIMITE) {
+      dias.forEach(function(dow) {
+        var d = new Date(semana); d.setDate(semana.getDate() + dow);
+        if (d >= ini && d <= ate) datas.push(toISO(d));
+      });
+      semana.setDate(semana.getDate() + passo);
+    }
+    datas.sort();
+  } else if (tipo === 'mensal' || tipo === 'trimestral') {
+    var passoMes = tipo === 'trimestral' ? 3 : 1;
+    var diaDoMes = ini.getDate();
+    var d = new Date(ini);
+    while (d <= ate && datas.length < LIMITE) {
+      datas.push(toISO(d));
+      d = new Date(d.getFullYear(), d.getMonth()+passoMes, diaDoMes);
+    }
+  } else {
+    datas = [dataIniStr];
+  }
+  return datas.length ? datas : [dataIniStr];
 }
 
 // ══════════════════════════════════════════════════════
@@ -970,7 +1135,8 @@ function parseEvent(row) {
     horaFim:       normHora(row.HoraFim),
     local:         row.Local||'',
     participantes: row.Participantes||'',
-    criador:       row.Criador||''
+    criador:       row.Criador||'',
+    grupoRecorrencia: row.GrupoRecorrencia||''
   };
 }
 
@@ -1051,7 +1217,7 @@ function loading(on) {
 <!--
 // ── CALENDÁRIO — adicionar ao Apps Script existente ──
 
-var HEADERS_CAL = ['ID','Tipo','Titulo','Desc','DataIni','HoraIni','DataFim','HoraFim','Local','Participantes','Criador','CriadoEm'];
+var HEADERS_CAL = ['ID','Tipo','Titulo','Desc','DataIni','HoraIni','DataFim','HoraFim','Local','Participantes','Criador','CriadoEm','GrupoRecorrencia'];
 
 function getOrCreateCalSheet(ss) {
   var sh = ss.getSheetByName('CALENDARIO');
@@ -1061,6 +1227,13 @@ function getOrCreateCalSheet(ss) {
     sh.setFrozenRows(1);
     sh.getRange(1,1,1,HEADERS_CAL.length).setBackground('#F5B800').setFontWeight('bold').setFontColor('#111');
     sh.setColumnWidths(1,HEADERS_CAL.length,120);
+  }
+  // Migração não destrutiva: se a planilha já existia sem a coluna
+  // GrupoRecorrencia (versão anterior à recorrência), adiciona no final
+  var headerRow = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
+  if (headerRow.indexOf('GrupoRecorrencia') === -1) {
+    var col = sh.getLastColumn() + 1;
+    sh.getRange(1,col).setValue('GrupoRecorrencia').setBackground('#F5B800').setFontWeight('bold').setFontColor('#111');
   }
   return sh;
 }
@@ -1095,19 +1268,23 @@ if (action === 'get_users') {
 // No doPost, adicionar:
 if (data.action === 'cal_create') {
   var sh = getOrCreateCalSheet(ss);
-  var id = 'CAL-' + now.getTime();
+  var id = 'CAL-' + now.getTime() + '-' + Math.floor(Math.random()*1000);
   var d = data;
-  sh.appendRow([id, d.tipo||'evento', d.titulo||'', d.desc||'', d.dataIni||'', d.horaIni||'', d.dataFim||'', d.horaFim||'', d.local||'', d.participantes||'', d.criador||'', Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')]);
+  sh.appendRow([id, d.tipo||'evento', d.titulo||'', d.desc||'', d.dataIni||'', d.horaIni||'', d.dataFim||'', d.horaFim||'', d.local||'', d.participantes||'', d.criador||'', Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'), d.grupoRecorrencia||'']);
   return corsOutput({ success:true, id:id });
 }
 if (data.action === 'cal_update') {
   var sh = getOrCreateCalSheet(ss);
   var rows = sh.getDataRange().getValues();
   var idCol = rows[0].indexOf('ID');
+  var grCol = rows[0].indexOf('GrupoRecorrencia');
   for (var i=1; i<rows.length; i++) {
     if (String(rows[i][idCol]) === String(data.id)) {
       var d = data;
-      sh.getRange(i+1,1,1,HEADERS_CAL.length).setValues([[rows[i][idCol], d.tipo, d.titulo, d.desc, d.dataIni, d.horaIni, d.dataFim, d.horaFim, d.local, d.participantes, d.criador, rows[i][HEADERS_CAL.length-1]]]);
+      // Preserva o GrupoRecorrencia existente — editar uma ocorrência não
+      // deve tirá-la da série nem mudar as outras
+      var grupoAtual = grCol >= 0 ? rows[i][grCol] : '';
+      sh.getRange(i+1,1,1,HEADERS_CAL.length).setValues([[rows[i][idCol], d.tipo, d.titulo, d.desc, d.dataIni, d.horaIni, d.dataFim, d.horaFim, d.local, d.participantes, d.criador, rows[i][HEADERS_CAL.length-2], grupoAtual]]);
       return corsOutput({ success:true });
     }
   }
@@ -1121,6 +1298,18 @@ if (data.action === 'cal_delete') {
     if (String(rows[i][idCol]) === String(data.id)) { sh.deleteRow(i+1); return corsOutput({ success:true }); }
   }
   return corsOutput({ success:false, error:'Não encontrado' });
+}
+if (data.action === 'cal_delete_serie') {
+  var sh = getOrCreateCalSheet(ss);
+  var rows = sh.getDataRange().getValues();
+  var grCol = rows[0].indexOf('GrupoRecorrencia');
+  if (grCol === -1) return corsOutput({ success:false, error:'Série não encontrada' });
+  var removidos = 0;
+  // Percorre de baixo pra cima pra deletar linhas sem bagunçar os índices
+  for (var i=rows.length-1; i>=1; i--) {
+    if (String(rows[i][grCol]) === String(data.grupoRecorrencia)) { sh.deleteRow(i+1); removidos++; }
+  }
+  return corsOutput({ success:true, removidos:removidos });
 }
 -->
 
