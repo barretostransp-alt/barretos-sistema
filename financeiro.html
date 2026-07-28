@@ -390,6 +390,12 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <div class="panel-header">
           <i class="ti ti-alert-triangle" style="color:var(--orange)"></i>
           <span class="panel-title">Alertas de Vencimento</span>
+          <span style="font-size:10px;color:var(--txt-muted)">(Contas a Receber — Contas a Pagar ficam na Fila do Dia)</span>
+          <div style="margin-left:auto;display:flex;gap:6px" id="dash-alerta-filtros">
+            <button class="btn btn-ghost btn-sm" data-filtro-alerta="todos" onclick="filtrarAlertasDash('todos')">Todos</button>
+            <button class="btn btn-ghost btn-sm" data-filtro-alerta="vencidos" onclick="filtrarAlertasDash('vencidos')">Vencidos</button>
+            <button class="btn btn-ghost btn-sm" data-filtro-alerta="avencer" onclick="filtrarAlertasDash('avencer')">A Vencer</button>
+          </div>
         </div>
         <div class="panel-body" id="dash-alerts"></div>
       </div>
@@ -927,6 +933,8 @@ var lancamentos = [];
 var currentSideId = null;
 var currentTipoView = null; // 'pagar' | 'receber' — usado nos filtros
 var filtroEmpresa = ""; // "" = Todos os CNPJs
+var alertasDashData = []; // cache dos alertas calculados no último renderDashboard(), pros botões de filtro re-renderizarem sem recalcular
+var filtroAlertaDashAtual = "todos"; // "todos" | "vencidos" | "avencer"
 
 /* ── Carregamento / persistência ──
    Agora busca de verdade as duas abas reais (Contas a Pagar e Contas a
@@ -1393,31 +1401,51 @@ function renderDashboard(){
       <div class="kpi-val">${aPagar.length+aReceber.length}</div><div class="kpi-lbl">Pendentes no Total</div></div>
   `;
 
-  // Alertas continuam olhando pra tudo, sem o filtro de período — são sobre
-  // o que está vencendo/vencido AGORA, independente do mês escolhido acima.
+  // Alertas do Dashboard: só Contas a Receber — Contas a Pagar já tem a
+  // própria Fila do Dia dedicada, não precisa duplicar aqui. Olha pra tudo,
+  // sem o filtro de período (é sobre o que está vencendo/vencido AGORA).
   var hojeRef = new Date(); hojeRef.setHours(0,0,0,0);
-  var alerts = base
-    .filter(l=>(l.status==='A Pagar'||l.status==='A Receber'))
+  alertasDashData = base
+    .filter(l=>l.tipo==='Receber' && l.status==='A Receber')
     .map(l=>({l:l, diff:diffDias(l.vencimento)}))
     .filter(o=>{
-      if(o.diff<0) return true; // vencido: sempre alerta, pagar ou receber
-      if(o.l.tipo==='Pagar') return o.diff<=3;
-      // Contas a Receber: alerta se o vencimento cai dentro do mês vigente
+      if(o.diff<0) return true; // vencido: sempre alerta
+      // a vencer: alerta se o vencimento cai dentro do mês vigente
       var venc = new Date(o.l.vencimento+'T00:00:00');
       return venc.getFullYear()===hojeRef.getFullYear() && venc.getMonth()===hojeRef.getMonth();
     })
     .sort((a,b)=>a.diff-b.diff);
 
+  renderAlertasDash();
+}
+
+function filtrarAlertasDash(filtro){
+  filtroAlertaDashAtual = filtro;
+  renderAlertasDash();
+}
+
+function renderAlertasDash(){
+  // Marca visualmente qual botão de filtro está ativo
+  document.querySelectorAll('#dash-alerta-filtros button').forEach(function(btn){
+    var ativo = btn.getAttribute('data-filtro-alerta')===filtroAlertaDashAtual;
+    btn.style.background = ativo ? 'var(--gold-dim)' : '';
+    btn.style.color = ativo ? 'var(--gold)' : '';
+    btn.style.borderColor = ativo ? 'var(--gold-border)' : '';
+  });
+
+  var alerts = alertasDashData;
+  if(filtroAlertaDashAtual==='vencidos') alerts = alerts.filter(o=>o.diff<0);
+  else if(filtroAlertaDashAtual==='avencer') alerts = alerts.filter(o=>o.diff>=0);
+
   var alertsEl = document.getElementById('dash-alerts');
   alertsEl.innerHTML = alerts.length ? alerts.map(o=>{
     var l=o.l, diff=o.diff;
-    var col = diff<0 ? 'var(--red)' : 'var(--orange)';
+    var col = diff<0 ? 'var(--red)' : 'var(--gold)'; // vencido = vermelho, a vencer = dourado (nos dois temas)
     var txt = diff<0 ? `Venceu há ${Math.abs(diff)} dia(s)` : diff===0 ? 'Vence hoje' : `Vence em ${diff} dia(s)`;
-    var icon = l.tipo==='Pagar' ? 'ti-arrow-up-circle' : 'ti-arrow-down-circle';
     var nomeExibido = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
     return `<div class="alert-item" onclick="openSidePanel(${l.id})">
-      <i class="ti ${icon}" style="color:${col}"></i>
+      <i class="ti ti-arrow-down-circle" style="color:${col}"></i>
       <div class="alert-item-main"><strong>${nomeExibido}</strong><span>${l.descricao} · ${txt}</span></div>
       <div class="alert-item-val" style="color:${col}">${fmtMoeda(valorPagar)}</div>
     </div>`;
