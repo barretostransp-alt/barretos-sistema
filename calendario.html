@@ -335,6 +335,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
       <button class="btn btn-danger" id="btn-deletar-serie" onclick="deletarSerie()" style="display:none"><i class="ti ti-trash" style="font-size:12px"></i> Excluir toda a série</button>
       <button class="btn btn-danger" id="btn-deletar" onclick="deletarEvento()" style="display:none"><i class="ti ti-trash" style="font-size:12px"></i> Excluir</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-ghost" id="btn-salvar-serie" onclick="salvarEventoSerie()" style="display:none;border-color:var(--gold-b);color:var(--gold)"><i class="ti ti-repeat" style="font-size:12px"></i> Salvar em toda a série</button>
       <button class="btn btn-gold" onclick="salvarEvento()" id="btn-salvar">Salvar</button>
     </div>
   </div>
@@ -526,6 +527,55 @@ async function deletarSerie() {
       toast(j.error || 'Erro ao excluir a série', 'err');
     }
   } catch(e) { toast('Erro de conexão', 'err'); }
+}
+
+async function salvarEventoSerie() {
+  if (!state.editingId) return;
+  var ev = state.events.find(function(e){ return e.id === state.editingId; });
+  if (!ev || !ev.grupoRecorrencia) return;
+
+  var titulo = document.getElementById('ev-titulo').value.trim();
+  if (!titulo) { toast('Informe um título', 'err'); return; }
+
+  if (!confirm('Aplicar essas alterações a TODOS os eventos desta série recorrente? A data de cada ocorrência será mantida — apenas título, descrição, horário, local, tipo e participantes serão atualizados em todos.')) return;
+
+  var tipo = document.querySelector('.type-tab.active').dataset.type;
+  var participantes = Array.from(document.querySelectorAll('.usel.sel')).map(function(el){ return el.dataset.login; });
+  if (state.currentUser && !participantes.includes(state.currentUser.login)) {
+    participantes.push(state.currentUser.login);
+  }
+
+  var payload = {
+    action: 'cal_update_serie',
+    grupoRecorrencia: ev.grupoRecorrencia,
+    tipo: tipo,
+    titulo: titulo,
+    desc: document.getElementById('ev-desc').value.trim(),
+    horaIni: document.getElementById('ev-hora-ini').value,
+    horaFim: document.getElementById('ev-hora-fim').value,
+    local: document.getElementById('ev-local').value.trim(),
+    participantes: participantes.join(',')
+  };
+
+  var btnSerie = document.getElementById('btn-salvar-serie');
+  var textoOriginal = btnSerie.innerHTML;
+  btnSerie.disabled = true;
+  btnSerie.textContent = 'Salvando série…';
+
+  try {
+    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
+    var j = await r.json();
+    if (j.success) {
+      toast('Série atualizada (' + (j.atualizados||0) + ' eventos)', 'ok');
+      closeModal();
+      await carregarDados();
+    } else {
+      toast(j.error || 'Erro ao atualizar a série', 'err');
+    }
+  } catch(e) { toast('Erro de conexão', 'err'); }
+
+  btnSerie.disabled = false;
+  btnSerie.innerHTML = textoOriginal;
 }
 
 async function deletarEvento() {
@@ -828,6 +878,7 @@ function openModal(ev, defaultDate, defaultHora) {
   document.getElementById('modal-hd-title').textContent = isEdit ? 'Editar evento' : 'Novo evento';
   document.getElementById('btn-deletar').style.display = isEdit ? 'inline-flex' : 'none';
   document.getElementById('btn-deletar-serie').style.display = (isEdit && ev.grupoRecorrencia) ? 'inline-flex' : 'none';
+  document.getElementById('btn-salvar-serie').style.display = (isEdit && ev.grupoRecorrencia) ? 'inline-flex' : 'none';
 
   // Tipo
   var tipo = ev ? ev.tipo : 'evento';
@@ -1310,6 +1361,38 @@ if (data.action === 'cal_delete_serie') {
     if (String(rows[i][grCol]) === String(data.grupoRecorrencia)) { sh.deleteRow(i+1); removidos++; }
   }
   return corsOutput({ success:true, removidos:removidos });
+}
+if (data.action === 'cal_update_serie') {
+  var sh = getOrCreateCalSheet(ss);
+  var rows = sh.getDataRange().getValues();
+  var grCol = rows[0].indexOf('GrupoRecorrencia');
+  if (grCol === -1) return corsOutput({ success:false, error:'Série não encontrada' });
+  var d = data;
+  var atualizados = 0;
+  // Atualiza título/descrição/tipo/horário/local/participantes em todas as
+  // ocorrências da série, preservando ID, DataIni, DataFim, Criador e CriadoEm
+  // de cada linha — a data de cada ocorrência nunca é alterada aqui.
+  for (var i=1; i<rows.length; i++) {
+    if (String(rows[i][grCol]) === String(d.grupoRecorrencia)) {
+      sh.getRange(i+1,1,1,HEADERS_CAL.length).setValues([[
+        rows[i][0],        // ID
+        d.tipo,
+        d.titulo,
+        d.desc,
+        rows[i][4],        // DataIni (preservada)
+        d.horaIni,
+        rows[i][6],        // DataFim (preservada)
+        d.horaFim,
+        d.local,
+        d.participantes,
+        rows[i][10],       // Criador (preservado)
+        rows[i][11],       // CriadoEm (preservado)
+        rows[i][grCol]     // GrupoRecorrencia
+      ]]);
+      atualizados++;
+    }
+  }
+  return corsOutput({ success:true, atualizados:atualizados });
 }
 -->
 
