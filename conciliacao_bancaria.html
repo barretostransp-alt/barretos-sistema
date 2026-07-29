@@ -293,6 +293,17 @@ tbody tr:last-child{border-bottom:none;}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:900px){#sidebar{transform:translateX(-100%);} #main{margin-left:0;} .g2,.g73,.g64{grid-template-columns:1fr;} .g3{grid-template-columns:1fr 1fr;}}
 @media(max-width:600px){#page-content{padding:16px;} .kpi-grid,.g3{grid-template-columns:1fr;} .fr,.fr3{grid-template-columns:1fr;}}
+/* ── MENU MOBILE — sidebar vira um drawer com botão hamburguer e
+   backdrop, já que acima de 900px ela só some sem nenhum jeito de
+   reabrir. Escondido em telas largas (desktop). ── */
+.mobile-menu-btn{display:none;background:none;border:none;color:var(--txt);font-size:20px;cursor:pointer;padding:4px 10px 4px 0;line-height:1;flex-shrink:0;}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;}
+.sidebar-backdrop.open{display:block;}
+@media(max-width:900px){
+  .mobile-menu-btn{display:flex;align-items:center;}
+  #sidebar.mobile-open{transform:translateX(0);box-shadow:12px 0 32px rgba(0,0,0,.4);}
+  #topbar{gap:10px;}
+}
 </style>
 </head>
 <body>
@@ -336,9 +347,11 @@ tbody tr:last-child{border-bottom:none;}
     <div class="user-card"><div class="user-av">GF</div><div class="user-info"><strong>Gestor Financeiro</strong><span>Administrador</span></div></div>
   </div>
 </aside>
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebarMobile(false)"></div>
 
 <div id="main">
 <header id="topbar">
+  <button class="mobile-menu-btn" onclick="toggleSidebarMobile()" title="Menu" aria-label="Abrir menu">☰</button>
   <div>
     <div class="tb-title" id="topbar-title">Dashboard Executivo</div>
     <div class="tb-crumb" id="topbar-crumb">Barreto's · Todas as Empresas</div>
@@ -1075,6 +1088,24 @@ tbody tr:last-child{border-bottom:none;}
   </div>
 
   <div class="card" style="margin-top:16px">
+    <div class="ch"><span class="ct">🔗 Backend (Google Sheets)</span></div>
+    <div class="cb">
+      <p style="font-size:.78rem;color:var(--gray-500);margin-bottom:10px">
+        Cole aqui a URL do Apps Script implantado numa planilha nova (Transações, Categorias,
+        Histórico de Importação e Aprendizados da IA passam a ficar salvos lá também, não só neste navegador).
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="backend-url-input" class="filter-input" style="flex:1;min-width:260px"
+          placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+        <button class="btn bp bsm" onclick="salvarConciliacaoUrl()">💾 Salvar URL</button>
+        <button class="btn bg bsm" onclick="syncParaBackend()">⬆️ Enviar agora</button>
+        <button class="btn bg bsm" onclick="syncDoBackendNaAbertura()">⬇️ Buscar do backend</button>
+      </div>
+      <div style="font-size:.72rem;color:var(--gray-400);margin-top:8px" id="backend-sync-status">—</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
     <div class="ch"><span class="ct">🔮 Integrações Futuras</span></div>
     <div class="cb">
       <div class="g3" style="margin:0">
@@ -1517,6 +1548,15 @@ const AI_RULES = [
 // AA = ano com 2 dígitos, M = mês sem zero à esquerda (1 ou 2 dígitos), NN = sequência (2 dígitos).
 // Resultado: 5 ou 6 dígitos após a letra (ex: S26741, B26401, G26743, P26745).
 const KANBAN_COD_RE = /\b[SBGP]\d{5,6}\b/;
+
+// Deriva o status do lançamento a partir da categoria escolhida — nunca
+// deixa "status" e "categoria" ficarem dessincronizados. Só entra como
+// "unclassified" (badge "Não localizado") quando a categoria realmente
+// é "Não Classificado"/"CUSTO NÃO LOCALIZADO"; qualquer categoria real
+// vira "classified" (badge "Conciliado").
+function statusFromCat(cat) {
+  return (cat === 'Não Classificado' || cat === 'CUSTO NÃO LOCALIZADO') ? 'unclassified' : 'classified';
+}
 
 function classifyAI(desc) {
   const u = (desc || '').toUpperCase();
@@ -1996,7 +2036,7 @@ function processFile(file) {
             });
           }
 
-          let status = (cat === 'Não Classificado' || cat === 'CUSTO NÃO LOCALIZADO') ? 'unclassified' : 'classified';
+          let status = statusFromCat(cat);
           if (seenInBatch[batchKey]) {
             status = 'duplicate';
             importLog.duplicados++;
@@ -2179,6 +2219,14 @@ const VM = {
   reports:{t:'Relatórios'}, settings:{t:'Configurações'}, audit:{t:'Auditoria & Diagnóstico'},
 };
 
+function toggleSidebarMobile(forceOpen) {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebar-backdrop');
+  const abrir = forceOpen !== undefined ? forceOpen : !sb.classList.contains('mobile-open');
+  sb.classList.toggle('mobile-open', abrir);
+  bd.classList.toggle('open', abrir);
+}
+
 function showView(name) {
   // Detecta a view ativa ANTES de trocar — usado para resetar a categoria
   // padrão da sessão de conciliação ao sair das telas onde ela se aplica
@@ -2196,6 +2244,7 @@ function showView(name) {
     if ((n.getAttribute('onclick') || '').includes("'" + name + "'")) n.classList.add('active');
   });
   document.getElementById('topbar-title').textContent = (VM[name] || {t: name}).t;
+  if (window.innerWidth <= 900) toggleSidebarMobile(false);
   const co = document.getElementById('activeCompany');
   document.getElementById('topbar-crumb').textContent = "Barreto's · " + ((co.options[co.selectedIndex] || {}).text || 'Todas as Empresas');
   const renders = { boletos: renderBoletos, dashboard: renderDashboard, transactions: renderTransactions, conciliation: renderConciliation,
@@ -3200,7 +3249,9 @@ function autoClassifyAll() {
   S.transactions.forEach(t => {
     if (t.status === 'unclassified') {
       const ai = classifyAI(t.desc);
-      if (ai.cat !== 'CUSTO NÃO LOCALIZADO') { t.cat = ai.cat; t.conf = ai.conf; t.status = 'classified'; n++; }
+      if (ai.cat !== 'CUSTO NÃO LOCALIZADO' && ai.cat !== 'Não Classificado') {
+        t.cat = ai.cat; t.conf = ai.conf; t.status = statusFromCat(ai.cat); n++;
+      }
     }
   });
   updateBadges(); updateKPIs(); renderTransactions();
@@ -3514,7 +3565,7 @@ function parseDateBR(str) {
 function autoReconcile() {
   let n = 0;
   S.transactions.forEach(t => {
-    if (t.status==='unclassified') { const ai=classifyAI(t.desc); if(ai.cat!=='Não Classificado'&&ai.cat!=='CUSTO NÃO LOCALIZADO'){t.cat=ai.cat;t.status='classified';n++;} }
+    if (t.status==='unclassified') { const ai=classifyAI(t.desc); if(ai.cat!=='Não Classificado'&&ai.cat!=='CUSTO NÃO LOCALIZADO'){t.cat=ai.cat;t.status=statusFromCat(ai.cat);n++;} }
   });
   updateBadges(); renderConciliation();
   toast(n ? n+' lançamentos conciliados!' : 'Todos já processados.', '🔀');
@@ -3592,7 +3643,7 @@ function applyCategoryToSelected() {
   S.transactions.forEach(t => {
     if (_conSelected.has(txKey(t))) {
       t.cat = cat;
-      t.status = 'classified';
+      t.status = statusFromCat(cat);
       const kw = t.desc.split(' ').slice(0, 3).join(' ');
       S.learnings.unshift({ keyword: kw, cat, date: new Date().toLocaleDateString('pt-BR') });
       n++;
@@ -4977,7 +5028,7 @@ function saveClassification() {
   const kw    = t.desc.split(' ').slice(0, 3).join(' ');
   S.learnings.unshift({keyword: kw, cat, date: new Date().toLocaleDateString('pt-BR')});
   document.getElementById('ia-manual-ct').textContent = S.learnings.length;
-  t.cat = cat; t.status = 'classified';
+  t.cat = cat; t.status = statusFromCat(cat);
   catPickRegisterUsage(cat);
   // Mantém esta categoria como padrão para o próximo lançamento da sessão
   S.lastUsedCat = cat;
@@ -5283,6 +5334,8 @@ function deleteCategory(i) {
 // STORAGE INFO
 // ═══════════════════════════════════════
 function updateStorageInfo() {
+  const urlInput = document.getElementById('backend-url-input');
+  if (urlInput && !urlInput.value) urlInput.value = getConciliacaoUrl();
   const el = document.getElementById('storage-info');
   if (!el) return;
   try {
@@ -5577,6 +5630,99 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch(e) {
     console.warn('Erro ao salvar estado:', e);
+  }
+  agendarSyncBackend_();
+}
+
+// ═══════════════════════════════════════
+// BACKEND (Google Sheets) — Transações + Categorias + Histórico de
+// Importação + Aprendizados da IA. Contas a Pagar continua só local
+// por enquanto. saveState() já roda depois de toda mutação no app, então
+// só precisamos agendar (debounce) um envio completo daqui — sem
+// precisar tocar em cada ponto que classifica/importa/edita categoria.
+// ═══════════════════════════════════════
+// URL já implantada do apps_script_conciliacao.gs — mesmo padrão dos
+// outros módulos (URL fixa no código). O campo em Configurações continua
+// funcionando como um override manual, caso um dia troque de planilha.
+const CONCILIACAO_WEBAPP_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbx7zUYPvOIiAqERI8dzKVWHEW7Ol59BQWEoE6n99SZ8NvjIpNXXf3AlPyLamRERjZja/exec';
+const CONCILIACAO_URL_KEY = 'conciliacao_webapp_url';
+function getConciliacaoUrl() { return (localStorage.getItem(CONCILIACAO_URL_KEY) || '').trim() || CONCILIACAO_WEBAPP_URL_PADRAO; }
+function setConciliacaoUrl(url) { localStorage.setItem(CONCILIACAO_URL_KEY, (url||'').trim()); }
+
+function salvarConciliacaoUrl() {
+  const input = document.getElementById('backend-url-input');
+  if (!input) return;
+  setConciliacaoUrl(input.value);
+  toast('URL do backend salva!', '💾');
+  if (getConciliacaoUrl()) syncDoBackendNaAbertura();
+}
+
+let _syncBackendTimer = null;
+function agendarSyncBackend_() {
+  const url = getConciliacaoUrl();
+  if (!url) return;
+  clearTimeout(_syncBackendTimer);
+  _syncBackendTimer = setTimeout(syncParaBackend, 2000);
+}
+
+async function syncParaBackend() {
+  const url = getConciliacaoUrl();
+  if (!url) return;
+  const statusEl = document.getElementById('backend-sync-status');
+  if (statusEl) statusEl.textContent = '🔄 sincronizando…';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'salvar_tudo',
+        transactions: S.transactions,
+        categories: S.categories,
+        importHistory: S.importHistory,
+        learnings: S.learnings
+      })
+    });
+    const json = await res.json();
+    if (statusEl) statusEl.textContent = json.success
+      ? '✅ sincronizado ' + new Date().toLocaleTimeString('pt-BR')
+      : '⚠️ erro: ' + (json.error || 'desconhecido');
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '⚠️ sem conexão com o backend';
+  }
+}
+
+// Ao carregar: se já existe URL configurada, busca o que está no backend.
+// Se o backend já tiver dados, ele vira a fonte de verdade (permite usar
+// de mais de um aparelho/navegador); se estiver vazio (primeira conexão),
+// empurra o que já existe localmente pra "batizar" a planilha.
+async function syncDoBackendNaAbertura() {
+  const url = getConciliacaoUrl();
+  if (!url) return;
+  const statusEl = document.getElementById('backend-sync-status');
+  try {
+    const res = await fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=listar');
+    const json = await res.json();
+    if (!json.success) { if(statusEl) statusEl.textContent = '⚠️ ' + (json.error||'erro ao ler backend'); return; }
+    const backendTemDados = (json.transactions && json.transactions.length) || (json.categories && json.categories.length);
+    if (backendTemDados) {
+      if (json.transactions) S.transactions = json.transactions.map(t => ({...t, val: parseFloat(t.val)||0, conf: parseFloat(t.conf)||0}));
+      if (json.categories && json.categories.length) S.categories = json.categories;
+      if (json.importHistory) S.importHistory = json.importHistory;
+      if (json.learnings) S.learnings = json.learnings;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        transactions: S.transactions, payables: S.payables, receivables: S.receivables,
+        fleet: S.fleet, drivers: S.drivers, importHistory: S.importHistory,
+        learnings: S.learnings, categories: S.categories, catUsage: S.catUsage, catFavs: S.catFavs
+      }));
+      updateBadges(); updateKPIs();
+      const cur = document.querySelector('.view.active');
+      if (cur) { const name = cur.id.replace('view-',''); const r={transactions:renderTransactions,conciliation:renderConciliation,dashboard:renderDashboard}; if(r[name])r[name](); }
+      if (statusEl) statusEl.textContent = '✅ carregado do backend ' + new Date().toLocaleTimeString('pt-BR');
+    } else {
+      if (statusEl) statusEl.textContent = 'ℹ️ backend vazio — enviando dados locais…';
+      syncParaBackend();
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '⚠️ sem conexão com o backend';
   }
 }
 
@@ -6009,7 +6155,7 @@ function migrarCategoriasParaNovaTaxonomia() {
 // DEFAULT CATEGORIES — grupo/categoria/subcategoria
 // ═══════════════════════════════════════
 function getDefaultCategories() {
-  return [{"grupo": "RECEITAS", "categoria": "Fretes", "name": "Fretes Recebidos", "type": "revenue", "color": "#10b981", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Fretes", "name": "Complemento de Frete", "type": "revenue", "color": "#34d399", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Locações", "name": "Locação de Veículos", "type": "revenue", "color": "#6ee7b7", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Locações", "name": "Locação In Company", "type": "revenue", "color": "#a7f3d0", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Transferências", "name": "Transferência entre Empresas", "type": "transfer", "color": "#06b6d4", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Outras Receitas", "name": "Receitas Diversas", "type": "revenue", "color": "#22d3ee", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Licenciamento e IPVA", "type": "expense", "color": "#ef4444", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Lavagem", "type": "expense", "color": "#f87171", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Diárias", "type": "expense", "color": "#fca5a5", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Borracharia", "type": "expense", "color": "#fecaca", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Mecânica", "type": "expense", "color": "#fed7aa", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Peças", "type": "expense", "color": "#fdba74", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Combustível", "type": "expense", "color": "#fb923c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Rastreadores", "type": "expense", "color": "#f97316", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Seguro de Veículo", "type": "expense", "color": "#ea580c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Infleet", "type": "expense", "color": "#c2410c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "JM Telemetria", "type": "expense", "color": "#9a3412", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Pedágio", "type": "expense", "color": "#7c2d12", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Estacionamento", "type": "expense", "color": "#dc2626", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Pagamento de Terceiros", "type": "expense", "color": "#eab308", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Fretebras", "type": "expense", "color": "#facc15", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Gerenciadora de Risco", "type": "expense", "color": "#fde047", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Seguro de Carga", "type": "expense", "color": "#ca8a04", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Operacional Core Business", "type": "expense", "color": "#a16207", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Salários", "type": "expense", "color": "#ec4899", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Pró-Labore", "type": "expense", "color": "#f472b6", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Férias", "type": "expense", "color": "#f9a8d4", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Rescisões", "type": "expense", "color": "#fbcfe8", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "FGTS", "type": "expense", "color": "#db2777", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "INSS", "type": "expense", "color": "#be185d", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "eSocial", "type": "expense", "color": "#9d174d", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Vale Transporte", "type": "expense", "color": "#a21caf", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Vale Refeição", "type": "expense", "color": "#86198f", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Convênio Médico", "type": "expense", "color": "#701a75", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Aluguel", "type": "expense", "color": "#d97706", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Predial (Água, Luz, Internet)", "type": "expense", "color": "#b45309", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Água", "type": "expense", "color": "#0284c7", "kw": "SABESP", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Energia Elétrica", "type": "expense", "color": "#ca8a04", "kw": "NEOENERGIA, ELEKTRO", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Telefonia", "type": "expense", "color": "#92400e", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Jurídico", "type": "expense", "color": "#0d9488", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Contabilidade", "type": "expense", "color": "#14b8a6", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "BSoft / Sistemas", "type": "expense", "color": "#0f766e", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Consultorias", "type": "expense", "color": "#115e59", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Mídia Social", "type": "expense", "color": "#0e7490", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Escritório", "name": "Material de Escritório", "type": "expense", "color": "#134e4a", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Escritório", "name": "Limpeza e Copa", "type": "expense", "color": "#064e3b", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Ativos", "name": "Compra de Ativos", "type": "investment", "color": "#1e293b", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Tecnologia", "name": "Notebook", "type": "investment", "color": "#334155", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Tecnologia", "name": "Tecnologia", "type": "investment", "color": "#475569", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Veículos", "name": "Veículos", "type": "investment", "color": "#0f172a", "kw": "", "acc": ""}, {"grupo": "ATIVOS TERCEIRO", "categoria": "Frota de Terceiros", "name": "Seguro de Veículo Exclusivo (Descontado do Colaborador)", "type": "expense", "color": "#0891b2", "kw": "", "acc": ""}, {"grupo": "ATIVOS TERCEIRO", "categoria": "Frota de Terceiros", "name": "Pagamento de Veículo de Terceiro", "type": "expense", "color": "#0e7490", "kw": "", "acc": ""}, {"grupo": "CUSTOS VARIÁVEIS", "categoria": "Diversos", "name": "Brindes", "type": "expense", "color": "#65a30d", "kw": "", "acc": ""}, {"grupo": "CUSTOS VARIÁVEIS", "categoria": "Diversos", "name": "Eventos", "type": "expense", "color": "#4d7c0f", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "DAS", "type": "expense", "color": "#7c3aed", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "IRPJ", "type": "expense", "color": "#6d28d9", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "CSLL", "type": "expense", "color": "#5b21b6", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "PIS", "type": "expense", "color": "#4c1d95", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "COFINS", "type": "expense", "color": "#3b0764", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "ICMS", "type": "expense", "color": "#4338ca", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "ISS", "type": "expense", "color": "#3730a3", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "IRRF", "type": "expense", "color": "#312e81", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Obrigações", "name": "DCTF", "type": "expense", "color": "#1e1b4b", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Obrigações", "name": "Taxas e Obrigações Acessórias", "type": "expense", "color": "#1e293b", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "Tarifas Bancárias", "type": "expense", "color": "#6366f1", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "Juros", "type": "expense", "color": "#818cf8", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "IOF", "type": "expense", "color": "#a5b4fc", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Crédito", "name": "Empréstimos", "type": "expense", "color": "#c7d2fe", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Crédito", "name": "Financiamentos", "type": "expense", "color": "#e0e7ff", "kw": "", "acc": ""}, {"grupo": "OUTROS", "categoria": "Não Classificado", "name": "Não Classificado", "type": "expense", "color": "#94a3b8", "kw": "", "acc": ""}, {"grupo": "OUTROS", "categoria": "Não Classificado", "name": "CUSTO NÃO LOCALIZADO", "type": "expense", "color": "#64748b", "kw": "", "acc": ""}];
+  return [{"grupo": "RECEITAS", "categoria": "Fretes", "name": "Fretes Recebidos", "type": "revenue", "color": "#10b981", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Fretes", "name": "Complemento de Frete", "type": "revenue", "color": "#34d399", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Locações", "name": "Locação de Veículos", "type": "revenue", "color": "#6ee7b7", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Locações", "name": "Locação In Company", "type": "revenue", "color": "#a7f3d0", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Transferências", "name": "Transferência entre Empresas", "type": "transfer", "color": "#06b6d4", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Outras Receitas", "name": "Receita", "type": "revenue", "color": "#22d3ee", "kw": "", "acc": ""}, {"grupo": "RECEITAS", "categoria": "Estornos", "name": "Estorno/Devolução", "type": "revenue", "color": "#67e8f9", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Licenciamento e IPVA", "type": "expense", "color": "#ef4444", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Lavagem", "type": "expense", "color": "#f87171", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Diárias", "type": "expense", "color": "#fca5a5", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Borracharia", "type": "expense", "color": "#fecaca", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Mecânica", "type": "expense", "color": "#fed7aa", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Peças", "type": "expense", "color": "#fdba74", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Combustível", "type": "expense", "color": "#fb923c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Rastreadores", "type": "expense", "color": "#f97316", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Seguro de Veículo", "type": "expense", "color": "#ea580c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Infleet", "type": "expense", "color": "#c2410c", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "JM Telemetria", "type": "expense", "color": "#9a3412", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Pedágio", "type": "expense", "color": "#7c2d12", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL FROTA", "categoria": "Frota", "name": "Estacionamento", "type": "expense", "color": "#dc2626", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Pagamento de Terceiros", "type": "expense", "color": "#eab308", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Fretebras", "type": "expense", "color": "#facc15", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Gerenciadora de Risco", "type": "expense", "color": "#fde047", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Seguro de Carga", "type": "expense", "color": "#ca8a04", "kw": "", "acc": ""}, {"grupo": "CUSTO OPERACIONAL CORE BUSINESS", "categoria": "Operacional", "name": "Operacional Core Business", "type": "expense", "color": "#a16207", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Salários", "type": "expense", "color": "#ec4899", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Pró-Labore", "type": "expense", "color": "#f472b6", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Férias", "type": "expense", "color": "#f9a8d4", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Folha de Pagamento", "name": "Rescisões", "type": "expense", "color": "#fbcfe8", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "FGTS", "type": "expense", "color": "#db2777", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "INSS", "type": "expense", "color": "#be185d", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Encargos", "name": "eSocial", "type": "expense", "color": "#9d174d", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Vale Transporte", "type": "expense", "color": "#a21caf", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Vale Refeição", "type": "expense", "color": "#86198f", "kw": "", "acc": ""}, {"grupo": "RH", "categoria": "Benefícios", "name": "Convênio Médico", "type": "expense", "color": "#701a75", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Aluguel", "type": "expense", "color": "#d97706", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Predial (Água, Luz, Internet)", "type": "expense", "color": "#b45309", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Água", "type": "expense", "color": "#0284c7", "kw": "SABESP", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Energia Elétrica", "type": "expense", "color": "#ca8a04", "kw": "NEOENERGIA, ELEKTRO", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Estrutura", "name": "Telefonia", "type": "expense", "color": "#92400e", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Jurídico", "type": "expense", "color": "#0d9488", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Contabilidade", "type": "expense", "color": "#14b8a6", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "BSoft / Sistemas", "type": "expense", "color": "#0f766e", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Consultorias", "type": "expense", "color": "#115e59", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Serviços", "name": "Mídia Social", "type": "expense", "color": "#0e7490", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Escritório", "name": "Material de Escritório", "type": "expense", "color": "#134e4a", "kw": "", "acc": ""}, {"grupo": "CUSTO ADMINISTRATIVO", "categoria": "Escritório", "name": "Limpeza e Copa", "type": "expense", "color": "#064e3b", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Ativos", "name": "Compra de Ativos", "type": "investment", "color": "#1e293b", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Tecnologia", "name": "Notebook", "type": "investment", "color": "#334155", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Tecnologia", "name": "Tecnologia", "type": "investment", "color": "#475569", "kw": "", "acc": ""}, {"grupo": "INVESTIMENTOS", "categoria": "Veículos", "name": "Veículos", "type": "investment", "color": "#0f172a", "kw": "", "acc": ""}, {"grupo": "ATIVOS TERCEIRO", "categoria": "Frota de Terceiros", "name": "Seguro de Veículo Exclusivo (Descontado do Colaborador)", "type": "expense", "color": "#0891b2", "kw": "", "acc": ""}, {"grupo": "ATIVOS TERCEIRO", "categoria": "Frota de Terceiros", "name": "Pagamento de Veículo de Terceiro", "type": "expense", "color": "#0e7490", "kw": "", "acc": ""}, {"grupo": "CUSTOS VARIÁVEIS", "categoria": "Diversos", "name": "Brindes", "type": "expense", "color": "#65a30d", "kw": "", "acc": ""}, {"grupo": "CUSTOS VARIÁVEIS", "categoria": "Diversos", "name": "Eventos", "type": "expense", "color": "#4d7c0f", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "DAS", "type": "expense", "color": "#7c3aed", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "IRPJ", "type": "expense", "color": "#6d28d9", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "CSLL", "type": "expense", "color": "#5b21b6", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "PIS", "type": "expense", "color": "#4c1d95", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "COFINS", "type": "expense", "color": "#3b0764", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "ICMS", "type": "expense", "color": "#4338ca", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "ISS", "type": "expense", "color": "#3730a3", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Impostos", "name": "IRRF", "type": "expense", "color": "#312e81", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Obrigações", "name": "DCTF", "type": "expense", "color": "#1e1b4b", "kw": "", "acc": ""}, {"grupo": "IMPOSTOS E ENCARGOS", "categoria": "Obrigações", "name": "Taxas e Obrigações Acessórias", "type": "expense", "color": "#1e293b", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "Tarifas Bancárias", "type": "expense", "color": "#6366f1", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "Juros", "type": "expense", "color": "#818cf8", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Bancário", "name": "IOF", "type": "expense", "color": "#a5b4fc", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Crédito", "name": "Empréstimos", "type": "expense", "color": "#c7d2fe", "kw": "", "acc": ""}, {"grupo": "FINANCEIRO", "categoria": "Crédito", "name": "Financiamentos", "type": "expense", "color": "#e0e7ff", "kw": "", "acc": ""}, {"grupo": "OUTROS", "categoria": "Não Classificado", "name": "Não Classificado", "type": "expense", "color": "#94a3b8", "kw": "", "acc": ""}, {"grupo": "OUTROS", "categoria": "Não Classificado", "name": "CUSTO NÃO LOCALIZADO", "type": "expense", "color": "#64748b", "kw": "", "acc": ""}];
 }
 
 // ═══════════════════════════════════════
@@ -6036,6 +6182,23 @@ if (!S.categories.find(c => c.name === 'Energia Elétrica')) {
   S.categories.push({grupo:'CUSTO ADMINISTRATIVO', categoria:'Estrutura', name:'Energia Elétrica', type:'expense', color:'#ca8a04', kw:'NEOENERGIA, ELEKTRO', acc:''});
 }
 
+// Migração não destrutiva: "Receitas Diversas" vira só "Receita", e nova
+// categoria de crédito "Estorno/Devolução" — renomeia a categoria e
+// retagueia qualquer lançamento/conta que já usava o nome antigo
+(function migrarReceitaEstorno_() {
+  const catAntiga = S.categories.find(c => c.name === 'Receitas Diversas');
+  if (catAntiga) catAntiga.name = 'Receita';
+  if (!S.categories.find(c => c.name === 'Receita')) {
+    S.categories.push({grupo:'RECEITAS', categoria:'Outras Receitas', name:'Receita', type:'revenue', color:'#22d3ee', kw:'', acc:''});
+  }
+  if (!S.categories.find(c => c.name === 'Estorno/Devolução')) {
+    S.categories.push({grupo:'RECEITAS', categoria:'Estornos', name:'Estorno/Devolução', type:'revenue', color:'#67e8f9', kw:'', acc:''});
+  }
+  [S.transactions, S.payables, S.receivables].forEach(arr => arr.forEach(item => {
+    if (item.cat === 'Receitas Diversas') item.cat = 'Receita';
+  }));
+})();
+
 // Clear any stale browser-restored filter values
 ['con-f-status','con-f-type','con-f-bank','con-search',
  'tx-f-bank','tx-f-cat','tx-f-subcat','tx-f-type','tx-search'].forEach(id => {
@@ -6055,6 +6218,10 @@ if (S.transactions.length > 0) {
 if (hadData && S.transactions.length > 0) {
   toast('✅ ' + S.transactions.length + ' transações restauradas automaticamente', '💾');
 }
+
+// Se já tiver uma URL de backend configurada, sincroniza (puxa do backend
+// se já tiver dados, ou envia o que já existe local se for a primeira vez)
+if (getConciliacaoUrl()) syncDoBackendNaAbertura();
 
 // Busca a aba real de Contas a Receber (mesma planilha do financeiro.html)
 // assim que a página carrega — se falhar (offline, CORS etc.), mantém o que
