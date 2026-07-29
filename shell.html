@@ -984,6 +984,10 @@ function applyUser(user){
   iniciarAlertaEventoCalendario(user);
   // Lembrete diário às 16h com os eventos do dia seguinte (pra todo mundo)
   iniciarLembreteDiario(user);
+  // Alerta de cotação aguardando aprovação (cascata Filipe → Gabriel Pinheiro → Diego Flórido)
+  iniciarAlertaAprovacaoCotacao(user);
+  // Alerta de atividade na própria cotação (comentário ou decisão) — Sabrina Ferreira e Leonardo
+  iniciarAlertaAtividadeCotacao(user);
 }
 
 async function aplicarPermissoes(login){
@@ -1561,11 +1565,68 @@ async function savePerfilModal(){
     </div>
   </div>
 </div>
+<!-- MODAL ALERTA — COTAÇÃO AGUARDANDO APROVAÇÃO (Filipe/Gabriel Pinheiro/Diego Flórido) -->
+<div id="aprov-cot-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="aprov-cot-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📋</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="aprov-cot-alerta-titulo">Cotação aguardando aprovação</div>
+        <div style="font-size:11px;color:#6B7280" id="aprov-cot-alerta-sub">Comercial — Aprovação</div>
+      </div>
+      <button onclick="fecharAlertaAprovacaoCotacao()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="aprov-cot-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaAprovacaoCotacao()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaAprovacaoCotacao();navigate('cotacao')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Cotações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ALERTA — ATIVIDADE NA SUA COTAÇÃO (comentário ou decisão do aprovador) -->
+<div id="ativ-cot-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="ativ-cot-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💬</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="ativ-cot-alerta-titulo">Sua cotação teve uma atualização</div>
+        <div style="font-size:11px;color:#6B7280" id="ativ-cot-alerta-sub">Comercial — Minhas Cotações</div>
+      </div>
+      <button onclick="fecharAlertaAtividadeCotacao()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="ativ-cot-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaAtividadeCotacao()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaAtividadeCotacao();navigate('cotacao')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Cotação</button>
+    </div>
+  </div>
+</div>
+
 <style>@keyframes filaAlertaPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}</style>
 
 <script>
 var CAL_URL = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
 var FINANCEIRO_URL = 'https://script.google.com/macros/s/AKfycbx2WTA0VrEk339HfK3gHxyoSo0L8ufFgJJZ1fwRmMELLaKc3IMMr1S8-cPxv1FohyDXYQ/exec';
+var COTACAO_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
 
 var TYPE_LABEL = { evento:'Evento', reuniao:'Reunião', alerta:'Alerta', lembrete:'Lembrete' };
 var TYPE_COLOR = { evento:'#3B82F6', reuniao:'#8B5CF6', alerta:'#F97316', lembrete:'#F5B800' };
@@ -1744,6 +1805,236 @@ function mostrarAlertaFila(novos){
 
 function fecharAlertaFila(){
   document.getElementById('fila-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE COTAÇÃO AGUARDANDO APROVAÇÃO (cascata Filipe → Gabriel
+   Pinheiro → Diego Flórido) ──
+   Mesmo esqueleto do alerta de fila do Financeiro (polling 45s, popup
+   estilo "novo e-mail"), mas em vez de alertar em toda solicitação
+   nova, cada aprovador só entra na "fila de vistos" quando a cotação
+   já está com StatusAprovacao=Aguardando há tempo suficiente, contado
+   a partir da criação (coluna Data): Filipe imediatamente (0min,
+   idêntico ao padrão da Lisa), Gabriel Pinheiro a partir de 5min sem
+   decisão, Diego Flórido a partir de 15min sem decisão. Assim que
+   qualquer um decide (Aprovada/Recusada), a cotação sai do filtro
+   Aguardando e o alerta para pra todo mundo. */
+var _aprovCotIntervalId = null;
+var _aprovCotLimiarMin = null;
+var _aprovCotLoginKey = null;
+
+// Normaliza nome/login pra comparação tolerante: minúsculas, sem acento,
+// pontuação/underscore/pontos viram espaço — assim "gabriel.pinheiro",
+// "Gabriel Pinheiro" e "GABRIEL_PINHEIRO" todos batem igual.
+function normNomeLogin_(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function contemTodosTokens_(base, tokens){
+  return tokens.every(function(t){ return base.indexOf(t) !== -1; });
+}
+
+// Aprovadores também vendem — cotação criada por um deles não deve gerar
+// alerta de aprovação (ninguém aprova a própria cotação).
+var APROVADORES_TOKENS_ = [['filipe'], ['gabriel','pinheiro'], ['diego','florido']];
+function vendedorEhAprovador_(vendedorNome){
+  var base = normNomeLogin_(vendedorNome||'');
+  return APROVADORES_TOKENS_.some(function(tokens){ return contemTodosTokens_(base, tokens); });
+}
+
+function iniciarAlertaAprovacaoCotacao(user){
+  if(_aprovCotIntervalId){ clearInterval(_aprovCotIntervalId); _aprovCotIntervalId = null; }
+  var base = normNomeLogin_((user && user.nome)||'') + ' ' + normNomeLogin_((user && user.login)||'');
+
+  if(contemTodosTokens_(base, ['filipe'])){ _aprovCotLimiarMin = 0; _aprovCotLoginKey = 'filipe'; }
+  else if(contemTodosTokens_(base, ['gabriel','pinheiro'])){ _aprovCotLimiarMin = 5; _aprovCotLoginKey = 'gabriel_pinheiro'; }
+  else if(contemTodosTokens_(base, ['diego','florido'])){ _aprovCotLimiarMin = 15; _aprovCotLoginKey = 'diego_florido'; }
+  else return; // não é um dos 3 aprovadores — não faz nada
+
+  setTimeout(verificarAprovacaoPendenteCotacao, 3000);
+  _aprovCotIntervalId = setInterval(verificarAprovacaoPendenteCotacao, 45000);
+}
+
+// Converte "dd/MM/yyyy HH:mm" (formato salvo pelo Apps Script da cotação) em Date
+function parseDataHoraCotacao_(s){
+  if(!s) return null;
+  var m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if(!m) return null;
+  return new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10), parseInt(m[4],10), parseInt(m[5],10));
+}
+
+async function verificarAprovacaoPendenteCotacao(){
+  if(!COTACAO_URL || _aprovCotLimiarMin === null) return;
+  try{
+    var r = await fetch(COTACAO_URL);
+    var j = await r.json();
+    var rows = j && j.rows ? j.rows : [];
+    if(!Array.isArray(rows)) return;
+
+    var agora = new Date();
+    var aguardando = rows.filter(function(row){
+      // Cotações antigas (antes da #336) ficam fora do fluxo de aprovação
+      if(parseInt(row.Numero,10) < 336) return false;
+      // Cotação criada por um dos próprios aprovadores não entra no fluxo
+      if(vendedorEhAprovador_(row.Vendedor)) return false;
+      var st = row.StatusAprovacao || 'Aguardando';
+      if(st !== 'Aguardando') return false;
+      var dataRow = parseDataHoraCotacao_(row.Data);
+      if(!dataRow) return false;
+      var minutosDecorridos = (agora - dataRow) / 60000;
+      return minutosDecorridos >= _aprovCotLimiarMin;
+    });
+    console.log('[alerta-aprov-cotacao] login-chave:', _aprovCotLoginKey, '| limiar(min):', _aprovCotLimiarMin, '| aguardando encontradas:', aguardando.length);
+
+    var chaveVistos = 'cotacao_aprov_vista_' + _aprovCotLoginKey;
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+    var chavesAtuais = aguardando.map(function(row){ return String(row.Numero||''); });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+      console.log('[alerta-aprov-cotacao] primeira checagem neste navegador — registrando base sem alertar');
+      return;
+    }
+
+    var novos = aguardando.filter(function(row){
+      return vistos.indexOf(String(row.Numero||'')) === -1;
+    });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+
+    if(novos.length > 0) mostrarAlertaAprovacaoCotacao(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaAprovacaoCotacao(novos){
+  var titulo = document.getElementById('aprov-cot-alerta-titulo');
+  var sub = document.getElementById('aprov-cot-alerta-sub');
+  var body = document.getElementById('aprov-cot-alerta-body');
+
+  titulo.textContent = novos.length === 1
+    ? 'Cotação aguardando aprovação'
+    : novos.length + ' cotações aguardando aprovação';
+  sub.textContent = 'Comercial — Aprovação';
+
+  body.innerHTML = novos.map(function(row){
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">📋</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.Numero||'').padStart(4,'0')+' · '+(row.Cliente||'Sem cliente')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.Vendedor||'')+(row.Valor?' · '+row.Valor:'')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('aprov-cot-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaAprovacaoCotacao(){
+  document.getElementById('aprov-cot-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE ATIVIDADE NA PRÓPRIA COTAÇÃO (pro vendedor) ──
+   Pra Sabrina Ferreira e Leonardo: fica de olho só nas cotações onde
+   Vendedor é o próprio login, e compara um "retrato" (quantidade de
+   linhas do histórico de observação + StatusAprovacao) contra o que
+   foi visto da última vez. Qualquer mudança — novo comentário OU
+   aprovação/recusa — dispara o aviso, pra cotação nunca ficar
+   esquecida. Escopo restrito a esses 2 logins, então a busca fica
+   leve (não roda pra todo vendedor do sistema). */
+var _ativCotIntervalId = null;
+var _ativCotLoginKey = null;
+var _ativCotCandidato = null;
+
+function iniciarAlertaAtividadeCotacao(user){
+  if(_ativCotIntervalId){ clearInterval(_ativCotIntervalId); _ativCotIntervalId = null; }
+  var base = normNomeLogin_((user && user.nome)||'') + ' ' + normNomeLogin_((user && user.login)||'');
+
+  if(contemTodosTokens_(base, ['sabrina'])){ _ativCotLoginKey = 'sabrina_ferreira'; _ativCotCandidato = 'sabrina'; }
+  else if(contemTodosTokens_(base, ['leonardo'])){ _ativCotLoginKey = 'leonardo'; _ativCotCandidato = 'leonardo'; }
+  else return; // só Sabrina Ferreira e Leonardo recebem esse alerta
+
+  setTimeout(verificarAtividadeCotacao, 3000);
+  _ativCotIntervalId = setInterval(verificarAtividadeCotacao, 45000);
+}
+
+function contarNotasObservacao_(texto){
+  if(!texto) return 0;
+  return String(texto).split('\n').filter(Boolean).length;
+}
+
+async function verificarAtividadeCotacao(){
+  if(!COTACAO_URL || !_ativCotLoginKey) return;
+  try{
+    var r = await fetch(COTACAO_URL);
+    var j = await r.json();
+    var rows = j && j.rows ? j.rows : [];
+    if(!Array.isArray(rows)) return;
+
+    var minhas = rows.filter(function(row){
+      return normNomeLogin_(row.Vendedor||'').indexOf(_ativCotCandidato) !== -1;
+    });
+    console.log('[alerta-ativ-cotacao] candidato:', _ativCotCandidato, '| cotações do vendedor encontradas:', minhas.length);
+
+    var chaveRetrato = 'cotacao_atividade_' + _ativCotLoginKey;
+    var retratoRaw = localStorage.getItem(chaveRetrato);
+    var retratoAnterior = retratoRaw ? JSON.parse(retratoRaw) : null;
+    var retratoAtual = {};
+    minhas.forEach(function(row){
+      var numero = String(row.Numero||'');
+      retratoAtual[numero] = contarNotasObservacao_(row.Observacao) + '|' + (row.StatusAprovacao||'Aguardando');
+    });
+
+    if(!retratoAnterior){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveRetrato, JSON.stringify(retratoAtual));
+      console.log('[alerta-ativ-cotacao] primeira checagem neste navegador — registrando base sem alertar');
+      return;
+    }
+
+    var mudou = minhas.filter(function(row){
+      var numero = String(row.Numero||'');
+      return retratoAnterior[numero] !== undefined && retratoAnterior[numero] !== retratoAtual[numero];
+    });
+    // Cotações novas (ainda sem retrato anterior) não alertam aqui — só
+    // mudanças em cotações que o vendedor já tinha visto antes.
+
+    localStorage.setItem(chaveRetrato, JSON.stringify(retratoAtual));
+
+    if(mudou.length > 0) mostrarAlertaAtividadeCotacao(mudou);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaAtividadeCotacao(mudou){
+  var titulo = document.getElementById('ativ-cot-alerta-titulo');
+  var sub = document.getElementById('ativ-cot-alerta-sub');
+  var body = document.getElementById('ativ-cot-alerta-body');
+
+  titulo.textContent = mudou.length === 1
+    ? 'Sua cotação teve uma atualização'
+    : mudou.length + ' das suas cotações tiveram atualizações';
+  sub.textContent = 'Comercial — Minhas Cotações';
+
+  body.innerHTML = mudou.map(function(row){
+    var st = row.StatusAprovacao || 'Aguardando';
+    var corSt = st === 'Aprovada' ? '#2EBD85' : st === 'Recusada' ? '#E24B4A' : '#F5B800';
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+corSt+';margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💬</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.Numero||'').padStart(4,'0')+' · '+(row.Cliente||'Sem cliente')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">Status de aprovação: '+st+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('ativ-cot-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaAtividadeCotacao(){
+  document.getElementById('ativ-cot-alerta-overlay').style.display = 'none';
 }
 
 /* ── ALERTA DE PARTICIPAÇÃO EM EVENTO DO CALENDÁRIO (pra todo mundo) ──
