@@ -651,7 +651,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <select class="form-input" id="p-aba" onchange="atualizarAbaSugerida()">
           <option value="Barreto's Transportes e Serviços" data-aba="BARRETO'S">Barreto's Transportes e Serviços</option>
           <option value="Barreto's Transportes Sites e Infraestrutura" data-aba="INFRA">Barreto's Transportes Sites e Infraestrutura</option>
-          <option value="Gonçalves Soluções em Logística" data-aba="GONÇALVES">Gonçalves Soluções em Logística</option>
+          <option value="Gonçalves Soluções em Logística" data-aba="GONCALVES">Gonçalves Soluções em Logística</option>
           <option value="Pinheiro Transportes e Serviços" data-aba="PINHEIRO">Pinheiro Transportes e Serviços</option>
         </select>
       </div>
@@ -1960,6 +1960,12 @@ function atualizarValorEnfasePix(){
   document.getElementById('p-enfase-legenda').textContent = legenda;
 }
 
+async function buscarCardsAba_(aba){
+  var res = await fetch(KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba));
+  var data = await res.json();
+  return Array.isArray(data) ? data : (data.rows || data.data || []);
+}
+
 async function buscarCardKanban(){
   var codigo = document.getElementById('p-codigo').value.trim();
   var abaSelect = document.getElementById('p-aba');
@@ -1968,10 +1974,15 @@ async function buscarCardKanban(){
   if(!codigo){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
   statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando no kanban…';
   try{
-    var res = await fetch(KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba));
-    var data = await res.json();
-    var cards = Array.isArray(data) ? data : (data.rows || data.data || []);
-    var card = cards.find(c => String(c["DT CODIGO"]||c["Chave"]||"").trim().toUpperCase() === codigo.toUpperCase());
+    var cards = await buscarCardsAba_(aba);
+    // A aba da Gonçalves pode estar salva com ou sem cedilha na planilha —
+    // se a grafia escolhida não trouxe nada, tenta automaticamente a outra
+    // antes de desistir.
+    if((!cards || !cards.length) && (aba === 'GONCALVES' || aba === 'GONÇALVES')) {
+      var abaAlternativa = aba === 'GONCALVES' ? 'GONÇALVES' : 'GONCALVES';
+      cards = await buscarCardsAba_(abaAlternativa);
+    }
+    var card = (cards||[]).find(c => String(c["DT CODIGO"]||c["Chave"]||"").trim().toUpperCase() === codigo.toUpperCase());
     if(!card){
       statusEl.innerHTML = '<span class="txt-red">Card não encontrado nessa aba. Confira o código/empresa ou preencha manualmente.</span>';
       return;
