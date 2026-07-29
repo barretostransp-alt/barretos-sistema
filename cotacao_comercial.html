@@ -129,6 +129,43 @@
   }
   .oc-view.active { display:block; }
   .app-body.oc-active { display:none; }
+  /* ---- APROVAÇÃO VIEW ---- */
+  .aprov-view {
+    display:none; padding:24px 28px; height:calc(100vh - 64px); overflow-y:auto;
+    background:var(--charcoal);
+  }
+  .aprov-view.active { display:block; }
+  .app-body.aprov-active { display:none; }
+  .aprov-card {
+    background:var(--charcoal-mid); border:1px solid var(--charcoal-border);
+    border-radius:10px; padding:16px 18px; margin-bottom:14px;
+  }
+  .aprov-card-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .aprov-num { font-weight:700; color:var(--gold); font-size:14px; }
+  .aprov-meta { font-size:12px; color:var(--txt-dim,#888); }
+  .badge-status { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:10px; font-weight:700; letter-spacing:.03em; }
+  .badge-aguardando { background:rgba(245,184,0,.12); color:var(--gold); border:1px solid rgba(245,184,0,.3); }
+  .badge-aprovada { background:rgba(46,189,133,.12); color:#2EBD85; border:1px solid rgba(46,189,133,.3); }
+  .badge-recusada { background:rgba(226,75,74,.12); color:#E24B4A; border:1px solid rgba(226,75,74,.3); }
+  .aprov-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .btn-aprovar { background:rgba(46,189,133,.14); border:1px solid rgba(46,189,133,.35); color:#2EBD85; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn-aprovar:hover { background:rgba(46,189,133,.25); }
+  .btn-recusar { background:rgba(226,75,74,.14); border:1px solid rgba(226,75,74,.35); color:#E24B4A; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn-recusar:hover { background:rgba(226,75,74,.25); }
+  /* ---- HISTÓRICO DE OBSERVAÇÃO (thread compartilhado vendedor/aprovador) ---- */
+  .obs-nota { background:var(--charcoal); border:1px solid var(--charcoal-border); border-radius:7px; padding:8px 10px; margin-bottom:6px; }
+  .obs-nota-meta { font-size:10px; color:var(--txt-dim,#888); margin-bottom:2px; }
+  .obs-nota-autor { color:var(--gold); font-weight:700; }
+  .obs-nota-texto { font-size:12px; color:var(--text-primary,#E8E9EC); }
+  .obs-add-row { display:flex; gap:6px; margin-bottom:10px; }
+  .obs-add-row input { flex:1; }
+  /* ---- MODAL DE DETALHES DA COTAÇÃO (Ponto 2) ---- */
+  .det-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-bottom:14px; }
+  .det-field { display:flex; flex-direction:column; gap:2px; }
+  .det-field.full { grid-column:1/-1; }
+  .det-lbl { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--txt-dim,#888); }
+  .det-val { font-size:13px; color:var(--text-primary,#E8E9EC); }
+  .det-section-title { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); margin:14px 0 8px; display:flex; align-items:center; gap:6px; border-top:1px solid var(--charcoal-border); padding-top:12px; }
   .oc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .oc-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
   .oc-panel {
@@ -1063,6 +1100,10 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
       <button class="nav-tab" id="tab-oc" onclick="switchTab('oc')">
         <i class="ti ti-clipboard-list" style="font-size:14px"></i>Ordem de Coleta
       </button>
+      <button class="nav-tab" id="tab-aprov" onclick="switchTab('aprov')" style="display:none">
+        <i class="ti ti-clipboard-check" style="font-size:14px"></i>Aprovação
+        <span id="aprov-badge" style="display:none;background:var(--gold);color:#111;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700"></span>
+      </button>
     </nav>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
@@ -1185,6 +1226,16 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
         <option value="munk" class="opt-especial">Munk</option>
         <option value="prancha" class="opt-especial">Prancha</option>
       </select>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="lbl" for="tipo-material">Tipo de Material</label>
+        <input type="text" id="tipo-material" placeholder="Ex: peças automotivas, eletrônicos...">
+      </div>
+      <div class="field">
+        <label class="lbl" for="valor-nf">Valor de NF (R$)</label>
+        <input type="number" id="valor-nf" placeholder="0,00" min="0" step="0.01">
+      </div>
     </div>
 
     <!-- Rota -->
@@ -1693,6 +1744,33 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
   </div>
 </div>
 
+<!-- APROVAÇÃO INTERNA (Ponto 4) — só visível para os aprovadores configurados -->
+<div id="aprov-view" class="aprov-view">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <h2 style="font-size:17px;font-weight:700;color:var(--text-primary,#E8E9EC);display:flex;align-items:center;gap:8px">
+      <i class="ti ti-clipboard-check" style="color:var(--gold)"></i> Aprovação de Cotações
+    </h2>
+    <button onclick="loadHistory()" style="background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:5px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px">
+      <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
+    </button>
+  </div>
+  <div class="hist-filter" style="margin-bottom:16px">
+    <button class="hist-filter-btn active" onclick="filterAprov('aguardando',this)">Aguardando</button>
+    <button class="hist-filter-btn" onclick="filterAprov('decididas',this)">Já decididas</button>
+    <button class="hist-filter-btn" onclick="filterAprov('all',this)">Todas</button>
+  </div>
+  <div id="aprov-content"><div class="hist-loading"><span class="spinner"></span> Carregando…</div></div>
+</div>
+
+<!-- MODAL DE DETALHES DA COTAÇÃO (Ponto 2 + Ponto 3) -->
+<div class="modal-overlay" id="detalhe-cot-overlay" onclick="if(event.target===this)fecharDetalheCotacao()">
+  <div class="modal-box" style="max-width:720px">
+    <button class="modal-close" onclick="fecharDetalheCotacao()">&times;</button>
+    <div class="modal-title" id="detalhe-cot-title"><i class="ti ti-file-text" style="color:var(--gold)"></i> Cotação</div>
+    <div class="modal-sub" id="detalhe-cot-sub"></div>
+    <div id="detalhe-cot-body"></div>
+  </div>
+</div>
 
 <script>
 const tabelas={A:[[4.0338,444.84,5.166,533.36,5.8464,576.59,6.7381,642.1,7.4408,656.76,8.0855,792.3,9.2662,877.83],[4.1052,455.84,5.2583,550.1,5.9955,600.27,6.9002,669.38,7.608,685.45,8.2192,811.76,9.4199,902.8],[4.7442,502.29,6.0679,601.96,6.9216,663.16,7.9337,732.07,8.7563,745.94,9.6471,949.16,10.9629,1030.58],[null,null,5.1397,526.13,5.7767,557.42,6.6765,625.16,7.3776,639.38,8.0832,791.67,9.1859,855.76],[4.0031,436.39,5.1295,523.33,5.8178,568.72,6.7126,635.08,7.4124,648.95,8.1252,803.22,9.2466,872.44],[3.6028,436.39,5.1281,522.93,5.8441,575.96,6.7126,635.08,7.4124,648.95,8.1252,803.22,9.2466,872.44],[4.7775,587.98,5.9193,679.12,6.6352,727.28,7.5269,792.8,8.2296,807.45,8.8919,947.84,10.0803,1035.49],[4.8611,610.96,6.0237,707.85,6.7649,762.95,7.6697,832.06,8.3775,848.13,9.0063,979.29,10.2147,1072.44],[5.3315,609.31,6.6676,712.41,7.5371,780.02,8.5492,848.93,9.3718,862.8,10.2855,1072.32,11.6113,1156.49],[null,null,5.5109,623.38,6.1835,659.6,7.0832,727.35,7.7843,741.56,8.5076,898.7,9.618,964.9],[4.3647,531.01,5.5008,620.58,6.2246,670.91,7.1193,737.27,7.8191,751.14,8.5496,910.26,9.6787,981.58],[null,null,null,null,null,null,7.0646,731.9,7.8089,757.99,null,null,9.7697,1016.29]],B:[[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.3358,515.17,6.0623,574.29,6.7525,588.17,7.1695,695.68,7.9829,746.78],[null,null,null,null,6.2111,564.07,7.0457,623.2,7.8586,637.07,8.2933,749.43,9.2644,802.65],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,6.0617,665.87,6.7882,724.99,7.4784,738.86,7.913,851.22,8.7341,904.44],[null,null,null,null,6.1053,677.85,6.8318,736.97,7.522,750.84,7.9566,863.2,8.7777,916.42],[null,null,null,null,6.8267,680.93,7.6612,740.05,8.4742,753.93,8.9317,872.59,9.9128,928.56],[null,null,null,null,5.6796,617.35,6.4062,676.48,7.0963,690.35,7.531,802.71,8.3521,855.93],[null,null,null,null,5.6796,617.35,6.4062,676.48,7.0963,690.35,7.531,802.71,8.3521,855.93],[null,null,null,null,null,null,5.9994,574.29,6.6896,588.17,null,null,7.92,746.78]],C:[[3.4369,168.42,4.3858,191.28,5.0084,207.68,5.7474,221.79,6.4159,224.95,6.787,261.12,7.7868,282.59],[3.4827,170.79,4.4391,194.88,5.1022,212.78,5.8459,227.67,6.5163,231.13,6.8753,265.31,7.8823,287.97],[4.1215,198.62,5.2426,225.01,6.0096,247.41,6.8611,262.25,7.6513,265.24,8.1234,318.08,9.2734,339.58],[null,null,4.3763,189.72,4.9834,203.55,5.7253,218.14,6.3932,221.21,6.7861,260.98,7.7579,277.83],[3.4259,166.6,4.3727,189.11,4.9981,205.98,5.7382,220.28,6.4057,223.27,6.8012,263.47,7.7797,281.43],[3.0257,166.6,4.3722,189.03,5.0076,207.54,5.7382,220.28,6.4057,223.27,6.8012,263.47,7.7797,281.43],[3.955,217.08,4.9142,241.63,5.5737,261.22,6.3127,275.34,6.9812,278.5,7.3713,317.8,8.3794,340.64],[3.985,222.03,4.9517,247.82,5.6203,268.91,6.364,283.8,7.0343,287.26,7.4123,324.57,8.4276,348.6],[4.5997,244.84,5.7343,273.44,6.5188,299.98,7.3703,314.83,8.1605,317.82,8.6573,374.73,9.8181,398.01],[null,null,4.6358,229.62,5.2797,246.64,6.0216,261.24,6.6895,264.3,7.1014,307.21,8.0815,325.43],[3.675,204.81,4.6321,229.02,5.2945,249.08,6.038,263.37,6.7105,266.36,7.1155,309.7,8.0989,329.02],[null,null,null,null,null,null,6.018,237.54,6.7011,250.28,null,null,8.2143,301.95]],D:[[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5553,170.79,5.1643,184.64,5.7558,187.38,6.0907,226.82,6.7865,248.42],[null,null,null,null,5.3256,198.62,6.0126,210.63,6.7116,212.48,7.0895,259.44,7.918,282.99],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,5.1767,217.08,5.8526,227.21,6.543,229.48,6.9176,272.44,7.7149,297.54],[null,null,null,null,5.22,222.03,5.8959,232.96,6.5863,235.23,6.9609,278.17,7.7582,303.27],[null,null,null,null,5.866,244.84,6.5419,258.45,7.321,261.39,7.7399,310.76,8.6531,340.17],[null,null,null,null,4.8895,207.18,5.5654,218.59,6.2558,221.27,6.6304,263.7,7.4277,287.63],[null,null,null,null,4.8895,207.18,5.5654,218.59,6.2558,221.27,6.6304,263.7,7.4277,287.63],[null,null,null,null,null,null,5.1019,181.4,5.6977,183.99,null,null,6.7285,243.76]]};
@@ -1755,17 +1833,10 @@ function calc(){
     /* util bars */
     const uw=document.getElementById('util-wrap');
     if(uw){uw.style.display='block';const bP=document.getElementById('bar-peso'),bV=document.getElementById('bar-vol'),pP=document.getElementById('pct-peso-label'),pV=document.getElementById('pct-vol-label');if(bP){const pct=Math.min(ratoPeso*100,100);bP.style.width=pct.toFixed(1)+'%';bP.style.background=ratoPeso>1?'var(--danger)':'var(--blue-accent)';}if(bV){const pct=Math.min(ratoVol*100,100);bV.style.width=pct.toFixed(1)+'%';bV.style.background=ratoVol>1?'var(--danger)':'var(--green-accent)';}if(pP)pP.textContent=fmtPct(ratoPeso*100);if(pV)pV.textContent=fmtPct(ratoVol*100);}
-    /* peso > 1500: use dedicado */
-    if(pesoConsid>1500){
-      ra.innerHTML=`<div class="result-card" style="border-left:3px solid var(--warn-color)">
-        <div class="result-card-header"><span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span></div>
-        <div style="padding:18px 4px;text-align:center">
-          <i class="ti ti-truck" style="font-size:36px;color:var(--warn-color);display:block;margin-bottom:8px"></i>
-          <strong style="font-size:14px;display:block;margin-bottom:6px">Peso acima de 1.500 kg</strong>
-          <span style="font-size:12px;color:var(--text-muted)">Para cargas acima de 1.500 kg recomendamos usar o modo <strong style="color:var(--gold)">Dedicado</strong>.</span>
-        </div></div>`;
-      return;
-    }
+    /* Sem trava de peso — acima de 1.000 kg segue usando a última faixa da
+       tabela (mesmo comportamento de getPrecoByPeso); o aviso de "sob
+       revisão" pra cargas muito pesadas aparece mais abaixo, sem bloquear
+       o cálculo/proposta. */
     /* destination not set */
     if(!addrState.destino.lat){
       ra.innerHTML=`<div class="result-card"><div style="padding:18px 4px;text-align:center">
@@ -1783,7 +1854,7 @@ function calc(){
     calcFracionadoTabela(addrState.destino.lat,addrState.destino.lon,addrState.destino.label,pesoConsid).then(res=>{
       if(_calcId!==fracCalcId)return;
       fracLastResult=res;
-      const faixaLabel=pesoConsid<=100?'0–100 kg':pesoConsid<=300?'101–300 kg':pesoConsid<=600?'301–600 kg':pesoConsid<=1000?'601–1.000 kg':'1.001–1.500 kg';
+      const faixaLabel=pesoConsid<=100?'0–100 kg':pesoConsid<=300?'101–300 kg':pesoConsid<=600?'301–600 kg':pesoConsid<=1000?'601–1.000 kg':'Acima de 1.000 kg';
       if(res.tipo==='sem_preco'||res.tipo==='erro'){
         ra.innerHTML=`<div class="result-card" style="border-left:3px solid var(--warn-color)">
           <div class="result-card-header"><span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${veic.nome}</span></div>
@@ -1823,7 +1894,15 @@ function calc(){
       if(viagens>1)rows+=localRow(`× ${viagens} embarques`,fmtBRL(subTotal*viagens),null);
       if(valKm>0)rows+=localRow(`Valor/km (${fmtBRL(valKm)}/km × ${km} km${viagens>1?' × '+viagens:''})`,fmtBRL(custoKmTotal),'ti-road','var(--text-muted)');
       rows+=localRow(`Sua margem ${margemTipo==='pct'?'('+margemVal+'%)':'(R$ fixo)'}`,fmtBRL(margem),'ti-percentage','var(--warn-color)');
+      const avisoRevisao = pesoConsid>=3000 ? `
+        <div class="result-card" style="border-left:3px solid var(--warn-color);margin-bottom:10px">
+          <div style="padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <i class="ti ti-alert-triangle" style="font-size:20px;color:var(--warn-color);flex-shrink:0"></i>
+            <span style="font-size:12px;color:var(--text-muted)"><strong style="color:var(--warn-color)">Sob revisão:</strong> peso considerado acima de 3.000 kg — o valor abaixo segue usando a última faixa da tabela; recomendamos conferir manualmente antes de enviar ao cliente.</span>
+          </div>
+        </div>` : '';
       ra.innerHTML=`
+        ${avisoRevisao}
         <div class="result-card">
           <div class="result-card-header">
             <span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span>
@@ -2710,17 +2789,138 @@ let histFilterVend = 'all';
 let histFilterMes  = 'all';
 
 function switchTab(tab) {
-  const isHist = tab === 'hist';
-  const isOC   = tab === 'oc';
-  const isCalc = tab === 'calc';
+  const isHist  = tab === 'hist';
+  const isOC    = tab === 'oc';
+  const isCalc  = tab === 'calc';
+  const isAprov = tab === 'aprov';
   document.getElementById('tab-calc').classList.toggle('active', isCalc);
   document.getElementById('tab-hist').classList.toggle('active', isHist);
   document.getElementById('tab-oc').classList.toggle('active',   isOC);
+  document.getElementById('tab-aprov').classList.toggle('active', isAprov);
   document.getElementById('hist-view').classList.toggle('active', isHist);
   document.getElementById('oc-view').classList.toggle('active',   isOC);
-  document.querySelector('.app-body').classList.toggle('hist-active', isHist || isOC);
+  document.getElementById('aprov-view').classList.toggle('active', isAprov);
+  document.querySelector('.app-body').classList.toggle('hist-active', isHist || isOC || isAprov);
   if (isHist) loadHistory();
   if (isOC) initOC();
+  if (isAprov) { loadHistory().then(renderAprovPanel); }
+}
+
+/* ============================================================
+   APROVAÇÃO INTERNA (Ponto 4) — só Filipe, Gabriel Pinheiro e
+   Diego Flórido veem a aba. Usa a mesma sessão do resto do sistema
+   (sessionStorage.barretos_user = {nome, login, perfil}, gravada
+   pelo login.html/shell.html).
+   ============================================================ */
+// Normaliza nome/login pra comparação tolerante: minúsculas, sem acento,
+// pontuação/underscore/pontos viram espaço — assim "gabriel.pinheiro",
+// "Gabriel Pinheiro" e "GABRIEL_PINHEIRO" todos batem igual.
+function normNomeLogin_(s) {
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function contemTodosTokens_(base, tokens) {
+  return tokens.every(t => base.indexOf(t) !== -1);
+}
+
+// Lista de tokens (todos precisam bater) que identificam cada aprovador —
+// reaproveitada tanto pra saber "esse usuário logado é aprovador" quanto
+// pra saber "essa cotação foi criada por um aprovador" (Ponto extra:
+// aprovadores também vendem, então a própria cotação deles não deve
+// aparecer no modal de aprovação).
+const APROVADORES_TOKENS = [['filipe'], ['gabriel','pinheiro'], ['diego','florido']];
+
+function stringEhAprovador_(s) {
+  const base = normNomeLogin_(s||'');
+  return APROVADORES_TOKENS.some(tokens => contemTodosTokens_(base, tokens));
+}
+
+function ehAprovador(user) {
+  if (!user) return false;
+  return stringEhAprovador_((user.nome||'') + ' ' + (user.login||''));
+}
+
+function vendedorEhAprovador(vendedorNome) {
+  return stringEhAprovador_(vendedorNome);
+}
+
+function usuarioLogadoAtual() {
+  try {
+    const raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function initAprovacaoUI() {
+  const user = usuarioLogadoAtual();
+  if (ehAprovador(user)) document.getElementById('tab-aprov').style.display = 'flex';
+}
+
+let aprovFilter = 'aguardando';
+function filterAprov(f, btn) {
+  aprovFilter = f;
+  document.querySelectorAll('#aprov-view .hist-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAprovPanel();
+}
+
+function renderAprovPanel() {
+  const el = document.getElementById('aprov-content');
+  if (!el) return;
+  let rows = histData.filter(r => entraNoFluxoAprovacao(getLocalKey(r)) && !vendedorEhAprovador(r['Vendedor']));
+  if (aprovFilter === 'aguardando') rows = rows.filter(r => (r['StatusAprovacao']||'Aguardando') === 'Aguardando');
+  else if (aprovFilter === 'decididas') rows = rows.filter(r => r['StatusAprovacao'] === 'Aprovada' || r['StatusAprovacao'] === 'Recusada');
+  rows = rows.slice().reverse();
+
+  const badge = document.getElementById('aprov-badge');
+  const pendentes = histData.filter(r => entraNoFluxoAprovacao(getLocalKey(r)) && !vendedorEhAprovador(r['Vendedor']) && (r['StatusAprovacao']||'Aguardando') === 'Aguardando').length;
+  if (badge) { badge.style.display = pendentes ? 'inline' : 'none'; badge.textContent = pendentes; }
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="hist-empty"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4"></i>Nenhuma cotação aqui.</div>';
+    return;
+  }
+
+  el.innerHTML = rows.map(r => {
+    const numero = getLocalKey(r);
+    const aguardando = (r['StatusAprovacao']||'Aguardando') === 'Aguardando';
+    return `<div class="aprov-card">
+      <div class="aprov-card-head">
+        <span class="aprov-num">#${String(numero).padStart(4,'0')}</span>
+        <span class="aprov-meta">${fmtCampo(r['Vendedor'])} · ${fmtCampo(r['Cliente'])} · ${fmtCampo(r['Cidade Origem'])} → ${fmtCampo(r['Cidade Destino'])} · ${fmtCampo(r['Valor'])}</span>
+        ${badgeAprovacaoHTML(r['StatusAprovacao'], numero)}
+        <button onclick="abrirDetalheCotacao('${numero}')" style="margin-left:auto;background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:4px 10px;cursor:pointer;font-size:11px">Ver cotação completa</button>
+      </div>
+      ${renderNotasThreadHTML(numero, r['Observacao'] || r['Observação'] || '')}
+      ${aguardando ? `
+      <div class="aprov-actions">
+        <button class="btn-aprovar" onclick="decidirCotacao('${numero}','Aprovada')"><i class="ti ti-check"></i> Aprovar</button>
+        <button class="btn-recusar" onclick="decidirCotacao('${numero}','Recusada')"><i class="ti ti-x"></i> Recusar</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function decidirCotacao(numero, novoStatus) {
+  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
+  if (!url) return;
+  const autor = nomeUsuarioAtual() || 'Desconhecido';
+  const inputNota = document.getElementById('nova-nota-' + numero);
+  const comentario = inputNota ? inputNota.value.trim() : '';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'cotacao_aprovacao', numero: numero, novoStatus: novoStatus, autor: autor, comentario: comentario })
+    });
+    const json = await res.json();
+    if (json.success) {
+      await loadHistory();
+      renderAprovPanel();
+    } else {
+      alert('Erro ao registrar decisão: ' + (json.error || 'desconhecido'));
+    }
+  } catch(e) {
+    alert('Erro de conexão ao registrar decisão.');
+  }
 }
 
 /* ============================================================
@@ -3497,32 +3697,149 @@ function toggleStatusMenu(e, menuId) {
   if (!isOpen) menu.classList.add('open');
 }
 
-function saveObs(input, rowKey) {
-  if (!localOverrides[rowKey]) localOverrides[rowKey] = {};
-  localOverrides[rowKey].obs = input.value;
+/* ============================================================
+   HISTÓRICO DE OBSERVAÇÃO (Ponto 3) — conversa vendedor ↔ aprovador
+   Mesmo padrão do "Histórico de Cobrança" do financeiro.html: a coluna
+   Observacao guarda várias linhas "dd/MM/yyyy HH:mm — Autor: texto"
+   concatenadas — nunca sobrescreve, só acrescenta (nota_cotacao no
+   Apps Script dá append na célula).
+   ============================================================ */
+function nomeUsuarioAtual() {
+  try {
+    const raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    if (!raw) return '';
+    const u = JSON.parse(raw);
+    return (u.nome || u.login || '').toString();
+  } catch(e) { return ''; }
 }
 
-async function syncObs(input, rowKey) {
-  const obsVal = input.value;
-  if (!localOverrides[rowKey]) localOverrides[rowKey] = {};
-  localOverrides[rowKey].obs = obsVal;
+// Reconstrói "dd/MM/yyyy HH:mm — Autor: texto" (uma por linha) em [{data,autor,texto}]
+function parseNotasCotacao(texto) {
+  if (!texto) return [];
+  return String(texto).split('\n').filter(Boolean).map(function(linha) {
+    const m = linha.match(/^(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})\s*—\s*([^:]+):\s*(.*)$/);
+    if (m) return { data: m[1], autor: m[2].trim(), texto: m[3] };
+    return { data: '', autor: '', texto: linha };
+  });
+}
+
+function renderNotasThreadHTML(numero, textoObs) {
+  const notas = parseNotasCotacao(textoObs).slice().reverse(); // mais recente primeiro
+  const lista = notas.length
+    ? notas.map(function(n) {
+        return `<div class="obs-nota">
+          <div class="obs-nota-meta">${n.data ? n.data + ' — ' : ''}${n.autor ? `<span class="obs-nota-autor">${n.autor}</span>` : ''}</div>
+          <div class="obs-nota-texto">${n.texto}</div>
+        </div>`;
+      }).join('')
+    : '<p style="font-size:11px;color:var(--txt-dim,#888)">Nenhuma observação registrada ainda.</p>';
+  return `
+    <div class="obs-add-row">
+      <input type="text" class="fi" id="nova-nota-${numero}" placeholder="Escrever uma observação...">
+      <button class="btn-lookup" onclick="adicionarNotaCotacao('${numero}')"><i class="ti ti-plus" style="font-size:13px"></i></button>
+    </div>
+    <div id="notas-lista-${numero}">${lista}</div>`;
+}
+
+async function adicionarNotaCotacao(numero) {
+  const input = document.getElementById('nova-nota-' + numero);
+  if (!input) return;
+  const texto = input.value.trim();
+  if (!texto) return;
   const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) { console.warn('[syncObs] URL não configurada'); return; }
-  input.style.borderColor = 'var(--gold)';
-  console.log('[syncObs] salvando obs para rowKey:', rowKey, '| obs:', obsVal);
+  if (!url) { console.warn('[adicionarNotaCotacao] URL não configurada'); return; }
+  const autor = nomeUsuarioAtual() || 'Desconhecido';
+  input.disabled = true;
   try {
     const res = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ action: 'update', numero: rowKey, obs: obsVal })
+      body: JSON.stringify({ action: 'nota_cotacao', numero: numero, autor: autor, texto: texto })
     });
     const json = await res.json();
-    console.log('[syncObs] resposta:', JSON.stringify(json));
-    input.style.borderColor = json.success ? '#2EBD85' : '#E24B4A';
-    setTimeout(() => { input.style.borderColor = ''; }, 1800);
+    if (json.success) {
+      input.value = '';
+      await loadHistory();
+      // Reabre o mesmo modal/painel com os dados atualizados, se estiver aberto
+      if (document.getElementById('detalhe-cot-overlay').classList.contains('open')) abrirDetalheCotacao(numero);
+      renderAprovPanel();
+    } else {
+      alert('Erro ao salvar observação: ' + (json.error || 'desconhecido'));
+    }
   } catch(e) {
-    console.error('[syncObs] erro fetch:', e);
-    input.style.borderColor = '#E24B4A';
+    alert('Erro de conexão ao salvar observação.');
   }
+  input.disabled = false;
+}
+
+/* ============================================================
+   MODAL DE DETALHES DA COTAÇÃO (Ponto 2) — mostra todos os campos
+   completos salvos pela calculadora (Ponto 1) + o histórico de
+   observação compartilhado (Ponto 3).
+   ============================================================ */
+function fmtCampo(v) { return (v !== undefined && v !== null && v !== '') ? v : '—'; }
+
+function abrirDetalheCotacao(numero) {
+  const r = histData.find(row => getLocalKey(row) === String(numero));
+  if (!r) return;
+
+  document.getElementById('detalhe-cot-title').innerHTML =
+    `<i class="ti ti-file-text" style="color:var(--gold)"></i> Cotação #${String(numero).padStart(4,'0')}`;
+  document.getElementById('detalhe-cot-sub').textContent = `Criada em ${fmtCampo(r['Data'])} · Revisões: ${fmtCampo(r['Revisoes'])}`;
+
+  let cubagemHTML = '';
+  if (r['Cubagem']) {
+    try {
+      const vols = JSON.parse(r['Cubagem']);
+      if (Array.isArray(vols) && vols.length) {
+        cubagemHTML = `<div class="det-field full"><div class="det-lbl">Cubagem</div><div class="det-val">` +
+          vols.map((v,i) => `Vol.${i+1}: ${v.qtd}× ${v.alt}×${v.larg}×${v.prof} m`).join(' · ') +
+          `</div></div>`;
+      }
+    } catch(e) { /* Cubagem antiga ou vazia — ignora */ }
+  }
+
+  document.getElementById('detalhe-cot-body').innerHTML = `
+    <div class="det-grid">
+      <div class="det-field"><div class="det-lbl">Vendedor</div><div class="det-val">${fmtCampo(r['Vendedor'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Cliente</div><div class="det-val">${fmtCampo(r['Cliente'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Modalidade</div><div class="det-val">${fmtCampo(r['Modalidade'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Tabela</div><div class="det-val">${fmtCampo(r['Tabela'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Tipo de Carga</div><div class="det-val">${fmtCampo(r['TipoCarga'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Eixos</div><div class="det-val">${fmtCampo(r['Eixos'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Origem</div><div class="det-val">${fmtCampo(r['Cidade Origem'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Destino</div><div class="det-val">${fmtCampo(r['Cidade Destino'])}</div></div>
+      <div class="det-field"><div class="det-lbl">KM</div><div class="det-val">${fmtCampo(r['KM'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Viagens/Embarques</div><div class="det-val">${fmtCampo(r['Viagens'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Valor/km adicional</div><div class="det-val">${fmtCampo(r['ValKm'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Peso real (kg)</div><div class="det-val">${fmtCampo(r['PesoReal'])}</div></div>
+      ${cubagemHTML}
+      <div class="det-field"><div class="det-lbl">Cap. peso (kg)</div><div class="det-val">${fmtCampo(r['CapPeso'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Cap. cúbica (m³)</div><div class="det-val">${fmtCampo(r['CapVol'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Margem</div><div class="det-val">${fmtCampo(r['MargemVal'])} (${fmtCampo(r['MargemTipo'])})</div></div>
+      <div class="det-field"><div class="det-lbl">Piso</div><div class="det-val">${fmtCampo(r['Piso'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Valor total</div><div class="det-val">${fmtCampo(r['Valor'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Override Piso</div><div class="det-val">${fmtCampo(r['OverridePiso'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Override Total</div><div class="det-val">${fmtCampo(r['OverrideTotal'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Desconto</div><div class="det-val">${fmtCampo(r['OverrideDesconto'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Prazo de entrega</div><div class="det-val">${fmtCampo(r['PrazoDias'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Tipo de Material</div><div class="det-val">${fmtCampo(r['TipoMaterial'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Valor de NF</div><div class="det-val">${fmtCampo(r['ValorNF'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Faturamento</div><div class="det-val">${fmtCampo(r['Faturamento'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Empresa</div><div class="det-val">${fmtCampo(r['Empresa'])}</div></div>
+      <div class="det-field"><div class="det-lbl">CNPJ Emitente</div><div class="det-val">${fmtCampo(r['CNPJ Emit'])}</div></div>
+      <div class="det-field"><div class="det-lbl">CNPJ Tomador</div><div class="det-val">${fmtCampo(r['CNPJ Tomador'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Status (cliente)</div><div class="det-val">${fmtCampo(r['Status'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Aprovação interna</div><div class="det-val">${badgeAprovacaoHTML(r['StatusAprovacao'], numero)}</div></div>
+      <div class="det-field full"><div class="det-lbl">Observações da cotação (impressas no PDF)</div><div class="det-val">${fmtCampo(r['ObservacoesCliente'])}</div></div>
+    </div>
+    <div class="det-section-title"><i class="ti ti-messages" style="font-size:12px"></i> Histórico de Observação</div>
+    ${renderNotasThreadHTML(numero, r['Observacao'] || r['Observação'] || '')}
+  `;
+  document.getElementById('detalhe-cot-overlay').classList.add('open');
+}
+
+function fecharDetalheCotacao() {
+  document.getElementById('detalhe-cot-overlay').classList.remove('open');
 }
 
 function refreshStatsOnly() {
@@ -3585,10 +3902,33 @@ function buildStatusCell(r, rowKey, idx) {
   </td>`;
 }
 
+// Cotações anteriores a este número são antigas e ficam fora do fluxo de
+// aprovação interna (Ponto 3) — não entram no painel, não geram badge de
+// "Aguardando" e não disparam alerta.
+const APROVACAO_MIN_NUMERO = 336;
+
+function entraNoFluxoAprovacao(numero) {
+  const n = parseInt(numero, 10);
+  return !isNaN(n) && n >= APROVACAO_MIN_NUMERO;
+}
+
+function badgeAprovacaoHTML(statusAprov, numero) {
+  if (numero !== undefined && !entraNoFluxoAprovacao(numero)) {
+    return `<span class="badge-status" style="background:rgba(123,127,150,.1);color:var(--txt-dim,#888);border:1px solid var(--charcoal-border)">Fora do fluxo</span>`;
+  }
+  const st = statusAprov || 'Aguardando';
+  const cls = st === 'Aprovada' ? 'badge-aprovada' : st === 'Recusada' ? 'badge-recusada' : 'badge-aguardando';
+  return `<span class="badge-status ${cls}">${st}</span>`;
+}
+
+function buildAprovCell(r) {
+  return `<td>${badgeAprovacaoHTML(r['StatusAprovacao'], getLocalKey(r))}</td>`;
+}
+
 function buildObsCell(r, rowKey) {
-  const override = localOverrides[rowKey] || {};
-  const obs = override.obs !== undefined ? override.obs : (r['Observacao'] || r['Observação'] || '');
-  return `<td class="obs-cell"><textarea class="obs-input" rows="1" placeholder="Observação…" oninput="saveObs(this,'${rowKey}')" onblur="syncObs(this,'${rowKey}')" onchange="syncObs(this,'${rowKey}')" onfocus="this.rows=3" onfocusout="this.rows=1">${obs}</textarea></td>`;
+  const notas = parseNotasCotacao(r['Observacao'] || r['Observação'] || '');
+  const label = notas.length ? notas.length + (notas.length===1?' nota':' notas') : 'Ver detalhes';
+  return `<td class="obs-cell"><button onclick="abrirDetalheCotacao('${rowKey}')" style="background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:4px 10px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-message-circle" style="font-size:12px"></i>${label}</button></td>`;
 }
 
 function renderHistory() {
@@ -3632,13 +3972,13 @@ function renderHistory() {
   const cols = colsAll.filter(c => keys.includes(c));
   const tableHTML = filtered.length ? `<div style="overflow-x:auto">
     <table class="hist-table">
-      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Observação</th></tr></thead>
+      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Aprovação</th><th>Observação</th></tr></thead>
       <tbody>${sortedData.map((r, i) => {
         const key = getLocalKey(r);
         return `<tr>${cols.map(c => {
           if (c === 'Data') { const pd = parseDateAny(r[c]); return `<td>${pd ? pd.fmt : (r[c]||'—')}</td>`; }
           return `<td>${r[c]||'—'}</td>`;
-        }).join('')}${buildStatusCell(r,key,i)}${buildObsCell(r,key)}</tr>`;
+        }).join('')}${buildStatusCell(r,key,i)}${buildAprovCell(r)}${buildObsCell(r,key)}</tr>`;
       }).join('')}</tbody>
     </table>
     <p style="font-size:11px;color:var(--txt-dim,#888);margin-top:10px;text-align:right">
@@ -3692,14 +4032,27 @@ async function testWebAppURL(){
   }
 }
 
-async function saveToSheets(){
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if(!url) return null;
+/* ============================================================
+   CAMPOS COMPLETOS DA COTAÇÃO (Ponto 1) — coleta TODOS os campos
+   da calculadora (não só os 10 originais), usado tanto na criação
+   quanto na revisão ("Refazer"), pra que "usar a cotação pra fazer
+   ajustes" venha com tudo já preenchido de volta.
+   ============================================================ */
+function serializeCubagem() {
+  return cubRows.map(id => ({
+    qtd:  parseFloat(document.getElementById('qtd-'+id)?.value) || 0,
+    alt:  parseFloat(document.getElementById('alt-'+id)?.value) || 0,
+    larg: parseFloat(document.getElementById('lar-'+id)?.value) || 0,
+    prof: parseFloat(document.getElementById('pro-'+id)?.value) || 0
+  }));
+}
+
+function coletarCamposCotacao() {
   const totalEl = document.querySelector('.result-total-val');
   const ovTot = getOverrideTotal();
   const pisoEl = document.querySelector('.row-piso-val');
   const pisoVal = (getOverridePiso() || (pisoEl ? parseFloat(pisoEl.innerText.replace(/[^\d,]/g,'').replace(',','.')) : null));
-  const data = {
+  return {
     vendedor:    document.getElementById('vendedor')?.value?.trim()||'',
     cliente:     document.getElementById('cliente')?.value?.trim()||'',
     modalidade:  modo==='fracionado'?'Fracionado':'Dedicado',
@@ -3709,8 +4062,35 @@ async function saveToSheets(){
     valor:       ovTot ? ovTot.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}) : (totalEl?.innerText?.trim()||''),
     empresa:     document.getElementById('empresa-emit')?.value?.trim()||'',
     cnpjEmit:    document.getElementById('emit-cnpj')?.textContent?.trim()||'',
-    cnpjTomador: document.getElementById('cnpj-tomador')?.value?.trim()||''
+    cnpjTomador: document.getElementById('cnpj-tomador')?.value?.trim()||'',
+    // ── Campos completos (antes não eram salvos) ──
+    faturamento:        document.getElementById('faturamento')?.value?.trim()||'',
+    tabela:              document.getElementById('tabela')?.value||'',
+    tipoCarga:           document.getElementById('carga')?.value||'',
+    eixos:               document.getElementById('eixos')?.value||'',
+    km:                  document.getElementById('km')?.value||'',
+    viagens:             document.getElementById('viagens')?.value||'',
+    valKm:               document.getElementById('val-km')?.value||'',
+    pesoReal:            document.getElementById('peso-real')?.value||'',
+    cubagem:             modo==='fracionado' ? JSON.stringify(serializeCubagem()) : '',
+    capPeso:             document.getElementById('cap-peso')?.value||'',
+    capVol:              document.getElementById('cap-vol')?.value||'',
+    margemTipo:          document.getElementById('margem-tipo')?.value||'',
+    margemVal:           document.getElementById('margem-val')?.value||'',
+    overridePiso:        document.getElementById('override-piso')?.value?.trim()||'',
+    overrideTotal:       document.getElementById('override-total')?.value?.trim()||'',
+    overrideDesconto:    document.getElementById('override-desconto')?.value?.trim()||'',
+    prazoDias:           document.getElementById('prazo-dias')?.value?.trim()||'',
+    observacoesCliente:  document.getElementById('observacoes')?.value?.trim()||'',
+    tipoMaterial:        document.getElementById('tipo-material')?.value?.trim()||'',
+    valorNF:             document.getElementById('valor-nf')?.value?.trim()||''
   };
+}
+
+async function saveToSheets(){
+  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
+  if(!url) return null;
+  const data = coletarCamposCotacao();
   try{
     const res=await fetch(url,{
       method:'POST',
@@ -3934,6 +4314,7 @@ function getTodasPlacas(){
 }
 
 addCubRow();calc();
+initAprovacaoUI();
 
 /* ============================================================
    REFAZER COTAÇÃO — carregar + sobrescrever saveToSheets
@@ -3969,15 +4350,51 @@ async function loadRefazer() {
       panel.classList.remove('loaded');
       return;
     }
-    // Preenche TODOS os campos editáveis da cotação original
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-    setVal('vendedor',    row['Vendedor']);
-    setVal('cliente',     row['Cliente']);
+    // Preenche TODOS os campos editáveis da cotação original (Ponto 1 —
+    // antes só um punhado de campos voltava; agora é a calculadora inteira)
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== '') el.value = val; };
+    setVal('vendedor',     row['Vendedor']);
+    setVal('cliente',      row['Cliente']);
     setVal('cnpj-tomador', row['CNPJ Tomador']);
-    // Modalidade — troca o modo antes de preencher origens
+    setVal('faturamento',  row['Faturamento']);
+    setVal('tabela',       row['Tabela']);
+    setVal('carga',        row['TipoCarga']);
+    setVal('eixos',        row['Eixos']);
+    setVal('km',           row['KM']);
+    setVal('viagens',      row['Viagens']);
+    setVal('val-km',       row['ValKm']);
+    setVal('peso-real',    row['PesoReal']);
+    setVal('cap-peso',     row['CapPeso']);
+    setVal('cap-vol',      row['CapVol']);
+    setVal('margem-tipo',  row['MargemTipo']);
+    setVal('margem-val',   row['MargemVal']);
+    setVal('override-piso',     row['OverridePiso']);
+    setVal('override-total',    row['OverrideTotal']);
+    setVal('override-desconto', row['OverrideDesconto']);
+    setVal('prazo-dias',   row['PrazoDias']);
+    setVal('observacoes',  row['ObservacoesCliente']);
+    setVal('tipo-material', row['TipoMaterial']);
+    setVal('valor-nf',      row['ValorNF']);
+    // Modalidade — troca o modo antes de preencher cubagem/origens
     if (row['Modalidade']) {
       const isFrac = String(row['Modalidade']).toLowerCase().includes('frac');
       setModo(isFrac ? 'fracionado' : 'dedicado');
+    }
+    // Cubagem — limpa as linhas padrão e recria a partir do JSON salvo
+    if (row['Cubagem']) {
+      try {
+        const vols = JSON.parse(row['Cubagem']);
+        if (Array.isArray(vols) && vols.length) {
+          cubRows.slice().forEach(id => delCubRow(id));
+          vols.forEach(v => {
+            addCubRow();
+            const id = cubRows[cubRows.length - 1];
+            const setC = (pref, val) => { const el = document.getElementById(pref+'-'+id); if (el && val !== undefined) el.value = val; };
+            setC('qtd', v.qtd); setC('alt', v.alt); setC('lar', v.larg); setC('pro', v.prof);
+          });
+          recalcCubagem();
+        }
+      } catch(e) { /* Cubagem antiga/vazia — ignora e mantém linha padrão */ }
     }
     // Origem e Destino
     if (row['Cidade Origem'])  {
@@ -4000,14 +4417,15 @@ async function loadRefazer() {
         if (el) { el.textContent = row['CNPJ Emit']; el.style.display = 'flex'; }
       }
     }
-    // Piso — tenta aplicar override se o campo existir
-    if (row['Piso']) {
+    // Piso — tenta aplicar override se o campo existir e não veio pelo OverridePiso
+    if (row['Piso'] && !row['OverridePiso']) {
       const pisoNum = parseFloat(String(row['Piso']).replace(/[^\d,]/g,'').replace(',','.'));
       if (!isNaN(pisoNum)) {
-        const pisoInput = document.getElementById('override-piso') || document.querySelector('[id*="piso"][id*="override"]');
+        const pisoInput = document.getElementById('override-piso');
         if (pisoInput) { pisoInput.value = pisoNum.toFixed(2); }
       }
     }
+    onOverride();
     refazerAtivo = { numero: row['Numero'], editCount };
     panel.classList.add('loaded');
     const restantes = 2 - editCount;
@@ -4031,24 +4449,7 @@ async function loadRefazer() {
     if (!refazerAtivo) return _orig();
     const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
     if (!url) return null;
-    const totalEl = document.querySelector('.result-total-val');
-    const ovTot   = getOverrideTotal();
-    const pisoEl  = document.querySelector('.row-piso-val');
-    const pisoVal = (getOverridePiso() || (pisoEl ? parseFloat(pisoEl.innerText.replace(/[^\d,]/g,'').replace(',','.')) : null));
-    const data = {
-      action:      'refazer',
-      numero:      refazerAtivo.numero,
-      vendedor:    document.getElementById('vendedor')?.value?.trim()||'',
-      cliente:     document.getElementById('cliente')?.value?.trim()||'',
-      modalidade:  modo==='fracionado'?'Fracionado':'Dedicado',
-      origem:      document.getElementById('addr-origem')?.value?.trim()||'',
-      destino:     document.getElementById('addr-destino')?.value?.trim()||'',
-      piso:        pisoVal ? pisoVal.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}) : '',
-      valor:       ovTot ? ovTot.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2}) : (totalEl?.innerText?.trim()||''),
-      empresa:     document.getElementById('empresa-emit')?.value?.trim()||'',
-      cnpjEmit:    document.getElementById('emit-cnpj')?.textContent?.trim()||'',
-      cnpjTomador: document.getElementById('cnpj-tomador')?.value?.trim()||''
-    };
+    const data = Object.assign({ action: 'refazer', numero: refazerAtivo.numero }, coletarCamposCotacao());
     try {
       const res  = await fetch(url, { method:'POST', body: JSON.stringify(data) });
       const json = await res.json();
