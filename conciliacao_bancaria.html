@@ -585,7 +585,6 @@ tbody tr:last-child{border-bottom:none;}
     <select class="fsel" id="tx-f-subcat" onchange="filterTx()"><option value="">Todas as Subcategorias</option></select>
     <select class="fsel" id="tx-f-type" onchange="filterTx()"><option value="">Todos os Tipos</option><option value="C">Crédito</option><option value="D">Débito</option></select>
     <button class="btn bg bsm" onclick="resetTxFilters()" style="color:var(--gray-400)" title="Limpar filtros">✕</button>
-    <button class="btn ba bsm" onclick="autoClassifyAll()">✦ Classificar Pendentes</button>
     <button class="btn bg bsm" onclick="exportTx()">⬇ Exportar CSV</button>
   </div>
 
@@ -663,7 +662,6 @@ tbody tr:last-child{border-bottom:none;}
       <option value="">Todos os Bancos</option>
     </select>
     <button class="btn bg bsm" onclick="resetConcilFilters()" style="color:var(--gray-400)" title="Limpar filtros">✕</button>
-    <button class="btn ba bsm" onclick="autoReconcile()">✦ Conciliar Automaticamente</button>
   </div>
   <div class="frow" style="margin-top:-8px">
     <label style="font-size:.72rem;color:var(--gray-500);white-space:nowrap;flex-shrink:0">📅 Período:</label>
@@ -707,7 +705,14 @@ tbody tr:last-child{border-bottom:none;}
     <div class="cb0"><div style="overflow-x:auto"><table>
       <thead><tr>
         <th style="width:32px"><input type="checkbox" class="con-chk" id="con-select-all" onchange="conToggleSelectAllFiltered(this.checked)" title="Selecionar todos os filtrados"></th>
-        <th>Data</th><th>Tipo</th><th>Descrição Extrato</th><th>Banco</th><th style="text-align:right">Valor</th><th>Categoria</th><th>Status</th><th style="text-align:right">Ações</th>
+        <th class="sortable" onclick="sortCon('date')">Data <span class="sort-ind" data-field="date">⇕</span></th>
+        <th class="sortable" onclick="sortCon('type')">Tipo <span class="sort-ind" data-field="type">⇕</span></th>
+        <th class="sortable" onclick="sortCon('desc')">Descrição Extrato <span class="sort-ind" data-field="desc">⇕</span></th>
+        <th class="sortable" onclick="sortCon('banco')">Banco <span class="sort-ind" data-field="banco">⇕</span></th>
+        <th class="sortable" onclick="sortCon('val')" style="text-align:right">Valor <span class="sort-ind" data-field="val">⇕</span></th>
+        <th class="sortable" onclick="sortCon('cat')">Categoria <span class="sort-ind" data-field="cat">⇕</span></th>
+        <th class="sortable" onclick="sortCon('status')">Status <span class="sort-ind" data-field="status">⇕</span></th>
+        <th style="text-align:right">Ações</th>
       </tr></thead>
       <tbody id="con-tbody"></tbody>
     </table></div></div>
@@ -1996,20 +2001,15 @@ function processFile(file) {
           const fitid    = (tx.fitid || '').trim();
           const keyFull  = tx.date + '|' + parseFloat(tx.val).toFixed(2) + '|' + (tx.desc||'').trim();
 
-          // ── CAMADA 1: INTER-importação ──
-          // Rejeita APENAS registros já existentes em importações anteriores.
-          // existingFitids e existingKeys foram construídos de S.transactions
-          // ANTES deste lote começar e NÃO são alterados aqui.
-          if (fitid && existingFitids.has(fitid)) {
-            importLog.ignorados++;
-            importLog.avisos.push(`[INTER-FITID] ${tx.date} | ${fM(tx.val)} | ${tx.desc.slice(0,40)}`);
-            return;
-          }
-          if (!fitid && existingKeys.has(keyFull)) {
-            importLog.ignorados++;
-            importLog.avisos.push(`[INTER-CHAVE] ${tx.date} | ${fM(tx.val)} | ${tx.desc.slice(0,40)}`);
-            return;
-          }
+          // ── CAMADA 1 (removida a pedido) ──
+          // Antes, um lançamento já existente em uma importação ANTERIOR era
+          // silenciosamente descartado (nem entrava no sistema) — isso fazia
+          // reimportar o mesmo arquivo parecer "não trazer nada", mesmo o
+          // arquivo sendo reconhecido normalmente. Removida: agora reimportar
+          // o mesmo arquivo (ou qualquer outro) quantas vezes for preciso
+          // sempre traz os lançamentos de novo — a marcação de duplicata
+          // (Camada 2 abaixo) continua existindo, só que só AVISA, nunca
+          // rejeita o registro.
 
           // ── CAMADA 2: INTRA-lote ──
           // Detecta duplicatas DENTRO do mesmo arquivo.
@@ -2017,10 +2017,12 @@ function processFile(file) {
           // O registro É IMPORTADO mas marcado como 'duplicate'.
           const batchKey = fitid || keyFull;
 
-          // Classifica
+          // Categoria: só usa o que já vier pronto do próprio arquivo (ex: OFX
+          // com categoria salva). Não chama mais a IA pra "adivinhar" — fica
+          // como "Não Classificado" e a classificação é sempre manual.
           let cat = tx.cat && tx.cat.trim() && tx.cat !== 'CUSTO NÃO LOCALIZADO' ? tx.cat.trim() : null;
           let conf = 100;
-          if (!cat) { const ai = classifyAI(tx.desc); cat = ai.cat; conf = ai.conf; }
+          if (!cat) { cat = 'Não Classificado'; conf = 0; }
 
           // Auto-adiciona categorias novas do arquivo
           if (cat && cat !== 'Não Classificado' && cat !== 'CUSTO NÃO LOCALIZADO' && !S.categories.find(c => c.name === cat)) {
@@ -3373,10 +3375,24 @@ function filterConcil() {
     return true;
   });
 
-  _conFilteredCache = filtered;
+  // Ordenação clicável — preserva os filtros acima
+  let ordenado = filtered;
+  if (_conSort.field && CON_SORT_GETTERS[_conSort.field]) {
+    const getter = CON_SORT_GETTERS[_conSort.field];
+    const dir = _conSort.dir === 'asc' ? 1 : -1;
+    ordenado = [...filtered].sort((a, b) => {
+      const va = getter(a), vb = getter(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return  1 * dir;
+      return 0;
+    });
+  }
+
+  _conFilteredCache = ordenado;
+  updateConSortIndicators();
 
   const lbl = document.getElementById('con-count-label');
-  if (lbl) lbl.textContent = filtered.length + ' de ' + base.length + ' lançamentos';
+  if (lbl) lbl.textContent = ordenado.length + ' de ' + base.length + ' lançamentos';
 
   const tbody = document.getElementById('con-tbody');
   if (!S.transactions.length) {
@@ -3390,7 +3406,7 @@ function filterConcil() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(t => {
+  tbody.innerHTML = ordenado.map(t => {
     const i = S.transactions.indexOf(t);
     const key = txKey(t);
     const selected = _conSelected.has(key);
@@ -3536,14 +3552,16 @@ function desconciliarFiltro() {
   if (!confirm(
     'Desconciliar ' + conciliados.length + ' lançamento(s)?' +
     (desc.length ? '\n\nFiltro: ' + desc.join(' · ') : '') +
-    '\n\nOs lançamentos voltarão para "Não localizado".'
+    '\n\nOs lançamentos voltarão para "Não localizado" e a categoria feita neles também será apagada.'
   )) return;
 
-  conciliados.forEach(t => { t.status = 'unclassified'; });
+  // Desconciliar apaga tanto o status quanto a categoria que tinha sido
+  // feita — volta pro estado "em branco" de verdade, não só o status.
+  conciliados.forEach(t => { t.status = 'unclassified'; t.cat = 'Não Classificado'; t.conf = 0; });
   saveState();
   updateBadges();
   filterConcil();
-  toast(`${conciliados.length} lançamento(s) desconciliados`, '↺');
+  toast(`${conciliados.length} lançamento(s) desconciliados (status e categoria apagados)`, '↺');
 }
 
 function deleteTx(idx) {
@@ -3578,6 +3596,40 @@ function autoReconcile() {
 let _conSelected = new Set();   // chaves (txKey) das transações selecionadas na Conciliação
 let _conFilteredCache = [];     // último resultado filtrado (para "selecionar todos filtrados")
 let _simPromptCtx = null;       // contexto pendente do prompt "Foram encontrados N lançamentos…"
+
+// Ordenação clicável do Painel de Conciliação — mesmo padrão da aba
+// Transações (_txSort/TX_SORT_GETTERS/sortTx).
+let _conSort = { field: null, dir: 'asc' };
+const CON_SORT_GETTERS = {
+  date:   t => parseDateBR(t.date) || new Date(0),
+  type:   t => t.type || '',
+  desc:   t => (t.desc || '').toLowerCase(),
+  banco:  t => (t.banco || '').toLowerCase(),
+  val:    t => t.val,
+  cat:    t => (t.cat || '').toLowerCase(),
+  status: t => t.status || '',
+};
+function sortCon(field) {
+  if (_conSort.field === field) {
+    _conSort.dir = _conSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _conSort.field = field;
+    _conSort.dir = 'asc';
+  }
+  filterConcil();
+}
+function updateConSortIndicators() {
+  document.querySelectorAll('#view-conciliation .sort-ind').forEach(el => {
+    const f = el.dataset.field;
+    if (f === _conSort.field) {
+      el.textContent = _conSort.dir === 'asc' ? '▲' : '▼';
+      el.classList.add('active');
+    } else {
+      el.textContent = '⇕';
+      el.classList.remove('active');
+    }
+  });
+}
 
 // ── Seleção individual ──
 function toggleConSelect(key, checked) {
