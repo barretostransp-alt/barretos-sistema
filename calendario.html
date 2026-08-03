@@ -1170,8 +1170,20 @@ function evVisible(ev) {
 
   // Evento é visível se qualquer participante OU criador estiver nos visíveis
   var todos = parts.concat(criador ? [criador] : []);
-  if (!todos.length) return visible.indexOf(currentLogin) >= 0;
-  return todos.some(function(p){ return visible.indexOf(p) >= 0; });
+  var visivelPorUsuario = !todos.length
+    ? visible.indexOf(currentLogin) >= 0
+    : todos.some(function(p){ return visible.indexOf(p) >= 0; });
+  if (!visivelPorUsuario) return false;
+
+  // Alerta/Lembrete são privados — só aparecem quando o dono do evento é
+  // o próprio usuário logado. Ao ver a agenda de outra pessoa, esses dois
+  // tipos ficam escondidos; só Reunião e Evento continuam visíveis dela.
+  if (ev.tipo === 'alerta' || ev.tipo === 'lembrete') {
+    var souDono = todos.length ? (todos.indexOf(currentLogin) >= 0) : true;
+    if (!souDono) return false;
+  }
+
+  return true;
 }
 
 function parseEvent(row) {
