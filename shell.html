@@ -1021,19 +1021,18 @@ async function aplicarPermissoes(login){
 }
 
 function aplicarMenuPermissoes(p){
-  // Ferramentas controláveis por permissão
+  // Ferramentas controláveis por permissão — sempre respeita exatamente o
+  // que está na lista salva do usuário. (Removido um "atalho" antigo que
+  // liberava TODAS as abas sempre que a lista não continha "helpdesk" e
+  // "diarias" ao mesmo tempo — isso fazia qualquer usuário sem essas duas
+  // ferramentas específicas passar a ver tudo, inclusive abas que ele
+  // nunca deveria acessar. Se uma ferramenta nova precisar ser liberada
+  // pra alguém, isso deve ser feito atualizando a permissão dela mesmo,
+  // não escondendo o controle de acesso inteiro.)
   ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
-    // Se a lista de permissões veio do servidor E tem itens, respeita
-    // Se helpdesk não está na lista MAS a lista é antiga (não tem diarias nem helpdesk),
-    // considera que foi salvo antes dessas ferramentas existirem e mostra
-    var listaAntiga = !p.includes("helpdesk") && !p.includes("diarias");
-    if(listaAntiga){
-      el.style.display="flex";
-    } else {
-      el.style.display=p.includes(k)?"flex":"none";
-    }
+    el.style.display=p.includes(k)?"flex":"none";
   });
   var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
   Object.keys(sm).forEach(function(s){
