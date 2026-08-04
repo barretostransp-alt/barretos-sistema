@@ -979,15 +979,22 @@ function applyUser(user){
   // Restore user colors after login
   setTimeout(carregarCorSalva, 100);
   // Alerta de novas solicitações no Financeiro (só pra Lisa Marie)
-  iniciarAlertaFilaFinanceiro(user);
+  // DESATIVADO TEMPORARIAMENTE (plano paliativo de redução de chamadas no
+  // Apps Script, enquanto a migração de banco de dados não fica pronta) —
+  // religar assim que o banco novo estiver no ar.
+  // iniciarAlertaFilaFinanceiro(user);
   // Alerta de "você foi incluído em um evento" do Calendário (pra todo mundo)
-  iniciarAlertaEventoCalendario(user);
+  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
+  // iniciarAlertaEventoCalendario(user);
   // Lembrete diário às 16h com os eventos do dia seguinte (pra todo mundo)
-  iniciarLembreteDiario(user);
+  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
+  // iniciarLembreteDiario(user);
   // Alerta de cotação aguardando aprovação (cascata Filipe → Gabriel Pinheiro → Diego Flórido)
-  iniciarAlertaAprovacaoCotacao(user);
+  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
+  // iniciarAlertaAprovacaoCotacao(user);
   // Alerta de atividade na própria cotação (comentário ou decisão) — Sabrina Ferreira e Leonardo
-  iniciarAlertaAtividadeCotacao(user);
+  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
+  // iniciarAlertaAtividadeCotacao(user);
 }
 
 async function aplicarPermissoes(login){
