@@ -946,15 +946,36 @@ var filtroAlertaDashAtual = "todos"; // "todos" | "vencidos" | "avencer"
    guarda Vencimento/Categoria/Descrição/Observação, esses campos são
    completados a partir do cache local (localStorage) quando existir um
    lançamento correspondente; senão ficam com um valor padrão razoável. */
+/* ── Nova tentativa automática quando o backend está ocupado ──
+   O Apps Script agora devolve {ok:false, ocupado:true, erro:'...'} em vez
+   de ficar pendurado até travar (planilha ocupada por outra operação
+   simultânea). Em vez de mostrar erro na hora, espera um pouco e tenta
+   de novo sozinho — na prática, o usuário nem chega a perceber. */
+async function fetchComTentativas_(url, options, maxTentativas){
+  maxTentativas = maxTentativas || 3;
+  for(var tentativa = 1; tentativa <= maxTentativas; tentativa++){
+    try{
+      var res = await fetch(url, options);
+      var json = await res.json();
+      if(json && json.ocupado && tentativa < maxTentativas){
+        await new Promise(function(r){ setTimeout(r, 2500); });
+        continue;
+      }
+      return json;
+    }catch(e){
+      if(tentativa >= maxTentativas) throw e;
+      await new Promise(function(r){ setTimeout(r, 2500); });
+    }
+  }
+}
+
 async function loadAllData(){
   var carregouDaPlanilha = false;
   if(WEBAPP_URL_PIX){
     try{
       var cacheLocal = lerLocalStorage();
-      var resPagar = await fetch(WEBAPP_URL_PIX);
-      var dadosPagar = await resPagar.json();
-      var resReceber = await fetch(WEBAPP_URL_PIX + '?aba=receber');
-      var dadosReceber = await resReceber.json();
+      var dadosPagar = await fetchComTentativas_(WEBAPP_URL_PIX);
+      var dadosReceber = await fetchComTentativas_(WEBAPP_URL_PIX + '?aba=receber');
       var pagarReconstruido = Array.isArray(dadosPagar) ? reconstruirPagarDaPlanilha_(dadosPagar, cacheLocal) : [];
       var receberReconstruido = Array.isArray(dadosReceber) ? reconstruirReceberDaPlanilha_(dadosReceber, cacheLocal) : [];
       lancamentos = pagarReconstruido.concat(receberReconstruido);
@@ -1181,8 +1202,8 @@ function atualizarAvisoDuplicidade(){
    Contas a Receber (Nova Fatura), cada um na sua aba. */
 function postSheetPix_(payload){
   if(!WEBAPP_URL_PIX) return;
-  fetch(WEBAPP_URL_PIX, {method:'POST', body: JSON.stringify(payload)})
-    .catch(e=>console.error('Falha ao sincronizar com a planilha.', e));
+  fetchComTentativas_(WEBAPP_URL_PIX, {method:'POST', body: JSON.stringify(payload)})
+    .catch(e=>console.error('Falha ao sincronizar com a planilha (mesmo após novas tentativas).', e));
 }
 // Código usado como chave na planilha: o do card do kanban quando existe,
 // ou um identificador sintético (GERAL-<id>) para lançamentos manuais.
