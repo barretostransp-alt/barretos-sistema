@@ -294,6 +294,31 @@ function fromDateInp(s){
 }
 
 var WEBAPP_URL="https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
+
+/* ── Nova tentativa automática quando o backend está ocupado ──
+   O Kanban é o módulo com mais gente mexendo ao mesmo tempo — o Apps
+   Script agora devolve {success:false, ocupado:true} em vez de ficar
+   pendurado até travar (planilha ocupada por outra pessoa). Em vez de
+   mostrar erro na hora, espera um pouco e tenta de novo sozinho — na
+   prática, a maioria das vezes o usuário nem chega a perceber. */
+async function fetchComTentativas_(url, options, maxTentativas){
+  maxTentativas = maxTentativas || 3;
+  for(var tentativa = 1; tentativa <= maxTentativas; tentativa++){
+    try{
+      var res = await fetch(url, options);
+      var json = await res.json();
+      if(json && json.ocupado && tentativa < maxTentativas){
+        await new Promise(function(r){ setTimeout(r, 2500); });
+        continue;
+      }
+      return json;
+    }catch(e){
+      if(tentativa >= maxTentativas) throw e;
+      await new Promise(function(r){ setTimeout(r, 2500); });
+    }
+  }
+}
+
 var allCards=[],editKey=null,vendedores=[],pendAtt=[],driveAtts=[];
 // ── getExtra / saveExtra — compatibilidade com dados antigos
 function getExtra(key) {
@@ -314,8 +339,7 @@ async function loadData(){
   var btn=document.getElementById("btn-ref");
   btn.innerHTML="<span class=\"spinner\"></span>";
   try{
-    var r=await fetch(WEBAPP_URL+"?aba="+encodeURIComponent(ABA));
-    var j=await r.json();
+    var j=await fetchComTentativas_(WEBAPP_URL+"?aba="+encodeURIComponent(ABA));
     if(!j.success)throw new Error(j.error);
     allCards=j.rows;
     // rebuild vendedores list
@@ -625,8 +649,7 @@ async function saveCard(){
     var pl=editKey
       ?{action:"update",aba:ABA,chave:editKey,dados:dados}
       :{action:"create",aba:ABA,dados:dados};
-    var r=await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify(pl)});
-    var j=await r.json();
+    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify(pl)});
     if(!j.success)throw new Error(j.error);
     var ck=editKey||dados["DT CODIGO"];
     saveExtra(ck,dados);
@@ -644,8 +667,7 @@ async function deleteCard(){
   if(!confirm("Excluir card "+editKey+"?"))return;
   var msg=document.getElementById("mmsg");
   try{
-    var r=await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"delete",aba:ABA,chave:editKey})});
-    var j=await r.json();if(!j.success)throw new Error(j.error);
+    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"delete",aba:ABA,chave:editKey})});if(!j.success)throw new Error(j.error);
     // anexos limpos automaticamente ao excluir card via Drive
     await loadData();closeModal();
   }catch(ex){msg.textContent="Erro: "+ex.message;msg.className="mmsg err";}
@@ -659,8 +681,7 @@ function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").re
 
 function carregarAnexosDrive(chave) {
   if (!chave || !WEBAPP_URL) return;
-  fetch(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
-    .then(function(r) { return r.json(); })
+  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
     .then(function(j) {
       if (j.success) { driveAtts = j.anexos || []; renderAttList();
         try { localStorage.setItem("attcnt_"+chave, JSON.stringify(driveAtts)); } catch(e) {} }
@@ -742,14 +763,9 @@ function rmAttDrive(fileId, i) {
     return; 
   }
   console.log("[rmAttDrive] Enviando requisição DELETE para Apps Script");
-  fetch(WEBAPP_URL, {
+  fetchComTentativas_(WEBAPP_URL, {
     method: "POST",
     body: JSON.stringify({ action: "excluir_anexo", fileId: fileId })
-  })
-  .then(function(r) {
-    console.log("[rmAttDrive] Resposta HTTP recebida:", r.status);
-    if (!r.ok) throw new Error("HTTP " + r.status); 
-    return r.json(); 
   })
   .then(function(j) {
     console.log("[rmAttDrive] JSON recebido:", j);
@@ -790,7 +806,7 @@ async function saveAtt(key) {
         reader.onerror = function() { reject(new Error("Falha ao ler " + f.name)); };
         reader.readAsDataURL(f);
       });
-      var r = await fetch(WEBAPP_URL, {
+      var j = await fetchComTentativas_(WEBAPP_URL, {
         method: "POST",
         body: JSON.stringify({
           action: "upload_anexo",
@@ -800,7 +816,6 @@ async function saveAtt(key) {
           mimeType: f.type || "application/octet-stream"
         })
       });
-      var j = await r.json();
       console.log('[saveAtt] resposta Drive:', JSON.stringify(j));
       if (j.success && j.anexo) { driveAtts.push(j.anexo);
         try { localStorage.setItem("attcnt_"+key, JSON.stringify(driveAtts)); } catch(e) {} }
@@ -832,11 +847,22 @@ async function ddrop(ev,status){
   var card=null;
   for(var i=0;i<allCards.length;i++){if((allCards[i]["DT CODIGO"]||allCards[i]["Chave"])===key){card=allCards[i];break;}}
   if(!card)return;
+  var statusAnterior=card["Status"];
   card["Status"]=status;
+  renderBoard(); // feedback visual imediato, otimista
   try{
-    await fetch(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"update",aba:ABA,chave:key,dados:card})});
+    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"update",aba:ABA,chave:key,dados:card})});
+    if(!j||!j.success){
+      card["Status"]=statusAnterior; // desfaz o movimento visual — não salvou de verdade
+      renderBoard();
+      alert("Não foi possível mover o card agora ("+(j&&j.error?j.error:"tente novamente")+"). O card voltou pra coluna original.");
+    }
+  }catch(ex){
+    console.warn("Erro ao mover card:",ex);
+    card["Status"]=statusAnterior;
     renderBoard();
-  }catch(ex){console.warn("Erro ao mover card:",ex);}
+    alert("Não foi possível mover o card agora. O card voltou pra coluna original — tente de novo.");
+  }
 }
 
 // ── CÓDIGO AUTOMÁTICO
@@ -981,8 +1007,7 @@ function importarCard(){
   if(found["DT CODIGO"]||found["Chave"]){
     var origemChave=found["DT CODIGO"]||found["Chave"];
     if(WEBAPP_URL){
-      fetch(WEBAPP_URL+'?action=anexos&chave='+encodeURIComponent(origemChave))
-        .then(function(r){return r.json();})
+      fetchComTentativas_(WEBAPP_URL+'?action=anexos&chave='+encodeURIComponent(origemChave))
         .then(function(j){
           if(j.success){
             driveAtts=(j.anexos||[]).slice();
