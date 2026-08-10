@@ -365,6 +365,9 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
       </select>
     </div>
     <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" id="btn-historico-completo" onclick="carregarHistoricoCompleto()" title="Traz também os pagos/recebidos há mais de 30 dias">
+        <i class="ti ti-history" style="font-size:13px"></i> Ver Histórico Completo
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="loadAllData()">
         <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
       </button>
@@ -969,13 +972,21 @@ async function fetchComTentativas_(url, options, maxTentativas){
   }
 }
 
+// Por padrão, a planilha só devolve o que ainda está pendente + o que foi
+// resolvido (pago/recebido) nos últimos 30 dias — "Ver Histórico Completo"
+// busca de novo sem esse filtro, trazendo tudo que já foi resolvido há
+// mais tempo também.
+var verHistoricoCompleto = false;
+
 async function loadAllData(){
   var carregouDaPlanilha = false;
   if(WEBAPP_URL_PIX){
     try{
       var cacheLocal = lerLocalStorage();
-      var dadosPagar = await fetchComTentativas_(WEBAPP_URL_PIX);
-      var dadosReceber = await fetchComTentativas_(WEBAPP_URL_PIX + '?aba=receber');
+      var sufixoPagar = verHistoricoCompleto ? '?tudo=1' : '';
+      var sufixoReceber = verHistoricoCompleto ? '&tudo=1' : '';
+      var dadosPagar = await fetchComTentativas_(WEBAPP_URL_PIX + sufixoPagar);
+      var dadosReceber = await fetchComTentativas_(WEBAPP_URL_PIX + '?aba=receber' + sufixoReceber);
       var pagarReconstruido = Array.isArray(dadosPagar) ? reconstruirPagarDaPlanilha_(dadosPagar, cacheLocal) : [];
       var receberReconstruido = Array.isArray(dadosReceber) ? reconstruirReceberDaPlanilha_(dadosReceber, cacheLocal) : [];
       lancamentos = pagarReconstruido.concat(receberReconstruido);
@@ -989,6 +1000,17 @@ async function loadAllData(){
   }
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(lancamentos)); }catch(e){}
   renderAll();
+}
+
+async function carregarHistoricoCompleto(){
+  verHistoricoCompleto = true;
+  var btn = document.getElementById('btn-historico-completo');
+  if(btn){ btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Carregando...'; }
+  await loadAllData();
+  if(btn){
+    btn.innerHTML = '<i class="ti ti-history" style="font-size:12px"></i> Histórico completo carregado';
+    btn.disabled = true;
+  }
 }
 function lerLocalStorage(){
   try{ var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
@@ -1981,9 +2003,19 @@ function atualizarValorEnfasePix(){
   document.getElementById('p-enfase-legenda').textContent = legenda;
 }
 
-async function buscarCardsAba_(aba){
-  var res = await fetch(KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba));
-  var data = await res.json();
+async function buscarCardsAba_(aba, codigo){
+  var url = KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba);
+  if(codigo) url += "&codigo=" + encodeURIComponent(codigo);
+  var data = await fetchComTentativas_(url);
+  // Importante: {success:false, ocupado:true} do Kanban NÃO significa "0
+  // cards nessa aba" — significa que a busca nem chegou a acontecer
+  // direito. Tratar isso como lista vazia fazia o card aparecer como
+  // "não encontrado" mesmo quando ele existe de verdade na planilha —
+  // agora isso vira um erro de verdade, que o chamador mostra como
+  // "não foi possível buscar agora" em vez da mensagem errada.
+  if(data && data.success === false){
+    throw new Error(data.error || 'Falha ao buscar no Kanban');
+  }
   return Array.isArray(data) ? data : (data.rows || data.data || []);
 }
 
@@ -1995,13 +2027,16 @@ async function buscarCardKanban(){
   if(!codigo){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
   statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando no kanban…';
   try{
-    var cards = await buscarCardsAba_(aba);
+    // Busca só a linha do código pedido em vez da aba inteira — o servidor
+    // já filtra (bem mais rápido e mais leve que baixar tudo e procurar
+    // no navegador, principalmente com a planilha crescendo).
+    var cards = await buscarCardsAba_(aba, codigo);
     // A aba da Gonçalves pode estar salva com ou sem cedilha na planilha —
     // se a grafia escolhida não trouxe nada, tenta automaticamente a outra
     // antes de desistir.
     if((!cards || !cards.length) && (aba === 'GONCALVES' || aba === 'GONÇALVES')) {
       var abaAlternativa = aba === 'GONCALVES' ? 'GONÇALVES' : 'GONCALVES';
-      cards = await buscarCardsAba_(abaAlternativa);
+      cards = await buscarCardsAba_(abaAlternativa, codigo);
     }
     var card = (cards||[]).find(c => String(c["DT CODIGO"]||c["Chave"]||"").trim().toUpperCase() === codigo.toUpperCase());
     if(!card){
