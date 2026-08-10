@@ -1793,7 +1793,7 @@ function row(label,val,icon,iconColor){return `<div class="result-row"><span cla
 function calc(){
   const tab=document.getElementById('tabela').value,cIdx=parseInt(document.getElementById('carga').value),vkey=document.getElementById('eixos').value,veic=capVeic[vkey]||capVeic['carreta4'],eixo=veic.eixosAntt,km=parseFloat(document.getElementById('km').value)||0,viagens=parseInt(document.getElementById('viagens').value)||1,margemTipo=document.getElementById('margem-tipo').value,margemVal=parseFloat(document.getElementById('margem-val').value)||0,ra=document.getElementById('result-area'),eIdx=eixosIdx.indexOf(eixo),tRow=tabelas[tab][cIdx],ccd=tRow[eIdx*2],cc=tRow[eIdx*2+1];
   if(!ccd||!cc){ra.innerHTML='<div class="no-data-result"><i class="ti ti-alert-circle" style="font-size:36px;color:var(--danger);opacity:.5"></i><strong>Combinação indisponível</strong><span style="color:var(--text-muted)">Tente outro veículo ou tipo de carga para esta tabela.</span></div>';document.getElementById('btn-pdf').classList.remove('visible');return;}
-  const pisoUm=(ccd*km);
+  const pisoUm=(ccd*km)+cc;
   if(modo==='dedicado'){
     const pisoTotal=pisoUm*viagens,margem=margemTipo==='pct'?pisoTotal*(margemVal/100):margemVal*viagens,total=pisoTotal+margem;
     ra.innerHTML=`
@@ -1805,6 +1805,7 @@ function calc(){
         </div>
         <div class="result-card-body">
           ${row('CCD — deslocamento','<span style="color:var(--text-secondary);font-size:11px">' + fmtBRL(ccd) + '/km × ' + km + ' km = </span>' + fmtBRL(ccd*km),'ti-road','var(--gold)')}
+          ${row('CC — carga e descarga',fmtBRL(cc),'ti-package','var(--gold)')}
           <div class="divider-row"></div>
           ${row('Piso mínimo / viagem','<strong class="row-piso-val">' + fmtBRL(pisoUm) + '</strong>',null)}
           ${viagens>1?row('&times; '+viagens+' viagens',fmtBRL(pisoTotal),null):''}
@@ -2890,7 +2891,7 @@ function renderAprovPanel() {
       <div class="aprov-card-head">
         <span class="aprov-num">#${String(numero).padStart(4,'0')}</span>
         <span class="aprov-meta">${fmtCampo(r['Vendedor'])} · ${fmtCampo(r['Cliente'])} · ${fmtCampo(r['Cidade Origem'])} → ${fmtCampo(r['Cidade Destino'])} · ${fmtCampo(r['Valor'])}</span>
-        ${badgeAprovacaoHTML(r['StatusAprovacao'], numero)}
+        ${badgeAprovacaoHTML(r['StatusAprovacao'], numero, r['Vendedor'])}
         <button onclick="abrirDetalheCotacao('${numero}')" style="margin-left:auto;background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:4px 10px;cursor:pointer;font-size:11px">Ver cotação completa</button>
       </div>
       ${renderNotasThreadHTML(numero, r['Observacao'] || r['Observação'] || '')}
@@ -3281,42 +3282,7 @@ async function gerarOCPDF() {
   const gv=id=>(document.getElementById(id)?.value||'').trim();
   const fv=s=>String(s||'').trim()||'';
   const fmtDate=s=>{if(!s)return now.toLocaleDateString('pt-BR');const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;};
-
-  /* Salva a OC no Sheets AGORA — é o servidor quem atribui o número
-     (sequência real, baseada nas linhas já existentes, igual à Cotação —
-     nunca "reinicia" como o contador antigo do localStorage fazia).
-     Se der erro de conexão, usa o contador local só como reserva, pra
-     não travar a emissão do PDF. */
-  let numOC;
-  const urlOC = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (urlOC) {
-    try {
-      const resOC = await fetch(urlOC, {
-        method:'POST',
-        body: JSON.stringify({
-          action: 'oc',
-          solicitante: gv('oc-solicitante'),
-          cotacao: gv('oc-cotacao-ref'),
-          endColeta: gv('oc-end-coleta'),
-          endEntrega: gv('oc-end-entrega'),
-          remetente: gv('oc-rem-nome'),
-          cnpjRem: gv('oc-rem-cnpj'),
-          destinatario: gv('oc-dest-nome'),
-          cnpjDest: gv('oc-dest-cnpj'),
-          placa: getTodasPlacas(),
-          veiculo: gv('oc-veiculo'),
-          motorista: gv('oc-motorista')
-        })
-      });
-      const jsonOC = await resOC.json();
-      numOC = jsonOC.success && jsonOC.numero ? jsonOC.numero : gerarNumeroOC();
-    } catch(e) {
-      console.warn('Falha ao salvar OC no servidor, usando contador local como reserva.', e);
-      numOC = gerarNumeroOC();
-    }
-  } else {
-    numOC = gerarNumeroOC();
-  }
+  const numOC=gerarNumeroOC();
   document.getElementById('oc-numero').value=numOC;
   const emp=getOCEmpresaData();
   const empNome=emp.nome||(gv('oc-empresa-emit')||gv('empresa-emit')||"BARRETO'S TRANSPORTES E SERVIÇOS LTDA").toUpperCase();
@@ -3454,8 +3420,29 @@ async function gerarOCPDF() {
     cnh:       gv('oc-cnh'),
     categoria: gv('oc-cnh-cat')
   });
-  // OC já foi salva no servidor lá no início da função (é de lá que veio
-  // o número sequencial usado no PDF) — não salva de novo aqui.
+
+  /* Salva OC no Sheets */
+  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
+  if (url) {
+    fetch(url, {
+      method:'POST',
+      body: JSON.stringify({
+        action: 'oc',
+        numero: numOC,
+        solicitante: gv('oc-solicitante'),
+        cotacao: gv('oc-cotacao-ref'),
+        endColeta: gv('oc-end-coleta'),
+        endEntrega: gv('oc-end-entrega'),
+        remetente: gv('oc-rem-nome'),
+        cnpjRem: gv('oc-rem-cnpj'),
+        destinatario: gv('oc-dest-nome'),
+        cnpjDest: gv('oc-dest-cnpj'),
+        placa: getTodasPlacas(),
+        veiculo: gv('oc-veiculo'),
+        motorista: gv('oc-motorista')
+      })
+    }).catch(()=>{});
+  }
 
   doc.save(`ordem-coleta-OC${numOC}-${now.toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
 }
@@ -3848,7 +3835,7 @@ function abrirDetalheCotacao(numero) {
       <div class="det-field"><div class="det-lbl">CNPJ Emitente</div><div class="det-val">${fmtCampo(r['CNPJ Emit'])}</div></div>
       <div class="det-field"><div class="det-lbl">CNPJ Tomador</div><div class="det-val">${fmtCampo(r['CNPJ Tomador'])}</div></div>
       <div class="det-field"><div class="det-lbl">Status (cliente)</div><div class="det-val">${fmtCampo(r['Status'])}</div></div>
-      <div class="det-field"><div class="det-lbl">Aprovação interna</div><div class="det-val">${badgeAprovacaoHTML(r['StatusAprovacao'], numero)}</div></div>
+      <div class="det-field"><div class="det-lbl">Aprovação interna</div><div class="det-val">${badgeAprovacaoHTML(r['StatusAprovacao'], numero, r['Vendedor'])}</div></div>
       <div class="det-field full"><div class="det-lbl">Observações da cotação (impressas no PDF)</div><div class="det-val">${fmtCampo(r['ObservacoesCliente'])}</div></div>
     </div>
     <div class="det-section-title"><i class="ti ti-messages" style="font-size:12px"></i> Histórico de Observação</div>
@@ -3934,17 +3921,20 @@ function entraNoFluxoAprovacao(numero) {
   return !isNaN(n) && n >= APROVACAO_MIN_NUMERO;
 }
 
-function badgeAprovacaoHTML(statusAprov, numero) {
+function badgeAprovacaoHTML(statusAprov, numero, vendedorNome) {
   if (numero !== undefined && !entraNoFluxoAprovacao(numero)) {
     return `<span class="badge-status" style="background:rgba(123,127,150,.1);color:var(--txt-dim,#888);border:1px solid var(--charcoal-border)">Fora do fluxo</span>`;
   }
-  const st = statusAprov || 'Aguardando';
+  // Cotação do próprio aprovador — não passa pelo fluxo de aprovação (os
+  // 3 aprovadores não aprovam a própria cotação), então sempre mostra
+  // como Aprovada aqui, independente do que estiver salvo na planilha.
+  const st = vendedorNome && vendedorEhAprovador(vendedorNome) ? 'Aprovada' : (statusAprov || 'Aguardando');
   const cls = st === 'Aprovada' ? 'badge-aprovada' : st === 'Recusada' ? 'badge-recusada' : 'badge-aguardando';
   return `<span class="badge-status ${cls}">${st}</span>`;
 }
 
 function buildAprovCell(r) {
-  return `<td>${badgeAprovacaoHTML(r['StatusAprovacao'], getLocalKey(r))}</td>`;
+  return `<td>${badgeAprovacaoHTML(r['StatusAprovacao'], getLocalKey(r), r['Vendedor'])}</td>`;
 }
 
 function buildObsCell(r, rowKey) {
@@ -4368,9 +4358,12 @@ async function loadRefazer() {
     const row = json.rows.find(r => parseInt(r['Numero'], 10) === numSearch);
     if (!row) { errEl.textContent = 'Cotação #' + numRaw.padStart(4,'0') + ' não encontrada.'; errEl.style.display = 'block'; return; }
     const editCount = parseInt(row['Revisoes'] || '0', 10);
-    // Trava de "até 2 revisões" removida a pedido — refazer uma cotação
-    // não tem mais limite de tentativas. editCount continua existindo só
-    // como contador informativo (mostrado no badge mais abaixo).
+    if (editCount >= 2) {
+      errEl.textContent = 'Cotação #' + numRaw.padStart(4,'0') + ' já atingiu o limite de 2 revisões permitidas.';
+      errEl.style.display = 'block';
+      panel.classList.remove('loaded');
+      return;
+    }
     // Preenche TODOS os campos editáveis da cotação original (Ponto 1 —
     // antes só um punhado de campos voltava; agora é a calculadora inteira)
     const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== '') el.value = val; };
@@ -4449,10 +4442,11 @@ async function loadRefazer() {
     onOverride();
     refazerAtivo = { numero: row['Numero'], editCount };
     panel.classList.add('loaded');
+    const restantes = 2 - editCount;
     infoEl.style.display = 'flex';
     infoEl.innerHTML = '<i class="ti ti-circle-check" style="color:#2EBD85;font-size:14px"></i>'
       + '<span>Cotação <strong style="color:var(--gold)">#' + String(row['Numero']).padStart(4,'0') + '</strong> carregada — campos editáveis abaixo</span>'
-      + (editCount>0 ? '<span class="refazer-badge green">' + editCount + ' revisão' + (editCount===1?'':'ões') + ' já feita' + (editCount===1?'':'s') + '</span>' : '');
+      + '<span class="refazer-badge ' + (restantes===1?'red':'green') + '">' + restantes + ' revisão' + (restantes===1?'':'ões') + ' restante' + (restantes===1?'':'s') + '</span>';
     calc();
   } catch(e) {
     btn.disabled = false;
