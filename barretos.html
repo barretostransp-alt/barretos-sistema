@@ -183,6 +183,9 @@ body.tema-claro .kcard-foot .ktag[style*="22C55E"]{
   </select>
   <div class="tb-r">
 
+    <button class="bsm" id="btn-antigos" onclick="carregarTodosCards()" title="Carrega também os cards com Data da Coleta anterior a 2 meses atrás">
+      <i class="ti ti-history" style="font-size:12px"></i> Ver mais antigos
+    </button>
     <button class="bsm" id="btn-ref" onclick="loadData()">
       <i class="ti ti-refresh" style="font-size:12px"></i> Atualizar
     </button>
@@ -335,11 +338,24 @@ document.addEventListener("DOMContentLoaded",function(){
 
 
 
+// Por padrão, o board só carrega cards com "Data da Coleta" dos últimos 2
+// meses — reduz o tamanho do que precisa ser transferido/processado a
+// cada carregamento. "Ver mais antigos" busca de novo sem esse filtro,
+// trazendo o histórico completo pra consulta.
+var verTodosCards = false;
+function dataLimiteISO_(){
+  var d = new Date();
+  d.setMonth(d.getMonth() - 2);
+  return d.toISOString().slice(0,10);
+}
+
 async function loadData(){
   var btn=document.getElementById("btn-ref");
   btn.innerHTML="<span class=\"spinner\"></span>";
   try{
-    var j=await fetchComTentativas_(WEBAPP_URL+"?aba="+encodeURIComponent(ABA));
+    var url = WEBAPP_URL+"?aba="+encodeURIComponent(ABA);
+    if(!verTodosCards) url += "&desde="+dataLimiteISO_();
+    var j=await fetchComTentativas_(url);
     if(!j.success)throw new Error(j.error);
     allCards=j.rows;
     // rebuild vendedores list
@@ -358,6 +374,15 @@ async function loadData(){
       "Erro: "+ex.message+"</div>";
   }
   btn.innerHTML="<i class=\"ti ti-refresh\" style=\"font-size:12px\"></i> Atualizar";
+}
+
+async function carregarTodosCards(){
+  verTodosCards = true;
+  var btnAntigos = document.getElementById("btn-antigos");
+  btnAntigos.innerHTML = "<span class=\"spinner\"></span>";
+  await loadData();
+  btnAntigos.innerHTML = "<i class=\"ti ti-history\" style=\"font-size:12px\"></i> Histórico completo carregado";
+  btnAntigos.disabled = true;
 }
 
 function doFilter(){
