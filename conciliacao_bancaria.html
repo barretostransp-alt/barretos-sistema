@@ -357,18 +357,6 @@ tbody tr:last-child{border-bottom:none;}
     <div class="tb-crumb" id="topbar-crumb">Barreto's · Todas as Empresas</div>
   </div>
   <div class="tb-right">
-    <div class="period-sel">
-      <span>📅</span>
-      <select id="periodSelect">
-        <option value="jan26">Janeiro 2026</option>
-        <option value="feb26">Fevereiro 2026</option>
-        <option value="mar26">Março 2026</option>
-        <option value="apr26">Abril 2026</option>
-        <option value="may26" selected>Maio 2026</option>
-        <option value="jun26">Junho 2026</option>
-        <option value="ytd26">Jan–Jun 2026</option>
-      </select>
-    </div>
     <button class="tb-btn" title="Salvar dados agora" onclick="saveState();toast('Dados salvos no navegador','💾')">💾</button>
     <button class="tb-btn" title="Sincronizar" onclick="toast('Tudo salvo automaticamente','✅')">🔄</button>
     <button class="tb-btn" title="Notificações">🔔</button>
@@ -381,6 +369,17 @@ tbody tr:last-child{border-bottom:none;}
 <!-- DASHBOARD -->
 <div class="view active" id="view-dashboard">
   <div class="ph"><h1>📊 Dashboard Executivo</h1><p id="dash-sub">Nenhum dado importado · <span class="ai-chip">✦ IA Ativa</span></p></div>
+  <!-- Filtro de período — interno à aba (o filtro de mês do topbar foi removido: não tinha nenhuma ação associada, não filtrava nada) -->
+  <div class="frow" style="margin-bottom:16px">
+    <label style="font-size:.72rem;color:var(--gray-500);white-space:nowrap;flex-shrink:0">📅 Período:</label>
+    <input type="date" class="fc" id="dash-f-de"  style="max-width:148px" onchange="renderDashboard()" title="De">
+    <span style="font-size:.72rem;color:var(--gray-400);flex-shrink:0">até</span>
+    <input type="date" class="fc" id="dash-f-ate" style="max-width:148px" onchange="renderDashboard()" title="Até">
+    <button class="btn bg bsm" onclick="setDashPeriod('month')" style="font-size:.68rem">Este mês</button>
+    <button class="btn bg bsm" onclick="setDashPeriod('lastmonth')" style="font-size:.68rem">Mês passado</button>
+    <button class="btn bg bsm" onclick="setDashPeriod('ytd')" style="font-size:.68rem">Ano todo</button>
+    <button class="btn bg bsm" onclick="clearDashDates()" style="color:var(--danger);font-size:.68rem">✕ Limpar</button>
+  </div>
   <div class="kpi-grid">
     <div class="kpi-card kpi-clickable" style="--kc:#2EBD85" onclick="explainValue('rev')">
       <div class="kpi-label">Receita Total</div><div class="kpi-value" id="kpi-rev">R$ 0,00</div>
@@ -865,6 +864,16 @@ tbody tr:last-child{border-bottom:none;}
 <!-- CASHFLOW -->
 <div class="view" id="view-cashflow">
   <div class="ph"><h1>💰 Fluxo de Caixa</h1><p>Projeção e controle — 2026</p></div>
+  <div class="frow" style="margin-bottom:16px">
+    <label style="font-size:.72rem;color:var(--gray-500);white-space:nowrap;flex-shrink:0">📅 Período:</label>
+    <input type="date" class="fc" id="cf-f-de"  style="max-width:148px" onchange="renderCashflow()" title="De">
+    <span style="font-size:.72rem;color:var(--gray-400);flex-shrink:0">até</span>
+    <input type="date" class="fc" id="cf-f-ate" style="max-width:148px" onchange="renderCashflow()" title="Até">
+    <button class="btn bg bsm" onclick="setCfPeriod('month')" style="font-size:.68rem">Este mês</button>
+    <button class="btn bg bsm" onclick="setCfPeriod('lastmonth')" style="font-size:.68rem">Mês passado</button>
+    <button class="btn bg bsm" onclick="setCfPeriod('ytd')" style="font-size:.68rem">Ano todo</button>
+    <button class="btn bg bsm" onclick="clearCfDates()" style="color:var(--danger);font-size:.68rem">✕ Limpar</button>
+  </div>
   <div class="g2">
     <div class="card"><div class="ch"><span class="ct">💰 Saldo em Cascata (Fluxo de Caixa)</span></div><div class="cb"><div style="height:240px;position:relative"><canvas id="chart-cf"></canvas></div></div></div>
     <div class="card"><div class="ch"><span class="ct">📈 Evolução do Saldo</span></div><div class="cb"><div style="height:240px;position:relative"><canvas id="chart-bal"></canvas></div></div></div>
@@ -2302,7 +2311,7 @@ function updateBadges() {
 // DASHBOARD
 // ═══════════════════════════════════════
 function updateKPIs() {
-  const txs = filterByEmpresa(S.transactions);
+  const txs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
   // Exclude transfers/investments from KPIs
   const isTrf = t => { const c=S.categories.find(x=>x.name===t.cat); return c&&(c.type==='transfer'||c.type==='investment'); };
   const cr = txs.filter(t => t.val > 0 && !isTrf(t));
@@ -2327,7 +2336,7 @@ function renderDashboard() {
   renderExecutiveSummary();
   // Charts
   destroyChart('rev'); destroyChart('cat');
-  const _dTxs = filterByEmpresa(S.transactions);
+  const _dTxs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
   const mRev = new Array(12).fill(0), mExp = new Array(12).fill(0);
   _dTxs.forEach(t => {
     const p = t.date.split('/'); if (p.length < 2) return;
@@ -2380,7 +2389,7 @@ function renderDashboard() {
 function renderExecutiveSummary(){
   const el = document.getElementById('dash-exec-summary');
   if(!el) return;
-  const txs = filterByEmpresa(S.transactions);
+  const txs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
   const revTotal = txs.filter(t=>t.val>0).reduce((s,t)=>s+t.val,0);
   const expTxs = txs.filter(t=>t.val<0);
   const expTotal = expTxs.reduce((s,t)=>s+Math.abs(t.val),0);
@@ -3585,6 +3594,55 @@ function parseDateBR(str) {
   return new Date(str);
 }
 
+// Filtra um array de objetos com campo `date` (dd/mm/yyyy) por um intervalo
+// definido em dois inputs <input type=date> do DOM. Sem nenhum dos dois
+// preenchidos, devolve o array inteiro (sem filtro) — mesmo padrão usado
+// no filtro de período de Contas a Receber.
+function filterByPeriodo(arr, deId, ateId) {
+  const deStr  = (document.getElementById(deId)  || {value:''}).value;
+  const ateStr = (document.getElementById(ateId) || {value:''}).value;
+  if (!deStr && !ateStr) return arr;
+  const deDate  = deStr  ? new Date(deStr  + 'T00:00:00') : null;
+  const ateDate = ateStr ? new Date(ateStr + 'T23:59:59') : null;
+  return arr.filter(t => {
+    const d = parseDateBR(t.date);
+    if (!d) return false;
+    if (deDate  && d < deDate)  return false;
+    if (ateDate && d > ateDate) return false;
+    return true;
+  });
+}
+
+function _periodoRange(period) {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  if (period === 'month')     return [fmt(new Date(today.getFullYear(), today.getMonth(), 1)),   fmt(new Date(today.getFullYear(), today.getMonth()+1, 0))];
+  if (period === 'lastmonth') return [fmt(new Date(today.getFullYear(), today.getMonth()-1, 1)), fmt(new Date(today.getFullYear(), today.getMonth(), 0))];
+  if (period === 'ytd')       return [fmt(new Date(today.getFullYear(), 0, 1)),                   fmt(new Date(today.getFullYear(), 11, 31))];
+  return ['',''];
+}
+
+function setDashPeriod(period) {
+  const [de, ate] = _periodoRange(period);
+  const deEl = document.getElementById('dash-f-de'), ateEl = document.getElementById('dash-f-ate');
+  if (deEl) deEl.value = de; if (ateEl) ateEl.value = ate;
+  renderDashboard();
+}
+function clearDashDates() {
+  ['dash-f-de','dash-f-ate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderDashboard();
+}
+function setCfPeriod(period) {
+  const [de, ate] = _periodoRange(period);
+  const deEl = document.getElementById('cf-f-de'), ateEl = document.getElementById('cf-f-ate');
+  if (deEl) deEl.value = de; if (ateEl) ateEl.value = ate;
+  renderCashflow();
+}
+function clearCfDates() {
+  ['cf-f-de','cf-f-ate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderCashflow();
+}
+
 function autoReconcile() {
   let n = 0;
   S.transactions.forEach(t => {
@@ -4208,7 +4266,7 @@ function markPaid(type, i) {
 // ═══════════════════════════════════════
 function renderCashflow() {
   const byDate = {};
-  filterByEmpresa(S.transactions).forEach(t => {
+  filterByPeriodo(filterByEmpresa(S.transactions), 'cf-f-de', 'cf-f-ate').forEach(t => {
     if (!byDate[t.date]) byDate[t.date] = {i:0, o:0};
     if (t.val>0) byDate[t.date].i += t.val; else byDate[t.date].o += Math.abs(t.val);
   });
