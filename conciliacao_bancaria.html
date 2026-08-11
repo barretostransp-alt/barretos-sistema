@@ -2057,8 +2057,10 @@ function processFile(file) {
         const d = classified.filter(t => t.status === 'duplicate').length;
         const c = classified.filter(t => t.status === 'classified').length;
 
-        const creditos = classified.filter(t=>t.val>0).reduce((a,t)=>a+t.val,0);
-        const debitos  = Math.abs(classified.filter(t=>t.val<0).reduce((a,t)=>a+t.val,0));
+        // Arredonda o somatório pra 2 casas — soma de muitas parcelas em
+        // ponto flutuante (ex.: 0.1+0.2) acumula ruído tipo 484751.56999999995
+        const creditos = Math.round(classified.filter(t=>t.val>0).reduce((a,t)=>a+t.val,0) * 100) / 100;
+        const debitos  = Math.round(Math.abs(classified.filter(t=>t.val<0).reduce((a,t)=>a+t.val,0)) * 100) / 100;
 
         S.importHistory.unshift({
           id: importId,
@@ -2262,7 +2264,10 @@ function showView(name) {
 // ═══════════════════════════════════════
 const CH = {};
 function destroyChart(id) { if (CH[id]) { CH[id].destroy(); delete CH[id]; } }
-function fN(n)  { return (n || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+// Blindado contra valores que cheguem como string (ex.: vindos de dataset,
+// planilha ou JSON malformado) — sem isso, toLocaleString() não arredonda
+// strings e o valor cru (com todo o ruído de ponto flutuante) vaza pra tela.
+function fN(n)  { const v = typeof n === 'number' ? n : parseFloat(String(n).replace(',', '.')); return (isNaN(v) ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function fM(v)  { return (v < 0 ? '- ' : '') + 'R$ ' + fN(Math.abs(v || 0)); }
 
 function catBadge(cat) {
@@ -2383,8 +2388,8 @@ function renderExecutiveSummary(){
   const margem = revTotal>0 ? (netTotal/revTotal*100) : null;
   const ticketMedioDespesa = expTxs.length ? (expTotal/expTxs.length) : 0;
 
-  const payAberto = S.payables.filter(p=>p.status!=='paid').reduce((s,p)=>s+p.val,0);
-  const recAberto = S.receivables.filter(r=>r.status!=='received').reduce((s,r)=>s+(r.val||0),0);
+  const payAberto = filterByEmpresa(S.payables).filter(p=>p.status!=='paid').reduce((s,p)=>s+p.val,0);
+  const recAberto = filterByEmpresa(S.receivables).filter(r=>r.status!=='received').reduce((s,r)=>s+(r.val||0),0);
   const saldoProjetado = recAberto - payAberto;
 
   const cats = {}; expTxs.forEach(t=>{ cats[t.cat]=(cats[t.cat]||0)+Math.abs(t.val); });
@@ -4021,8 +4026,21 @@ function renderReceivable() {
   const empGlobal = getActiveCompanyName().toLowerCase();
   const empFilter = fEmp || empGlobal;
 
-  // KPIs — from ALL (unfiltered) for active company
-  const allRec = empFilter ? S.receivables.filter(r=>(r.empresa||'').trim().toLowerCase()===empFilter) : S.receivables;
+  // KPIs — respeita TODOS os filtros ativos (empresa, busca, status e período),
+  // igual à lista da tabela abaixo, pra ficar tudo em sincronia
+  const allRec = S.receivables.filter(r => {
+    if (empFilter && (r.empresa||'').trim().toLowerCase() !== empFilter) return false;
+    if (fSt && r.status !== fSt) return false;
+    if (q   && !(r.client||'').toLowerCase().includes(q) && !(r.svc||'').toLowerCase().includes(q)) return false;
+    if (deDate || ateDate) {
+      if (!r.due) return !deDate;
+      const p = r.due.split(/[-\/]/);
+      const d = r.due.includes('/') ? new Date(+p[2],+p[1]-1,+p[0]) : new Date(r.due);
+      if (deDate  && d < deDate)  return false;
+      if (ateDate && d > ateDate) return false;
+    }
+    return true;
+  });
   const pending = allRec.filter(r => r.status !== 'received');
   const d30     = new Date(); d30.setDate(d30.getDate()+30);
   const venc30  = pending.filter(r => { if(!r.due) return false; const p=r.due.split(/[-\/]/); const d=r.due.includes('/')? new Date(+p[2],+p[1]-1,+p[0]):new Date(r.due); return d >= today && d <= d30; });
@@ -4687,8 +4705,8 @@ function viewImportDetail(importId) {
   _modalImportId = importId;
 
   const txs = S.transactions.filter(t => t.importId === importId);
-  const cr   = txs.filter(t => t.val > 0).reduce((a,t) => a+t.val, 0);
-  const db   = Math.abs(txs.filter(t => t.val < 0).reduce((a,t) => a+t.val, 0));
+  const cr   = Math.round(txs.filter(t => t.val > 0).reduce((a,t) => a+t.val, 0) * 100) / 100;
+  const db   = Math.round(Math.abs(txs.filter(t => t.val < 0).reduce((a,t) => a+t.val, 0)) * 100) / 100;
   const cls  = txs.filter(t => t.status === 'classified').length;
   const unc  = txs.filter(t => t.status === 'unclassified').length;
   const dup  = txs.filter(t => t.status === 'duplicate').length;
@@ -4792,8 +4810,8 @@ function limparImportacaoTransacional(importId) {
   const chavesFitidRemovidas = fitidsRemovidos.size;
 
   // 3. Calcula totais para o log
-  const crRemovido = txRemovidas.filter(t=>t.val>0).reduce((a,t)=>a+t.val,0);
-  const dbRemovido = Math.abs(txRemovidas.filter(t=>t.val<0).reduce((a,t)=>a+t.val,0));
+  const crRemovido = Math.round(txRemovidas.filter(t=>t.val>0).reduce((a,t)=>a+t.val,0) * 100) / 100;
+  const dbRemovido = Math.round(Math.abs(txRemovidas.filter(t=>t.val<0).reduce((a,t)=>a+t.val,0)) * 100) / 100;
 
   const depois = {
     txTotal:   S.transactions.length,
@@ -5818,8 +5836,8 @@ function loadState() {
       if (!t.importId) { t.importId = legacyId; hasLegacy = true; }
     });
     if (hasLegacy && !S.importHistory.find(h => h.id === legacyId)) {
-      const cr = S.transactions.filter(t=>t.importId===legacyId&&t.val>0).reduce((a,t)=>a+t.val,0);
-      const db = Math.abs(S.transactions.filter(t=>t.importId===legacyId&&t.val<0).reduce((a,t)=>a+t.val,0));
+      const cr = Math.round(S.transactions.filter(t=>t.importId===legacyId&&t.val>0).reduce((a,t)=>a+t.val,0) * 100) / 100;
+      const db = Math.round(Math.abs(S.transactions.filter(t=>t.importId===legacyId&&t.val<0).reduce((a,t)=>a+t.val,0)) * 100) / 100;
       S.importHistory.push({
         id: legacyId,
         date: '(migrado)',
