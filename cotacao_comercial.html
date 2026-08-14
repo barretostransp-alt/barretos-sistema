@@ -4358,12 +4358,9 @@ async function loadRefazer() {
     const row = json.rows.find(r => parseInt(r['Numero'], 10) === numSearch);
     if (!row) { errEl.textContent = 'Cotação #' + numRaw.padStart(4,'0') + ' não encontrada.'; errEl.style.display = 'block'; return; }
     const editCount = parseInt(row['Revisoes'] || '0', 10);
-    if (editCount >= 2) {
-      errEl.textContent = 'Cotação #' + numRaw.padStart(4,'0') + ' já atingiu o limite de 2 revisões permitidas.';
-      errEl.style.display = 'block';
-      panel.classList.remove('loaded');
-      return;
-    }
+    // Limite de 2 revisões removido (mesmo ajuste já feito no Apps
+    // Script) — carregar pra revisão nunca mais bloqueia por quantidade
+    // de vezes já revisada.
     // Preenche TODOS os campos editáveis da cotação original (Ponto 1 —
     // antes só um punhado de campos voltava; agora é a calculadora inteira)
     const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== '') el.value = val; };
@@ -4442,11 +4439,10 @@ async function loadRefazer() {
     onOverride();
     refazerAtivo = { numero: row['Numero'], editCount };
     panel.classList.add('loaded');
-    const restantes = 2 - editCount;
     infoEl.style.display = 'flex';
     infoEl.innerHTML = '<i class="ti ti-circle-check" style="color:#2EBD85;font-size:14px"></i>'
       + '<span>Cotação <strong style="color:var(--gold)">#' + String(row['Numero']).padStart(4,'0') + '</strong> carregada — campos editáveis abaixo</span>'
-      + '<span class="refazer-badge ' + (restantes===1?'red':'green') + '">' + restantes + ' revisão' + (restantes===1?'':'ões') + ' restante' + (restantes===1?'':'s') + '</span>';
+      + (editCount>0 ? '<span class="refazer-badge green">já revisada ' + editCount + 'x</span>' : '');
     calc();
   } catch(e) {
     btn.disabled = false;
