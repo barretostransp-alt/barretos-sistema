@@ -5788,12 +5788,28 @@ function salvarConciliacaoUrl() {
   if (getConciliacaoUrl()) syncDoBackendNaAbertura();
 }
 
+// Só é seguro EMPURRAR (push) o estado local pro backend depois que a
+// primeira LEITURA (pull) do backend já tiver terminado — senão um push
+// disparado enquanto o pull ainda está em voo manda um S.transactions
+// incompleto (ex: acabou de importar hoje, mas ainda não puxou o
+// histórico) e o REPLACE completo do backend apaga tudo que já existia
+// lá. Isso é exatamente o bug de "apaga o histórico e fica só com hoje".
+let _backendCarregado = false;
 let _syncBackendTimer = null;
 function agendarSyncBackend_() {
   const url = getConciliacaoUrl();
   if (!url) return;
   clearTimeout(_syncBackendTimer);
-  _syncBackendTimer = setTimeout(syncParaBackend, 2000);
+  _syncBackendTimer = setTimeout(() => {
+    if (!_backendCarregado) {
+      // Ainda não terminamos de puxar o histórico do backend — não é
+      // seguro empurrar por cima agora. Tenta de novo em breve, sem
+      // perder a mutação pendente.
+      agendarSyncBackend_();
+      return;
+    }
+    syncParaBackend();
+  }, 2000);
 }
 
 async function syncParaBackend() {
@@ -5827,7 +5843,8 @@ async function syncParaBackend() {
 // empurra o que já existe localmente pra "batizar" a planilha.
 async function syncDoBackendNaAbertura() {
   const url = getConciliacaoUrl();
-  if (!url) return;
+  if (!url) { _backendCarregado = true; return; }
+  _backendCarregado = false; // bloqueia pushes agendados até este pull terminar (cobre também re-pull manual em "⬇️ Buscar do backend")
   const statusEl = document.getElementById('backend-sync-status');
   try {
     const res = await fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=listar');
@@ -5850,10 +5867,17 @@ async function syncDoBackendNaAbertura() {
       if (statusEl) statusEl.textContent = '✅ carregado do backend ' + new Date().toLocaleTimeString('pt-BR');
     } else {
       if (statusEl) statusEl.textContent = 'ℹ️ backend vazio — enviando dados locais…';
+      _backendCarregado = true;
       syncParaBackend();
+      return;
     }
   } catch(e) {
     if (statusEl) statusEl.textContent = '⚠️ sem conexão com o backend';
+  } finally {
+    // Libera os pushes agendados (push só é seguro depois do pull ter
+    // sido tentado, com sucesso ou não — travar pra sempre também não
+    // é seguro, é melhor deixar o próximo save tentar de novo)
+    _backendCarregado = true;
   }
 }
 
