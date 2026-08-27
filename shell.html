@@ -723,6 +723,11 @@ function showShell(){
   document.getElementById("shell").classList.add("visible");
   
 }
+function ehJesseFarias(user){
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  return nome.indexOf('jess')===0 || login.indexOf('jess')===0;
+}
 function applyUser(user){
   if (localStorage.getItem("barretos_deve_trocar_senha") === "1") {
     document.getElementById("troca-senha-overlay").style.display = "flex";
@@ -744,6 +749,14 @@ function applyUser(user){
   var perms = [];
   try { perms = JSON.parse(localStorage.getItem("barretos_permissoes")||"[]"); } catch(e) { perms = []; }
   if (perms.length > 0) { aplicarMenuPermissoes(perms); } else { mostrarTudo(); }
+  // Exceção pontual pedida pelo Alex: Jessé Farias não deve ver a tela de
+  // Início (ela não é controlada pelas permissões de módulo normais,
+  // então precisa desse tratamento à parte — mesmo padrão já usado nos
+  // alertas exclusivos da Lisa/Gisele logo abaixo).
+  if (ehJesseFarias(user)) {
+    var ni=document.getElementById("nav-inicio");
+    if(ni) ni.style.display="none";
+  }
   // Restore user colors after login
   setTimeout(carregarCorSalva, 100);
   // Alerta de novas solicitações no Financeiro (só pra Lisa Marie) —
@@ -857,7 +870,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Re-apply color after user session loads (login might not be set yet)
   setTimeout(carregarCorSalva, 800);
   var raw=sessionStorage.getItem("barretos_user")||localStorage.getItem("barretos_user");
-  if(raw){ try{ var u=JSON.parse(raw); applyUser(u); showShell(); navigate("inicio"); setTimeout(function(){ mostrarAgendaDia(u); },1200); return; }catch(e){} }
+  if(raw){ try{ var u=JSON.parse(raw); applyUser(u); showShell(); navigate(ehJesseFarias(u)?"kanban_gon":"inicio"); setTimeout(function(){ mostrarAgendaDia(u); },1200); return; }catch(e){} }
   showLogin();
 });
 
@@ -865,7 +878,7 @@ document.addEventListener("DOMContentLoaded", function(){
 window._shellLoginSuccess = function(user){
   applyUser(user);
   showShell();
-  navigate("inicio");
+  navigate(ehJesseFarias(user)?"kanban_gon":"inicio");
   setTimeout(function(){ mostrarAgendaDia(user); }, 1200);
 };
 
