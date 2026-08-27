@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Tutorial — Grupo Barreto's</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
+  --gold:#F5B800;--gold-dim:rgba(245,184,0,.12);
+  --txt:#E8EAF0;--txt-dim:#6B7280;--txt-mid:#9CA3AF;
+  --green:#22C55E;--red:#EF4444;--blue:#3B82F6;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:24px}
+
+/* ─── LOGIN ─── */
+#login-screen{width:100%;max-width:360px}
+.form-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;margin-bottom:6px}
+.form-sub{font-size:12.5px;color:var(--txt-dim);margin-bottom:26px;line-height:1.5}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:5px}
+.fi{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt);
+  font-family:'DM Sans',sans-serif;font-size:13.5px;padding:11px 13px;outline:none;transition:border-color .15s}
+.fi:focus{border-color:var(--gold)}
+.btn{width:100%;padding:12px;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-gold{background:var(--gold);color:#111}
+.msg-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:7px;padding:10px 13px;
+  font-size:11.5px;color:var(--red);margin-bottom:14px;display:none}
+.spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#111;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── WIZARD ─── */
+#wizard-screen{display:none;width:100%;max-width:760px}
+.wz-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.wz-avatar{width:38px;height:38px;border-radius:50%;background:var(--gold);color:#111;font-family:'Syne',sans-serif;
+  font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wz-who{flex:1;min-width:0}
+.wz-who .n{font-size:13.5px;font-weight:600}
+.wz-who .r{font-size:11px;color:var(--txt-dim)}
+.wz-progress{font-size:11px;color:var(--txt-dim);white-space:nowrap}
+.wz-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:28px}
+.wz-bar-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .25s}
+
+.wz-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;min-height:340px;
+  display:flex;flex-direction:column}
+.wz-icon{width:46px;height:46px;border-radius:12px;background:var(--gold-dim);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:18px}
+.wz-cat{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:6px}
+.wz-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:12px;text-wrap:balance}
+.wz-lead{font-size:14px;color:var(--txt-mid);line-height:1.6;margin-bottom:18px}
+.wz-section-ttl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);
+  margin:16px 0 8px}
+.wz-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+.wz-list li{font-size:13.5px;color:var(--txt);line-height:1.5;display:flex;gap:9px}
+.wz-list li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:7px}
+.wz-note{background:var(--gold-dim);border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  font-size:12.5px;color:var(--txt);line-height:1.55;margin-top:18px}
+.wz-note b{color:var(--gold)}
+.wz-placeholder{background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:16px;
+  font-size:12.5px;color:var(--txt-dim);margin-top:auto}
+
+.wz-body{display:flex;gap:26px;flex:1;min-height:0}
+.wz-text{flex:1;min-width:0}
+.wz-demo-wrap{width:236px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+.wz-demo-lbl{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-dim);
+  display:flex;align-items:center;gap:5px}
+.wz-demo-lbl i{color:var(--gold);font-size:11px}
+.wz-demo-screen{position:relative;height:230px;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden}
+.wz-frame{position:absolute;inset:0;padding:14px;opacity:0;transition:opacity .4s ease;display:flex;flex-direction:column;gap:8px}
+.wz-frame.on{opacity:1}
+.wz-demo-cap{font-size:11.5px;color:var(--txt-mid);line-height:1.5;min-height:32px}
+.wz-demo-dots{display:flex;gap:4px;justify-content:center}
+.wz-demo-dot{width:4px;height:4px;border-radius:50%;background:var(--border);transition:background .2s}
+.wz-demo-dot.on{background:var(--gold)}
+
+/* peças reutilizadas nas simulações animadas */
+.dm-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 9px;font-size:10.5px}
+.dm-card.hl{border-color:var(--gold)}
+.dm-code{color:var(--gold);font-weight:700;font-size:10px}
+.dm-badge{display:inline-flex;font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:99px;
+  background:var(--gold-dim);color:var(--gold);letter-spacing:.03em}
+.dm-badge.green{background:rgba(34,197,94,.14);color:var(--green)}
+.dm-field{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:9.5px;color:var(--txt-dim)}
+.dm-field.filled{color:var(--txt);border-color:var(--gold)}
+.dm-btn{background:var(--gold);color:#111;font-size:9.5px;font-weight:700;border-radius:6px;padding:6px 10px;
+  text-align:center;width:fit-content}
+.dm-cols{display:flex;gap:6px;flex:1}
+.dm-col{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px;
+  display:flex;flex-direction:column;gap:5px;min-width:0}
+.dm-col-hd{font-size:7px;font-weight:700;letter-spacing:.04em;color:var(--txt-dim);text-transform:uppercase}
+.dm-chip{width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--txt-dim);
+  font-size:8.5px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:.25s}
+.dm-chip.active{background:var(--gold);color:#111}
+.dm-chip.done{background:var(--green);color:#111}
+.dm-row{display:flex;align-items:center;gap:6px}
+
+.wz-foot{display:flex;align-items:center;gap:10px;margin-top:20px}
+.wz-dots{flex:1;display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
+.wz-dot{width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .15s}
+.wz-dot.done{background:var(--txt-dim)}
+.wz-dot.active{background:var(--gold);width:16px;border-radius:3px}
+.wz-btn{padding:10px 18px;border-radius:8px;font-family:'Syne',sans-serif;font-size:12.5px;font-weight:700;
+  cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--txt-mid);transition:.15s;
+  display:flex;align-items:center;gap:6px;white-space:nowrap}
+.wz-btn:hover{border-color:var(--gold);color:var(--gold)}
+.wz-btn.primary{background:var(--gold);color:#111;border-color:var(--gold)}
+.wz-btn.primary:hover{opacity:.88;color:#111}
+.wz-skip{text-align:center;margin-top:14px;font-size:11.5px;color:var(--txt-dim)}
+.wz-skip a{color:var(--txt-mid);text-decoration:underline;cursor:pointer}
+.wz-skip a:hover{color:var(--gold)}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="form-title">Tutorial do Sistema</div>
+  <div class="form-sub">Entre com seu login normal do sistema — o tutorial identifica sozinho quais telas você tem acesso e te ensina só o que é seu.</div>
+  <div class="msg-err" id="msg-err"></div>
+  <div class="fg"><label>Usuário</label><input class="fi" id="lg-login" placeholder="seu login" autocomplete="username"></div>
+  <div class="fg"><label>Senha</label><input class="fi" id="lg-senha" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+  <button class="btn btn-gold" id="btn-login" onclick="doLogin()"><i class="ti ti-login" style="font-size:14px"></i> Começar o tutorial</button>
+</div>
+
+<div id="wizard-screen">
+  <div class="wz-head">
+    <div class="wz-avatar" id="wz-avatar">?</div>
+    <div class="wz-who"><div class="n" id="wz-nome">—</div><div class="r" id="wz-perfil">—</div></div>
+    <div class="wz-progress" id="wz-progress">Passo 1 de 1</div>
+  </div>
+  <div class="wz-bar"><div class="wz-bar-fill" id="wz-bar-fill" style="width:0%"></div></div>
+
+  <div class="wz-card" id="wz-card"></div>
+
+  <div class="wz-foot">
+    <button class="wz-btn" id="wz-btn-back" onclick="wzVoltar()"><i class="ti ti-chevron-left"></i> Voltar</button>
+    <div class="wz-dots" id="wz-dots"></div>
+    <button class="wz-btn primary" id="wz-btn-next" onclick="wzProximo()">Próximo <i class="ti ti-chevron-right"></i></button>
+  </div>
+  <div class="wz-skip"><a onclick="irParaSistema()">Pular e ir direto pro sistema</a></div>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function loginParaEmail(login) {
+  if (login.indexOf('@') !== -1) return login;
+  var normalizado = login.toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9.]/g, '');
+  return normalizado + '@barretos.sistema';
+}
+function setErr(msg){
+  var e=document.getElementById('msg-err');
+  e.style.display = msg ? 'block' : 'none';
+  e.textContent = msg || '';
+}
+
+/* ══════════════════════════════
+   LOGIN — mesmo fluxo do login.html: autentica direto no Supabase e lê
+   nome/perfil/ferramentas da própria conta. Guarda nas mesmas chaves do
+   localStorage que o resto do sistema usa, então quem faz o tutorial já
+   sai logado quando for pro sistema de verdade.
+══════════════════════════════ */
+async function doLogin(){
+  var digitado = document.getElementById('lg-login').value.trim();
+  var senha = document.getElementById('lg-senha').value;
+  if(!digitado||!senha){ setErr('Preencha usuário e senha.'); return; }
+  var btn = document.getElementById('btn-login');
+  btn.innerHTML = '<span class="spinner"></span> Entrando…'; btn.disabled = true;
+  setErr('');
+  try{
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY},
+      body: JSON.stringify({ email: loginParaEmail(digitado), password: senha }),
+    });
+    var j = await r.json();
+    if(r.ok && j.access_token){
+      var pr = await fetch(
+        SUPABASE_URL + '/rest/v1/usuarios?select=nome,login,perfil,permissoes(ferramentas)&auth_user_id=eq.' + j.user.id,
+        { headers:{ apikey: SUPABASE_ANON_KEY, Authorization:'Bearer ' + j.access_token } }
+      );
+      var linhas = await pr.json();
+      var perfilRow = Array.isArray(linhas) ? linhas[0] : null;
+      var permRel = perfilRow && perfilRow.permissoes;
+      var ferramentas = Array.isArray(permRel) ? ((permRel[0]&&permRel[0].ferramentas)||[]) : ((permRel&&permRel.ferramentas)||[]);
+      var user = {
+        nome:  (perfilRow&&perfilRow.nome)  || digitado,
+        perfil:(perfilRow&&perfilRow.perfil)|| 'colaborador',
+        login: (perfilRow&&perfilRow.login) || digitado,
+      };
+      sessionStorage.setItem('barretos_user', JSON.stringify(user));
+      localStorage.setItem('barretos_nome',   user.nome);
+      localStorage.setItem('barretos_perfil', user.perfil);
+      localStorage.setItem('barretos_login',  user.login);
+      localStorage.setItem('barretos_permissoes', JSON.stringify(ferramentas));
+      localStorage.setItem('barretos_auth_token',   j.access_token);
+      localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+      iniciarTutorial(user, ferramentas);
+    } else {
+      setErr(j.error_description || j.msg || 'Login ou senha incorretos.');
+    }
+  } catch(e){ setErr('Erro de conexão com o Supabase.'); }
+  btn.innerHTML = '<i class="ti ti-login" style="font-size:14px"></i> Começar o tutorial'; btn.disabled = false;
+}
+
+function normLoginLocal_(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function ehUm_(user, tokens){
+  var base = normLoginLocal_(user.nome) + ' ' + normLoginLocal_(user.login);
+  return tokens.some(function(t){ return base.indexOf(t) === 0 || base.indexOf(' '+t) !== -1; });
+}
+
+/* ══════════════════════════════
+   CONTEÚDO — um item por ferramenta. "detalhes(user)" recebe o usuário
+   logado e devolve o conteúdo já adaptado ao papel dele naquela tela
+   específica (ex: Faturamento e Financeiro mostram menos abas pra quem
+   não é do time que aprova/paga).
+══════════════════════════════ */
+var EMPRESA_POR_FERRAMENTA_KANBAN = {
+  kanban_pin: "Pinheiro", kanban_inf: "Infra", kanban_bar: "Barreto's", kanban_gon: "Gonçalves",
+};
+
+var MODULOS = {
+  inicio: {
+    label: 'Início', icon: 'ti-home', cat: 'Sempre disponível',
+    lead: 'A tela que abre assim que você entra no sistema — um resumo rápido do mês (faturamento, margem, top 5 clientes) puxado direto dos quadros do Kanban.',
+    pontos: ['Não precisa pedir liberação — todo mundo vê o Início.', 'Os números mudam conforme o mês selecionado no topo da tela.'],
+    video: 'inicio',
+  },
+  calendario: {
+    label: 'Calendário', icon: 'ti-calendar', cat: 'Sempre disponível',
+    lead: 'Agenda compartilhada de toda a empresa — reuniões, compromissos e eventos recorrentes.',
+    pontos: ['Todo mundo pode ver e criar eventos, e adicionar outras pessoas como participantes.', 'Quem é incluído num evento recebe um alerta automático na hora.'],
+    video: 'calendario',
+  },
+  kanban: {
+    label: 'Kanban (Operação)', icon: 'ti-columns', cat: 'Operacional',
+    lead: 'O quadro onde cada frete é acompanhado do início ao fim, por empresa. As colunas hoje são Operacional → Coleta → Faturado → Finalizado.',
+    pontos: [
+      'Arraste o card entre as colunas conforme o frete avança.',
+      'Quando o Faturamento emite o CT-e do card, ele já pula sozinho pra coluna Faturado — e quando o canhoto é conferido, pula pra Finalizado. Não precisa mais arrastar manualmente nessas duas etapas.',
+      'Dentro do card, o botão "Baixar Todos" no rodapé baixa todos os anexos de una vez, num arquivo zip só.',
+      'Ao lado das colunas tem um painel de Resumo (valor em aberto ainda não faturado, cards sem Vale Pedágio, sem Data de Coleta, coleta de amanhã) e um gráfico mostrando em quais dias do mês o faturamento se concentra.',
+    ],
+    detalhes: function(user, ferramentas){
+      var empresas = ['kanban_pin','kanban_inf','kanban_bar','kanban_gon']
+        .filter(function(k){ return ferramentas.indexOf(k)!==-1; })
+        .map(function(k){ return EMPRESA_POR_FERRAMENTA_KANBAN[k]; });
+      if(!empresas.length) return null;
+      return { nota: 'Você tem acesso ao(s) quadro(s) de: <b>'+empresas.join(', ')+'</b>.' };
+    },
+    video: 'kanban',
+  },
+  cotacao: {
+    label: 'Cotação Comercial', icon: 'ti-calculator', cat: 'Comercial',
+    lead: 'Onde uma cotação de frete nasce, passa pela aprovação interna e, quando o cliente aceita, vira um card no Kanban automaticamente.',
+    pontos: [
+      'Toda cotação passa pelo fluxo de aprovação interna, não importa o desconto — só não entram nessa fila as cotações feitas pelos próprios aprovadores (Filipe, Gabriel Pinheiro, Diego Flórido). Filipe é avisado na hora; se passar de 5 minutos sem decisão, Gabriel Pinheiro também é avisado; depois de 15 minutos, Diego Flórido entra no alerta também.',
+      'Quando aprovada pelo cliente e informado pelo vendedor no histórico das cotações (mudando o status pra "Aceita"), o card já nasce sozinho no Kanban com modalidade, tipo de material e dados do cliente preenchidos.',
+    ],
+    video: 'cotacao',
+  },
+  relatorio: {
+    label: 'Relatório de Vendedor', icon: 'ti-chart-bar', cat: 'Comercial',
+    lead: 'Performance de cada vendedor — faturamento, margem, quantidade de fretes — filtrando por mês, vendedor, empresa ou cliente.',
+    pontos: ['Os dados vêm direto dos cards do Kanban, sempre atualizados.', 'Jan/Fev/Mar de 2026 (período anterior à migração) aparecem somados automaticamente a partir de um histórico próprio.'],
+    video: 'relatorio',
+  },
+  crm: {
+    label: 'CRM', icon: 'ti-target-arrow', cat: 'Comercial',
+    lead: 'Funil comercial completo: prospecção de clientes, timeline de contato, metas da equipe e produtividade dos vendedores.',
+    pontos: [
+      'Cada cliente prospectado tem uma timeline própria — todo contato feito (ligação, e-mail, reunião) fica registrado ali, com data.',
+      'Um cliente do CRM pode virar cliente oficial (o mesmo cadastro que aparece em Cotação/Faturamento) automaticamente, sem precisar cadastrar de novo.',
+      'A tela de Metas da Equipe e Produtividade mostra o desempenho de cada vendedor no funil — quantos contatos, quantas conversões.',
+    ],
+    video: 'crm',
+  },
+  clientes: {
+    label: 'Clientes', icon: 'ti-users', cat: 'Comercial',
+    lead: 'Cadastro central de clientes (CNPJ, contato, endereço) usado por Cotação, Faturamento e CRM.',
+    pontos: ['Um cliente cadastrado aqui já aparece pronto pra selecionar em qualquer outra tela que precise dele — não precisa digitar CNPJ/endereço de novo em cada módulo.'],
+    video: 'clientes',
+  },
+  financeiro: {
+    label: 'Financeiro', icon: 'ti-cash', cat: 'Financeiro',
+    lead: 'Contas a pagar e a receber da empresa. O que você vê aqui depende do seu papel neste módulo específico.',
+    pontos: [
+      'Pra solicitar um PIX (pagamento a motorista, fornecedor, etc.), o mais rápido é abrir pelo card do Kanban: a solicitação já importa titular, banco e chave PIX que já estavam salvos no card, sem digitar tudo de novo.',
+      'Também dá pra lançar um pagamento manualmente, sem vincular a nenhum card, escolhendo forma de pagamento (Pix ou outra) e preenchendo os dados na hora.',
+      'Toda solicitação nova cai na Fila do Dia — quem processa (Lisa, Daniel ou Alex) marca como paga a partir de lá.',
+    ],
+    detalhes: function(user){
+      var master = ehUm_(user, ['lisa','daniel','alex sandro']);
+      if(master){
+        return { nota: '<b>Sua visão aqui é a completa (Gestão):</b> Dashboard, Fila do Dia, Histórico, Contas a Pagar e Contas a Receber — você processa e aprova os pagamentos.' };
+      }
+      return { nota: '<b>Sua visão aqui é simplificada:</b> você só vê a Fila do Dia (pra solicitar um pagamento) e o Histórico das suas próprias solicitações. Contas a Pagar/Receber ficam visíveis só pra Lisa, Daniel e Alex.' };
+    },
+    video: 'financeiro',
+  },
+  faturamento: {
+    label: 'Faturamento', icon: 'ti-file-invoice', cat: 'Financeiro',
+    lead: 'Fila de emissão de CT-e a partir dos cards do Kanban, e depois a conferência do canhoto de entrega. O que você vê aqui também depende do seu papel.',
+    pontos: [
+      'Pra solicitar faturamento, informa o código do card do Kanban — os dados de transporte já vêm de lá, só falta completar o que for específico do faturamento (natureza da operação, etc.) e enviar pra fila.',
+      'Quando o CT-e é emitido, o card correspondente já vira FATURADO no Kanban sozinho, sem precisar arrastar.',
+      'Depois, quando o canhoto de entrega chega, o vendedor anexa ele por aqui (aba de Anexos: NF, CT-e e canhoto) e clica em "Enviar Canhoto" — isso volta a aparecer na fila pra quem confere.',
+      'Quando o canhoto é conferido e marcado como finalizado, o card vira FINALIZADO no Kanban sozinho também.',
+    ],
+    video: 'faturamento',
+    detalhes: function(user){
+      var vendedor = ehUm_(user, ['sabrina','leonardo']);
+      if(vendedor){
+        return { nota: '<b>Sua visão aqui é simplificada:</b> você só vê a Fila (pra solicitar faturamento de um card) e o Histórico, só leitura, das suas próprias solicitações.' };
+      }
+      return { nota: '<b>Sua visão aqui é a completa (Gestão):</b> Dashboard, Fila do Dia, Detalhamento e a análise de canhoto — inclui emitir o CT-e e conferir o canhoto que move o card pro Finalizado no Kanban.' };
+    },
+  },
+  conciliacao: {
+    label: 'Conciliação Bancária', icon: 'ti-building-bank', cat: 'Financeiro',
+    lead: 'Classifica automaticamente os lançamentos do extrato bancário por categoria, aprendendo com o que já foi classificado antes.',
+    pontos: [
+      'Importe o extrato do banco e o sistema tenta classificar sozinho cada lançamento, com base em classificações parecidas feitas antes.',
+      'Dá pra selecionar vários lançamentos de uma vez e aplicar a mesma categoria a todos — não precisa abrir um por um.',
+      'Quando você classifica um lançamento novo manualmente, o sistema aprende e sugere a mesma categoria pra descrições parecidas no futuro.',
+    ],
+    video: 'conciliacao',
+  },
+  frota: {
+    label: 'Gestão da Frota', icon: 'ti-truck', cat: 'Operacional',
+    lead: 'Veículos, motoristas, viagens, combustível, manutenções e multas.',
+    pontos: [
+      'Cadastro de veículos e motoristas, com vínculo entre eles (qual motorista está associado a qual placa).',
+      'Cada viagem lançada calcula sozinha o km rodado e a média de consumo, comparando com a viagem anterior do mesmo veículo.',
+      'Na aba Viagens, dá pra selecionar um período e alterar o status de pagamento (À Vencer/Pago/Vencido) de todas as viagens filtradas de uma vez, sem precisar entrar em cada uma.',
+      'Manutenções e multas ficam vinculadas ao veículo, então o histórico de cada placa fica todo num lugar só.',
+    ],
+    video: 'frota',
+  },
+  despesas: {
+    label: 'Despesas', icon: 'ti-wallet', cat: 'Geral',
+    lead: 'Despesas gerais da empresa (aluguel, energia, RH...) — separado da Frota, que tem sua própria aba de despesas por veículo.',
+    pontos: ['Lançamento simples: data, descrição, valor e status de pagamento.'],
+    video: 'despesas',
+  },
+  diarias: {
+    label: 'Diárias de Motoristas', icon: 'ti-calendar-check', cat: 'RH',
+    lead: 'Controle de diárias pagas a motoristas por viagem.',
+    pontos: ['Cada diária fica vinculada ao motorista e à viagem correspondente, pra ficar fácil conferir depois.'],
+    video: 'diarias',
+  },
+  recrutamento: {
+    label: 'Recrutamento e Seleção', icon: 'ti-user-search', cat: 'RH',
+    lead: 'Vagas abertas e candidatos em processo seletivo.',
+    pontos: ['Cada vaga tem seus próprios candidatos vinculados — dá pra acompanhar quem está em qual etapa do processo.'],
+    video: 'recrutamento',
+  },
+  ideias: {
+    label: 'Laboratório de Ideias', icon: 'ti-bulb', cat: 'Melhoria',
+    lead: 'Onde qualquer um pode sugerir melhorias pro sistema ou pra operação.',
+    pontos: ['Sugeriu, registrou — fica guardado pra ser avaliado depois, não se perde numa conversa de corredor ou mensagem avulsa.'],
+    video: 'ideias',
+  },
+  helpdesk: {
+    label: 'Helpdesk', icon: 'ti-headset', cat: 'Melhoria',
+    lead: 'Chamados internos de suporte (TI, sistema, dúvidas).',
+    pontos: ['Abriu um chamado, ele fica registrado com data — dá pra acompanhar o andamento sem precisar ficar cobrando por mensagem.'],
+    video: 'helpdesk',
+  },
+  config: {
+    label: 'Configurações', icon: 'ti-settings', cat: 'Admin',
+    lead: 'Criação de usuários e liberação de acesso por módulo — só quem é admin do sistema entra aqui.',
+    pontos: ['Cada usuário novo já recebe uma senha temporária e é obrigado a trocar no primeiro acesso.', 'A liberação de acesso é por módulo — dá pra escolher exatamente quais telas cada pessoa vai ver, igual foi feito com o seu próprio acesso.'],
+    video: 'config',
+  },
+};
+
+var ORDEM = ['inicio','calendario','kanban','cotacao','relatorio','crm','clientes','financeiro','faturamento','conciliacao','frota','despesas','diarias','recrutamento','ideias','helpdesk','config'];
+
+/* ══════════════════════════════
+   WIZARD
+══════════════════════════════ */
+var wzPassos = [], wzIdx = 0;
+
+function iniciarTutorial(user, ferramentas){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('wizard-screen').style.display = 'block';
+  document.getElementById('wz-avatar').textContent = (user.nome||'?').charAt(0).toUpperCase();
+  document.getElementById('wz-nome').textContent = user.nome || user.login;
+  document.getElementById('wz-perfil').textContent = (user.perfil||'colaborador').replace(/^./, function(c){return c.toUpperCase();});
+
+  wzPassos = [];
+  var temAlgumKanban = ['kanban_pin','kanban_inf','kanban_bar','kanban_gon'].some(function(k){ return ferramentas.indexOf(k)!==-1; });
+
+  ORDEM.forEach(function(chave){
+    if(chave==='kanban'){
+      if(temAlgumKanban) wzPassos.push({ chave:chave, mod:MODULOS.kanban, extra:MODULOS.kanban.detalhes(user, ferramentas) });
+      return;
+    }
+    if(chave==='inicio' || chave==='calendario'){
+      wzPassos.push({ chave:chave, mod:MODULOS[chave], extra:null });
+      return;
+    }
+    if(ferramentas.indexOf(chave) === -1) return;
+    var mod = MODULOS[chave];
+    if(!mod) return;
+    var extra = mod.detalhes ? mod.detalhes(user, ferramentas) : null;
+    wzPassos.push({ chave:chave, mod:mod, extra:extra });
+  });
+
+  wzIdx = 0;
+  wzRenderDots();
+  wzRender();
+}
+
+function wzRenderDots(){
+  var wrap = document.getElementById('wz-dots');
+  wrap.innerHTML = wzPassos.map(function(_,i){
+    return '<div class="wz-dot'+(i===wzIdx?' active':(i<wzIdx?' done':''))+'" onclick="wzIrPara('+i+')"></div>';
+  }).join('');
+}
+function wzIrPara(i){ wzIdx = i; wzRender(); }
+
+function wzRender(){
+  pararDemo_();
+  var passo = wzPassos[wzIdx];
+  var mod = passo.mod;
+  document.getElementById('wz-progress').textContent = 'Passo '+(wzIdx+1)+' de '+wzPassos.length;
+  document.getElementById('wz-bar-fill').style.width = (((wzIdx+1)/wzPassos.length)*100)+'%';
+
+  var pontosHtml = (mod.pontos && mod.pontos.length)
+    ? '<div class="wz-section-ttl">O que você pode fazer aqui</div><ul class="wz-list">'+mod.pontos.map(function(p){return '<li>'+p+'</li>';}).join('')+'</ul>'
+    : '';
+  var notaHtml = passo.extra && passo.extra.nota
+    ? '<div class="wz-note">'+passo.extra.nota+'</div>'
+    : '';
+  var vazioHtml = (!mod.pontos || !mod.pontos.length) && !notaHtml
+    ? '<div class="wz-placeholder">Conteúdo detalhado desta tela ainda está sendo preparado — em breve entra aqui.</div>'
+    : '';
+
+  var textoHtml =
+    '<div class="wz-icon"><i class="ti '+mod.icon+'"></i></div>'+
+    '<div class="wz-cat">'+mod.cat+'</div>'+
+    '<div class="wz-title">'+mod.label+'</div>'+
+    '<div class="wz-lead">'+mod.lead+'</div>'+
+    pontosHtml + notaHtml + vazioHtml;
+
+  var demo = mod.video && DEMOS[mod.video];
+  if(demo){
+    document.getElementById('wz-card').innerHTML =
+      '<div class="wz-body">'+
+        '<div class="wz-text">'+textoHtml+'</div>'+
+        '<div class="wz-demo-wrap">'+
+          '<div class="wz-demo-lbl"><i class="ti ti-player-play"></i> Como funciona</div>'+
+          '<div class="wz-demo-screen" id="wz-demo-screen">'+
+            demo.map(function(f,i){ return '<div class="wz-frame'+(i===0?' on':'')+'" data-i="'+i+'">'+f.html+'</div>'; }).join('')+
+          '</div>'+
+          '<div class="wz-demo-cap" id="wz-demo-cap">'+demo[0].cap+'</div>'+
+          '<div class="wz-demo-dots" id="wz-demo-dots">'+demo.map(function(_,i){ return '<div class="wz-demo-dot'+(i===0?' on':'')+'"></div>'; }).join('')+'</div>'+
+        '</div>'+
+      '</div>';
+    iniciarDemo_(demo);
+  } else {
+    document.getElementById('wz-card').innerHTML = '<div class="wz-body"><div class="wz-text">'+textoHtml+'</div></div>';
+  }
+
+  document.getElementById('wz-btn-back').style.visibility = wzIdx===0 ? 'hidden' : 'visible';
+  var btnNext = document.getElementById('wz-btn-next');
+  if(wzIdx === wzPassos.length-1){
+    btnNext.innerHTML = 'Concluir e ir pro sistema <i class="ti ti-arrow-right"></i>';
+  } else {
+    btnNext.innerHTML = 'Próximo <i class="ti ti-chevron-right"></i>';
+  }
+  wzRenderDots();
+}
+
+/* ══════════════════════════════
+   SIMULAÇÕES ANIMADAS — não são gravações reais de tela (não temos essa
+   ferramenta), são reconstruções fiéis (mesmas cores/formato do sistema)
+   que se repetem em loop ao lado do texto, mostrando o passo a passo de
+   3 fluxos que a diretoria pediu pra ficar bem intuitivo.
+══════════════════════════════ */
+var _demoTimer = null;
+function pararDemo_(){ if(_demoTimer){ clearInterval(_demoTimer); _demoTimer = null; } }
+function iniciarDemo_(frames){
+  var i = 0;
+  var screen = document.getElementById('wz-demo-screen');
+  var cap = document.getElementById('wz-demo-cap');
+  var dots = document.getElementById('wz-demo-dots');
+  if(!screen) return;
+  _demoTimer = setInterval(function(){
+    i = (i+1) % frames.length;
+    screen.querySelectorAll('.wz-frame').forEach(function(el,idx){ el.classList.toggle('on', idx===i); });
+    if(dots) dots.querySelectorAll('.wz-demo-dot').forEach(function(el,idx){ el.classList.toggle('on', idx===i); });
+    if(cap) cap.textContent = frames[i].cap;
+  }, 2600);
+}
+
+var DEMOS = {
+  cotacao: [
+    { cap:'Vendedor cria a cotação — ela entra automaticamente na fila de aprovação interna.',
+      html:'<div class="dm-card hl"><div class="dm-row" style="justify-content:space-between"><span class="dm-code">#0128</span><span class="dm-badge">Aguardando</span></div><div style="margin-top:5px;color:var(--txt-mid)">ALPHA · São Paulo → Vitória</div></div>' },
+    { cap:'Filipe é avisado na hora. Sem decisão em 5min, Gabriel Pinheiro também é avisado; em 15min, Diego Flórido também.',
+      html:'<div style="font-size:9px;color:var(--txt-dim);margin-bottom:2px">Aprovadores</div><div class="dm-row"><div class="dm-chip active">F</div><div class="dm-chip">GP</div><div class="dm-chip">DF</div></div>' },
+    { cap:'Aprovada internamente.',
+      html:'<div class="dm-card hl"><div class="dm-row" style="justify-content:space-between"><span class="dm-code">#0128</span><span class="dm-badge green">Aprovada</span></div></div><div class="dm-row" style="margin-top:6px"><div class="dm-chip done">F</div></div>' },
+    { cap:'Cliente aceita, e o vendedor troca o status pra "Aceita" no histórico da cotação.',
+      html:'<div style="font-size:9px;color:var(--txt-dim);margin-bottom:2px">Histórico da cotação</div><div class="dm-field filled">Status: Aceita ✓</div>' },
+    { cap:'O card nasce sozinho no Kanban, já com modalidade, tipo de material e dados do cliente preenchidos.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Operacional</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">#B2601</span></div></div><div class="dm-col"><div class="dm-col-hd">Coleta</div></div><div class="dm-col"><div class="dm-col-hd">Faturado</div></div></div>' },
+  ],
+  financeiro: [
+    { cap:'Abra a solicitação de PIX a partir do card do Kanban, informando o código.',
+      html:'<div style="font-size:9px;color:var(--txt-dim);margin-bottom:2px">Solicitação PIX</div><div class="dm-field filled">Código: S26100</div>' },
+    { cap:'Titular, banco e chave PIX já vêm preenchidos sozinhos, direto dos dados salvos no card.',
+      html:'<div class="dm-field filled">Titular: João Silva</div><div class="dm-field filled">Banco: Nubank</div><div class="dm-field filled">Chave: joão@…</div>' },
+    { cap:'Confirma e envia a solicitação.',
+      html:'<div class="dm-btn">Enviar solicitação</div>' },
+    { cap:'Cai na Fila do Dia, aguardando quem processa (Lisa, Daniel ou Alex).',
+      html:'<div class="dm-card hl"><div class="dm-row" style="justify-content:space-between"><span class="dm-code" style="font-size:9px">João Silva</span><span class="dm-badge">Na fila</span></div></div>' },
+    { cap:'Marcado como pago — sai da fila.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span class="dm-code" style="font-size:9px">João Silva</span><span class="dm-badge green">Pago</span></div></div>' },
+  ],
+  faturamento: [
+    { cap:'Informa o código do card do Kanban pra solicitar o faturamento.',
+      html:'<div style="font-size:9px;color:var(--txt-dim);margin-bottom:2px">Solicitar Faturamento</div><div class="dm-field filled">Código: S26100</div>' },
+    { cap:'Dados do transporte já vêm do card — só falta completar o que for específico, como a natureza da operação.',
+      html:'<div class="dm-field filled">Origem/Destino ✓</div><div class="dm-field filled">Natureza da Operação: —</div>' },
+    { cap:'CT-e emitido — o card já vira FATURADO no Kanban sozinho, sem arrastar.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Coleta</div></div><div class="dm-col"><div class="dm-col-hd">Faturado</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span></div></div><div class="dm-col"><div class="dm-col-hd">Finalizado</div></div></div>' },
+    { cap:'Quando o canhoto chega, o vendedor anexa e clica em "Enviar Canhoto".',
+      html:'<div class="dm-row"><i class="ti ti-paperclip" style="color:var(--gold)"></i><span style="font-size:10px">canhoto.pdf</span></div><div class="dm-btn">Enviar Canhoto</div>' },
+    { cap:'Canhoto conferido — o card vira FINALIZADO sozinho também.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Faturado</div></div><div class="dm-col"><div class="dm-col-hd">Finalizado</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span> <span style="color:var(--green)">✓</span></div></div></div>' },
+  ],
+  inicio: [
+    { cap:'Escolha o mês no topo da tela.',
+      html:'<div class="dm-field filled">Mês: Agosto/2026</div>' },
+    { cap:'Faturamento, custo e margem do mês aparecem sozinhos, puxados do Kanban.',
+      html:'<div class="dm-row" style="gap:5px"><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Faturamento</div><div style="color:var(--gold);font-weight:700">R$ 97,2k</div></div><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Margem</div><div style="color:var(--green);font-weight:700">30,9%</div></div></div>' },
+    { cap:'Top 5 clientes do mês, por faturamento.',
+      html:'<div class="dm-card"><div style="font-size:8px;color:var(--txt-dim);margin-bottom:4px">Top clientes</div><div class="dm-row" style="justify-content:space-between"><span>1. Sabrina</span><span style="color:var(--gold)">33%</span></div></div>' },
+  ],
+  calendario: [
+    { cap:'Cria um evento com título, data e horário.',
+      html:'<div class="dm-field filled">Reunião comercial — 28/08 14h</div>' },
+    { cap:'Adiciona outras pessoas como participantes.',
+      html:'<div class="dm-row"><div class="dm-chip active">S</div><div class="dm-chip active">G</div><div style="font-size:9px;color:var(--txt-dim)">+ adicionar</div></div>' },
+    { cap:'Quem for incluído recebe um alerta automático na hora.',
+      html:'<div class="dm-card hl"><div class="dm-row" style="gap:6px"><i class="ti ti-bell" style="color:var(--gold);font-size:12px"></i><span style="font-size:9.5px">Você foi incluído(a) num evento</span></div></div>' },
+  ],
+  kanban: [
+    { cap:'Card criado na coluna Operacional (manual ou automático, vindo de uma cotação aceita).',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Operacional</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span></div></div><div class="dm-col"><div class="dm-col-hd">Coleta</div></div></div>' },
+    { cap:'Arraste o card pra Coleta assim que o frete sair.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Operacional</div></div><div class="dm-col"><div class="dm-col-hd">Coleta</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span></div></div></div>' },
+    { cap:'Faturamento emite o CT-e — o card pula sozinho pra Faturado.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Coleta</div></div><div class="dm-col"><div class="dm-col-hd">Faturado</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span></div></div></div>' },
+    { cap:'Canhoto conferido — o card pula sozinho pra Finalizado.',
+      html:'<div class="dm-cols"><div class="dm-col"><div class="dm-col-hd">Faturado</div></div><div class="dm-col"><div class="dm-col-hd">Finalizado</div><div class="dm-card hl" style="padding:5px 6px"><span class="dm-code" style="font-size:8px">S26100</span> ✓</div></div></div>' },
+    { cap:'Dentro do card, "Baixar Todos" baixa todos os anexos de uma vez, num zip só.',
+      html:'<div class="dm-row"><i class="ti ti-download" style="color:var(--gold)"></i><div class="dm-btn">Baixar Todos</div></div>' },
+  ],
+  relatorio: [
+    { cap:'Filtra por mês, vendedor, empresa ou cliente.',
+      html:'<div class="dm-field filled">Vendedor: Sabrina</div>' },
+    { cap:'Faturamento, margem e ticket médio aparecem calculados sozinhos.',
+      html:'<div class="dm-row" style="gap:5px"><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Faturamento</div><div style="color:var(--gold);font-weight:700">R$ 32,3k</div></div><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Margem</div><div style="color:var(--green);font-weight:700">48,3%</div></div></div>' },
+    { cap:'Dados vêm direto do Kanban — sempre atualizado, sem planilha manual.',
+      html:'<div class="dm-card"><div class="dm-row" style="gap:6px"><i class="ti ti-refresh" style="color:var(--gold);font-size:12px"></i><span style="font-size:9.5px">Conectado ao Kanban</span></div></div>' },
+  ],
+  crm: [
+    { cap:'Cliente prospectado entra no funil.',
+      html:'<div class="dm-card hl"><span class="dm-code" style="font-size:9px">Nova Indústria LTDA</span><div class="dm-badge" style="margin-top:4px">Prospecção</div></div>' },
+    { cap:'Cada contato feito (ligação, e-mail, reunião) fica registrado na timeline do cliente.',
+      html:'<div class="dm-card"><div style="font-size:8px;color:var(--txt-dim);margin-bottom:3px">Timeline</div><div style="font-size:9.5px">📞 Ligação — 20/08</div><div style="font-size:9.5px">✉️ E-mail — 22/08</div></div>' },
+    { cap:'Vira cliente oficial automaticamente, sem cadastrar de novo.',
+      html:'<div class="dm-card hl"><span class="dm-code" style="font-size:9px">Nova Indústria LTDA</span><div class="dm-badge green" style="margin-top:4px">Cliente oficial</div></div>' },
+  ],
+  clientes: [
+    { cap:'Cadastra o cliente uma vez (CNPJ, contato, endereço).',
+      html:'<div class="dm-field filled">CNPJ: 12.345.678/0001-90</div>' },
+    { cap:'Já aparece pronto pra selecionar em Cotação, Faturamento e CRM.',
+      html:'<div class="dm-row" style="gap:5px;flex-wrap:wrap"><span class="dm-badge">Cotação</span><span class="dm-badge">Faturamento</span><span class="dm-badge">CRM</span></div>' },
+  ],
+  conciliacao: [
+    { cap:'Importa o extrato do banco.',
+      html:'<div class="dm-row"><i class="ti ti-file-upload" style="color:var(--gold)"></i><span style="font-size:9.5px">extrato_agosto.ofx</span></div>' },
+    { cap:'O sistema já classifica boa parte sozinho, com base no que foi ensinado antes.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span style="font-size:9px">Posto Ipiranga</span><span class="dm-badge green">Combustível</span></div></div>' },
+    { cap:'Selecione vários lançamentos e classifique todos de uma vez.',
+      html:'<div class="dm-row"><div class="dm-chip active">✓</div><div class="dm-chip active">✓</div><div class="dm-chip active">✓</div><div class="dm-btn" style="margin-left:6px">Aplicar</div></div>' },
+  ],
+  frota: [
+    { cap:'Lança a viagem com o km total do odômetro.',
+      html:'<div class="dm-field filled">KM Total: 45.230</div>' },
+    { cap:'Km rodado e média de consumo são calculados sozinhos.',
+      html:'<div class="dm-row" style="gap:5px"><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Km rodado</div><div style="color:var(--gold);font-weight:700">380</div></div><div class="dm-card" style="flex:1"><div style="font-size:8px;color:var(--txt-dim)">Média</div><div style="color:var(--green);font-weight:700">2,9 km/L</div></div></div>' },
+    { cap:'Selecione um período e altere o status de pagamento de todas as viagens de uma vez.',
+      html:'<div class="dm-row"><div class="dm-field filled" style="flex:1">01/08 – 31/08</div></div><div class="dm-btn">Alterar Status em Massa</div>' },
+  ],
+  despesas: [
+    { cap:'Lança a despesa: data, descrição e valor.',
+      html:'<div class="dm-field filled">Aluguel — R$ 4.200,00</div>' },
+    { cap:'Marca como paga quando for quitada.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span style="font-size:9px">Aluguel</span><span class="dm-badge green">Pago</span></div></div>' },
+  ],
+  diarias: [
+    { cap:'Vincula a diária ao motorista e à viagem.',
+      html:'<div class="dm-field filled">Motorista: João · Viagem #4521</div>' },
+    { cap:'Fica registrada no histórico do motorista, fácil de conferir depois.',
+      html:'<div class="dm-card"><div style="font-size:8px;color:var(--txt-dim);margin-bottom:3px">Histórico — João</div><div style="font-size:9.5px">Diária 22/08 — R$ 150,00</div></div>' },
+  ],
+  recrutamento: [
+    { cap:'Abre uma vaga.',
+      html:'<div class="dm-field filled">Vaga: Motorista Carreteiro</div>' },
+    { cap:'Candidatos entram vinculados àquela vaga.',
+      html:'<div class="dm-row"><div class="dm-chip">C1</div><div class="dm-chip">C2</div><div class="dm-chip">C3</div></div>' },
+    { cap:'Acompanha em qual etapa cada candidato está.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span style="font-size:9px">Candidato 1</span><span class="dm-badge">Entrevista</span></div></div>' },
+  ],
+  ideias: [
+    { cap:'Qualquer um registra uma sugestão de melhoria.',
+      html:'<div class="dm-field filled">Ideia: painel de metas no Início</div>' },
+    { cap:'Fica salva, esperando avaliação — não se perde numa conversa avulsa.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span style="font-size:9px">Painel de metas</span><span class="dm-badge">Em avaliação</span></div></div>' },
+  ],
+  helpdesk: [
+    { cap:'Abre um chamado de suporte.',
+      html:'<div class="dm-field filled">Chamado: erro ao anexar arquivo</div>' },
+    { cap:'Acompanha o andamento sem precisar cobrar por mensagem.',
+      html:'<div class="dm-card"><div class="dm-row" style="justify-content:space-between"><span style="font-size:9px">#042</span><span class="dm-badge">Em atendimento</span></div></div>' },
+  ],
+  config: [
+    { cap:'Admin cria um novo usuário — já sai com senha temporária.',
+      html:'<div class="dm-field filled">Novo usuário: Maria Souza</div>' },
+    { cap:'Escolhe exatamente quais módulos essa pessoa vai acessar.',
+      html:'<div class="dm-row" style="gap:5px;flex-wrap:wrap"><span class="dm-badge green">Kanban Infra</span><span class="dm-badge">Cotação</span></div>' },
+    { cap:'No primeiro acesso, o usuário é obrigado a trocar a senha.',
+      html:'<div class="dm-card hl"><div class="dm-row" style="gap:6px"><i class="ti ti-lock" style="color:var(--gold);font-size:12px"></i><span style="font-size:9.5px">Troque sua senha pra continuar</span></div></div>' },
+  ],
+};
+
+function wzVoltar(){ if(wzIdx>0){ wzIdx--; wzRender(); } }
+function wzProximo(){
+  if(wzIdx < wzPassos.length-1){ wzIdx++; wzRender(); }
+  else irParaSistema();
+}
+function irParaSistema(){ window.location.href = 'shell.html'; }
+
+/* Se a pessoa já estiver logada (mesma sessão do sistema, mesmo domínio),
+   pula direto pro tutorial sem pedir login de novo. */
+(function(){
+  var nome = localStorage.getItem('barretos_nome');
+  var login = localStorage.getItem('barretos_login');
+  var perfil = localStorage.getItem('barretos_perfil');
+  var ferramentasRaw = localStorage.getItem('barretos_permissoes');
+  if(nome && login && ferramentasRaw){
+    try{
+      var ferramentas = JSON.parse(ferramentasRaw) || [];
+      iniciarTutorial({ nome:nome, login:login, perfil:perfil||'colaborador' }, ferramentas);
+    }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>

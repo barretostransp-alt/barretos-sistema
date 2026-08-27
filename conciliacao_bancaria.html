@@ -457,7 +457,7 @@ tbody tr:last-child{border-bottom:none;}
               <option value="">— Selecione —</option>
               <option>Sicoob</option><option>Sicredi</option><option>C6 Bank</option>
               <option>Nubank</option><option>Caixa Econômica</option><option>Banco do Brasil</option>
-              <option>Banco Inter</option><option>Itaú</option>
+              <option>Banco Inter</option>
             </select>
           </div>
           <div class="fg" style="margin:0"><label class="fl">Conta / Agência</label><input type="text" class="fc" id="imp-conta" placeholder="00000-0 / 0001"></div>
@@ -479,7 +479,6 @@ tbody tr:last-child{border-bottom:none;}
             <span class="ftag" style="background:var(--success)">Caixa</span>
             <span class="ftag" style="background:var(--success)">BB</span>
             <span class="ftag" style="background:var(--success)">Inter</span>
-            <span class="ftag" style="background:var(--success)">Itaú</span>
           </div>
         </div>
         <input type="file" id="fileInput" accept=".ofx,.OFX,.csv" style="display:none" onchange="handleFileSelect(this)">
@@ -1105,20 +1104,16 @@ tbody tr:last-child{border-bottom:none;}
   </div>
 
   <div class="card" style="margin-top:16px">
-    <div class="ch"><span class="ct">🔗 Backend (Google Sheets)</span></div>
+    <div class="ch"><span class="ct">☁️ Migrar dados deste navegador para o servidor</span></div>
     <div class="cb">
       <p style="font-size:.78rem;color:var(--gray-500);margin-bottom:10px">
-        Cole aqui a URL do Apps Script implantado numa planilha nova (Transações, Categorias,
-        Histórico de Importação e Aprendizados da IA passam a ficar salvos lá também, não só neste navegador).
+        Extratos, categorizações, categorias personalizadas, aprendizados da IA e contas a pagar que
+        você já usou nesta tela ficam salvos só neste navegador. Use o botão abaixo uma vez, neste
+        computador, pra enviar tudo pro servidor — depois disso os dados passam a vir sempre de lá,
+        acessíveis de qualquer computador logado no sistema.
       </p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input type="text" id="backend-url-input" class="filter-input" style="flex:1;min-width:260px"
-          placeholder="https://script.google.com/macros/s/AKfycb.../exec">
-        <button class="btn bp bsm" onclick="salvarConciliacaoUrl()">💾 Salvar URL</button>
-        <button class="btn bg bsm" onclick="syncParaBackend()">⬆️ Enviar agora</button>
-        <button class="btn bg bsm" onclick="syncDoBackendNaAbertura()">⬇️ Buscar do backend</button>
-      </div>
-      <div style="font-size:.72rem;color:var(--gray-400);margin-top:8px" id="backend-sync-status">—</div>
+      <button class="btn bp bsm" onclick="migrarDadosLocaisParaServidor()">☁️ Migrar dados deste navegador</button>
+      <div style="font-size:.72rem;color:var(--gray-400);margin-top:8px" id="migracao-status">—</div>
     </div>
   </div>
 
@@ -1449,6 +1444,69 @@ tbody tr:last-child{border-bottom:none;}
 <div id="toast"><span id="toast-icon">✅</span><span id="toast-msg">—</span></div>
 
 <script>
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
 // Tema pros gráficos Chart.js — sensível ao tema claro/escuro atual.
 // Lido do localStorage (fonte de verdade, já que esse script roda antes do
 // listener de tema no fim do body aplicar a classe no <body>) e também da
@@ -1467,56 +1525,71 @@ if(typeof Chart !== 'undefined'){
   Chart.defaults.font.family = 'Barlow';
 }
 // ═══════════════════════════════════════
-// SINCRONIZAÇÃO COM A PLANILHA REAL — Contas a Receber
-// Mesma URL/aba que o financeiro.html usa (aba "Contas a Receber" da
-// planilha real do Apps Script "Financeiro").
+// CONTAS A PAGAR / RECEBER — unificadas com o Financeiro
+// Antes essa tela tinha sua própria cópia (só no localStorage, nunca
+// salva em lugar nenhum) e só lia Contas a Receber de uma planilha à
+// parte, sem nunca escrever de volta. Agora lê e grava direto nas
+// mesmas tabelas que financeiro.html usa (financeiro_lancamentos) —
+// criar/editar/pagar aqui aparece lá também, e vice-versa.
 // ═══════════════════════════════════════
-const WEBAPP_URL_RECEBER = "https://script.google.com/macros/s/AKfycbx2WTA0VrEk339HfK3gHxyoSo0L8ufFgJJZ1fwRmMELLaKc3IMMr1S8-cPxv1FohyDXYQ/exec";
 
-// Formata "dd/MM/yyyy" (como a planilha devolve) para "yyyy-mm-dd" (como este módulo usa)
-function dataPlanilhaParaISO_(dataBR) {
-  if (!dataBR) return '';
-  const p = String(dataBR).split('/');
-  return p.length === 3 ? (p[2]+'-'+p[1]+'-'+p[0]) : '';
+function mapearPagarDoApi_(row) {
+  return {
+    id: row.id,
+    due: row.vencimento || '',
+    supplier: row.favorecido || '',
+    val: Number(row.valor) || 0,
+    cat: row.categoria || '',
+    empresa: row.empresa_cnpj || '',
+    method: row.forma_pagamento || '',
+    status: row.status === 'Pago' ? 'paid' : 'pending',
+    paidAt: row.data_pagamento || '',
+    obs: row.observacao || '',
+    cnpj: row.documento || '',
+    banco: row.banco_origem || ''
+  };
 }
-// Reconstrói o Histórico de Cobrança (texto multi-linha "dd/mm/aaaa — texto")
-// de volta pra lista [{data, texto}] usada no modal de histórico
-function parseHistoricoCobranca_(texto) {
-  if (!texto) return [];
-  return String(texto).split('\n').filter(Boolean).map(linha => {
-    const m = linha.match(/^(\d{2}\/\d{2}\/\d{4})\s*—\s*(.*)$/);
-    return m ? {data: m[1], texto: m[2]} : {data: '', texto: linha};
-  });
+function mapearReceberDoApi_(row) {
+  return {
+    id: row.id,
+    due: row.vencimento || '',
+    client: row.favorecido || '',
+    doc: row.documento || '',
+    numFat: row.codigo_externo || '',
+    cat: row.categoria || 'Cliente',
+    svc: row.descricao || '',
+    val: Number(row.valor) || 0,
+    empresa: row.empresa_cnpj || '',
+    method: row.forma_pagamento || '',
+    status: row.status === 'Recebido' ? 'received' : 'pending',
+    paidAt: row.data_pagamento || '',
+    dataCob: row.data_cobranca || '',
+    obs: row.observacao || '',
+    historico: Array.isArray(row.historico_cobranca) ? row.historico_cobranca : []
+  };
 }
-// Busca a aba "Contas a Receber" real da planilha (mesma fonte do financeiro.html)
-// e substitui S.receivables pelos dados de verdade. Leitura apenas — criar/editar
-// aqui ainda fica só no localStorage deste navegador (não grava na planilha).
+
 async function carregarContasAReceberDaPlanilha() {
-  if (!WEBAPP_URL_RECEBER) return false;
   try {
-    const res = await fetch(WEBAPP_URL_RECEBER + '?aba=receber');
+    const res = await apiFetch(API_BASE + '/financeiro');
     const rows = await res.json();
-    if (!Array.isArray(rows)) return false;
-    S.receivables = rows.map(row => ({
-      due:       dataPlanilhaParaISO_(row.vencimento),
-      client:    row.cliente || '',
-      doc:       row.docCliente || '',
-      numFat:    String(row.codigo||'').indexOf('GERAL-')===0 ? '' : String(row.codigo||''),
-      cat:       row.categoria || 'Cliente',
-      svc:       row.descricao || '',
-      val:       Number(row.valor)||0,
-      empresa:   row.empresa || '',
-      method:    '',
-      status:    row.status === 'RECEBIDO' ? 'received' : 'pending',
-      paidAt:    dataPlanilhaParaISO_(row.dataRecebimento),
-      dataCob:   dataPlanilhaParaISO_(row.dataCobranca),
-      obs:       row.observacao || '',
-      historico: parseHistoricoCobranca_(row.historico)
-    }));
-    saveState();
+    if (!res.ok || !Array.isArray(rows)) return false;
+    S.receivables = rows.filter(r => r.tipo === 'Receber').map(mapearReceberDoApi_);
     return true;
   } catch (e) {
-    console.error('Falha ao buscar Contas a Receber da planilha, mantendo dados locais.', e);
+    console.error('Falha ao buscar Contas a Receber do Financeiro, mantendo dados locais.', e);
+    return false;
+  }
+}
+async function carregarContasAPagarDoFinanceiro() {
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro');
+    const rows = await res.json();
+    if (!res.ok || !Array.isArray(rows)) return false;
+    S.payables = rows.filter(r => r.tipo === 'Pagar').map(mapearPagarDoApi_);
+    return true;
+  } catch (e) {
+    console.error('Falha ao buscar Contas a Pagar do Financeiro, mantendo dados locais.', e);
     return false;
   }
 }
@@ -1992,7 +2065,7 @@ function processFile(file) {
     };
 
     let step = 3;
-    const iv = setInterval(() => {
+    const iv = setInterval(async () => {
       const prev = document.getElementById('sc' + (step - 1));
       if (prev) { prev.textContent = '✓'; prev.className = 'sc done'; }
       if (step === 3) document.getElementById('dots2').style.display = 'none';
@@ -2008,6 +2081,7 @@ function processFile(file) {
         const importId = 'imp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
         const classified = [];
         const seenInBatch = {};
+        const novasCategoriasDoArquivo = [];
 
         raw.forEach((tx, i) => {
           const fitid    = (tx.fitid || '').trim();
@@ -2036,16 +2110,17 @@ function processFile(file) {
           let conf = 100;
           if (!cat) { cat = 'Não Classificado'; conf = 0; }
 
-          // Auto-adiciona categorias novas do arquivo
-          if (cat && cat !== 'Não Classificado' && cat !== 'CUSTO NÃO LOCALIZADO' && !S.categories.find(c => c.name === cat)) {
+          // Auto-adiciona categorias novas do arquivo (persistidas no servidor
+          // logo depois deste laço, junto com o lote de transações)
+          if (cat && cat !== 'Não Classificado' && cat !== 'CUSTO NÃO LOCALIZADO' && !S.categories.find(c => c.name === cat) && !novasCategoriasDoArquivo.find(c => c.name === cat)) {
             const isRev = ['receita','reembolso','frete receb'].some(k => cat.toLowerCase().includes(k));
             const isTrf = cat.toLowerCase().includes('transferên');
-            S.categories.push({
+            novasCategoriasDoArquivo.push({
               name: cat,
               grupo: isRev ? 'RECEITAS' : isTrf ? 'RECEITAS' : 'OUTROS',
               categoria: isRev ? 'Outras Receitas' : 'Não Classificado',
               type: isTrf ? 'transfer' : isRev ? 'revenue' : 'expense',
-              color: ['#ef4444','#f59e0b','#6366f1','#10b981','#0ea5e9','#8b5cf6'][S.categories.length % 6],
+              color: ['#ef4444','#f59e0b','#6366f1','#10b981','#0ea5e9','#8b5cf6'][(S.categories.length + novasCategoriasDoArquivo.length) % 6],
               acc: '', kw: '', obs: ''
             });
           }
@@ -2062,9 +2137,6 @@ function processFile(file) {
           importLog.importados++;
         });
 
-        S.transactions.push(...classified);
-        saveState();
-
         const u = classified.filter(t => t.status === 'unclassified').length;
         const d = classified.filter(t => t.status === 'duplicate').length;
         const c = classified.filter(t => t.status === 'classified').length;
@@ -2074,19 +2146,49 @@ function processFile(file) {
         const creditos = Math.round(classified.filter(t=>t.val>0).reduce((a,t)=>a+t.val,0) * 100) / 100;
         const debitos  = Math.round(Math.abs(classified.filter(t=>t.val<0).reduce((a,t)=>a+t.val,0)) * 100) / 100;
 
-        S.importHistory.unshift({
-          id: importId,
-          date: new Date().toLocaleDateString('pt-BR'),
-          time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-          fileName: file.name,
-          banco, empresa: empresaNome,
-          count: classified.length, u, d, c,
-          creditos, debitos,
-          ignorados: importLog.ignorados, total: importLog.total,
-          status: u === 0 ? 'ok' : 'partial',
-          deletedAt: null,
-          log: importLog.avisos.slice(0, 50),
-        });
+        // Grava no servidor (categorias novas descobertas no arquivo,
+        // depois a importação + transações do lote) e usa os ids reais
+        // devolvidos daqui pra frente — os ids gerados acima (Date.now())
+        // eram só temporários, pra construir o lote antes de enviar.
+        try {
+          for (const nc of novasCategoriasDoArquivo) {
+            const rc = await apiFetch(API_BASE + '/conciliacao/categorias', {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ name:nc.name, grupo:nc.grupo, categoria:nc.categoria, tipo:nc.type, color:nc.color, acc:nc.acc, kw:nc.kw })
+            }).then(r => r.json());
+            S.categories.push({ id: rc.id, name: rc.name, grupo: rc.grupo, categoria: rc.categoria, type: rc.tipo, color: rc.color, acc: rc.acc, kw: rc.kw });
+          }
+          const res = await apiFetch(API_BASE + '/conciliacao/transacoes/importar', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              meta: { fileName: file.name, banco, empresa: empresaNome, count: classified.length, unclassified: u, duplicates: d, classified: c,
+                creditos, debitos, ignorados: importLog.ignorados, total: importLog.total, status: u === 0 ? 'ok' : 'partial', log: importLog.avisos.slice(0, 50) },
+              transacoes: classified.map(t => ({ data: dataBRParaISO_(t.date), descricao: t.desc, valor: t.val, tipo: t.type, fitid: t.fitid,
+                categoria: t.cat, confianca: t.conf, banco: t.banco, empresa: t.empresa, complemento: t.complemento,
+                cpf_cnpj: t.cpfCnpj, favorecido: t.favorecido, saldo_inicial: t.saldoInicial }))
+            })
+          });
+          const lote = await res.json();
+          if (!res.ok) throw new Error(lote.error || 'falha ao gravar no servidor');
+          // Remapeia pros ids reais do banco, na mesma ordem em que foram enviados
+          classified.forEach((t, i) => { t.id = lote.transacoes[i].id; t.importId = lote.importacao.id; });
+          S.importHistory.unshift({
+            id: lote.importacao.id,
+            date: new Date().toLocaleDateString('pt-BR'),
+            time: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            fileName: file.name, banco, empresa: empresaNome,
+            count: classified.length, u, d, c, creditos, debitos,
+            ignorados: importLog.ignorados, total: importLog.total,
+            status: u === 0 ? 'ok' : 'partial', deletedAt: null, log: importLog.avisos.slice(0, 50),
+          });
+        } catch(err) {
+          toast('Erro ao gravar a importação no servidor: ' + err.message, '❌');
+          document.getElementById('import-progress').style.display = 'none';
+          return;
+        }
+
+        S.transactions.push(...classified);
+        saveState();
 
         // Atualiza tabela de contas bancárias
         const acTbody = document.getElementById('accounts-tbody');
@@ -2264,9 +2366,9 @@ function showView(name) {
   const co = document.getElementById('activeCompany');
   document.getElementById('topbar-crumb').textContent = "Barreto's · " + ((co.options[co.selectedIndex] || {}).text || 'Todas as Empresas');
   const renders = { boletos: renderBoletos, dashboard: renderDashboard, transactions: renderTransactions, conciliation: renderConciliation,
-    payable: renderPayable, receivable: renderReceivable, cashflow: renderCashflow, fleet: renderFleet,
+    payable: renderPayable, receivable: renderReceivable, cashflow: renderCashflow,
     intelligence: renderIntelligence, alerts: renderAlerts, categories: renderCategories,
-    drivers: renderDrivers, import: renderImportHistory, audit: renderAudit,
+    import: renderImportHistory, audit: renderAudit,
     settings: updateStorageInfo };
   if (renders[name]) { try { renders[name](); } catch(e) { console.warn('render error:', name, e); } }
 }
@@ -2313,43 +2415,67 @@ function updateBadges() {
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
-function updateKPIs() {
-  const txs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
-  // Exclude transfers/investments from KPIs
-  const isTrf = t => { const c=S.categories.find(x=>x.name===t.cat); return c&&(c.type==='transfer'||c.type==='investment'); };
-  const cr = txs.filter(t => t.val > 0 && !isTrf(t));
-  const db = txs.filter(t => t.val < 0 && !isTrf(t));
-  const rev = cr.reduce((a,t)=>a+t.val,0), exp = Math.abs(db.reduce((a,t)=>a+t.val,0)), net = rev - exp;
-  document.getElementById('kpi-rev').textContent     = 'R$ ' + fN(rev);
-  document.getElementById('kpi-exp').textContent     = 'R$ ' + fN(exp);
-  document.getElementById('kpi-net').textContent     = fM(net);
-  document.getElementById('kpi-count').textContent   = txs.length;
-  document.getElementById('kpi-rev-s').textContent   = cr.length + ' créditos';
-  document.getElementById('kpi-exp-s').textContent   = db.length + ' débitos';
-  document.getElementById('kpi-net-s').className     = 'kpi-change ' + (net >= 0 ? 'up' : 'dn');
-  document.getElementById('kpi-net-s').textContent   = net >= 0 ? '▲ Resultado positivo' : '▼ Resultado negativo';
-  document.getElementById('kpi-count-s').textContent = txs.filter(t=>t.status==='classified').length + ' classificadas';
-  document.getElementById('dash-sub').innerHTML = txs.length
-    ? txs.length + ' transações importadas · <span class="ai-chip">✦ IA Ativa</span>'
+// Dashboard, Resumo Executivo, Fluxo de Caixa, DRE/EBITDA e Centro de
+// Custos são calculados no backend (não mais varrendo S.transactions
+// inteiro no navegador toda vez) — ver /api/conciliacao/dashboard etc.
+function dashParams_() {
+  const empresa = getActiveCompanyName();
+  const de  = (document.getElementById('dash-f-de')  || {value:''}).value;
+  const ate = (document.getElementById('dash-f-ate') || {value:''}).value;
+  const p = new URLSearchParams();
+  if (empresa) p.set('empresa', empresa);
+  if (de) p.set('de', de);
+  if (ate) p.set('ate', ate);
+  return p.toString();
+}
+function preencherKpisDom_(kpis) {
+  document.getElementById('kpi-rev').textContent     = 'R$ ' + fN(kpis.receita);
+  document.getElementById('kpi-exp').textContent     = 'R$ ' + fN(kpis.despesa);
+  document.getElementById('kpi-net').textContent     = fM(kpis.liquido);
+  document.getElementById('kpi-count').textContent   = kpis.transacoes;
+  document.getElementById('kpi-rev-s').textContent   = kpis.creditos + ' créditos';
+  document.getElementById('kpi-exp-s').textContent   = kpis.debitos + ' débitos';
+  document.getElementById('kpi-net-s').className     = 'kpi-change ' + (kpis.liquido >= 0 ? 'up' : 'dn');
+  document.getElementById('kpi-net-s').textContent   = kpis.liquido >= 0 ? '▲ Resultado positivo' : '▼ Resultado negativo';
+  document.getElementById('kpi-count-s').textContent = kpis.classificadas + ' classificadas';
+  document.getElementById('dash-sub').innerHTML = kpis.transacoes
+    ? kpis.transacoes + ' transações importadas · <span class="ai-chip">✦ IA Ativa</span>'
     : 'Nenhum dado importado · <span class="ai-chip">✦ IA Ativa</span>';
 }
+// Chamado depois de quase toda ação do app (classificar, importar, editar
+// categoria...) pra manter os números em dia — só busca de verdade se o
+// Dashboard está com essa tela aberta agora, pra não gastar rede à toa.
+async function updateKPIs() {
+  const dashEl = document.getElementById('view-dashboard');
+  if (!dashEl || !dashEl.classList.contains('active')) return;
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/dashboard?' + dashParams_());
+    const d = await res.json();
+    if (!res.ok) return;
+    preencherKpisDom_(d.kpis);
+  } catch(e) { console.warn('Erro ao atualizar KPIs:', e); }
+}
 
-function renderDashboard() {
-  updateKPIs();
-  renderExecutiveSummary();
+async function renderDashboard() {
+  let d;
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/dashboard?' + dashParams_());
+    d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'falha ao carregar dashboard');
+  } catch(e) {
+    toast('Erro ao carregar o Dashboard', '⚠️');
+    return;
+  }
+  preencherKpisDom_(d.kpis);
+  renderExecutiveSummary(d.resumoExecutivo);
+
   // Charts
   destroyChart('rev'); destroyChart('cat');
-  const _dTxs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
-  const mRev = new Array(12).fill(0), mExp = new Array(12).fill(0);
-  _dTxs.forEach(t => {
-    const p = t.date.split('/'); if (p.length < 2) return;
-    const mo = parseInt(p[1]) - 1; if (mo < 0 || mo > 11) return;
-    if (t.val > 0) mRev[mo] += t.val; else mExp[mo] += Math.abs(t.val);
-  });
   const ctx1 = document.getElementById('chart-rev').getContext('2d');
+  const mRev = d.serieMensal.receita, mExp = d.serieMensal.despesa;
   const mNet = mRev.map((v,i)=>v-mExp[i]);
   CH['rev'] = new Chart(ctx1, {
-    type:'line', data:{labels:['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+    type:'line', data:{labels:d.serieMensal.labels,
       datasets:[
         {label:'Receitas',data:mRev,borderColor:'#2EBD85',backgroundColor:'rgba(46,189,133,.12)',borderWidth:2.5,tension:.35,fill:true,pointRadius:3,pointBackgroundColor:'#2EBD85'},
         {label:'Despesas',data:mExp,borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,.10)',borderWidth:2.5,tension:.35,fill:true,pointRadius:3,pointBackgroundColor:'#E24B4A'},
@@ -2357,8 +2483,7 @@ function renderDashboard() {
       ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{ticks:{callback:v=>v>=1e6?'R$'+(v/1e6).toFixed(1)+'M':'R$'+(v/1e3).toFixed(0)+'K',font:{size:10}},grid:{color:gridCor_(.06)}},x:{grid:{display:false}}}}
   });
-  const cats = {}; _dTxs.filter(t=>t.val<0).forEach(t => { cats[t.cat]=(cats[t.cat]||0)+Math.abs(t.val); });
-  const cLbls = Object.keys(cats), cVals = cLbls.map(c=>cats[c]);
+  const cLbls = d.categoriaBreakdown.map(c=>c.categoria), cVals = d.categoriaBreakdown.map(c=>c.valor);
   const ctx2 = document.getElementById('chart-cat').getContext('2d');
   CH['cat'] = new Chart(ctx2, {
     type:'doughnut', data:{labels:cLbls.length?cLbls:['Sem dados'],datasets:[{data:cVals.length?cVals:[1],backgroundColor:['#ef4444','#f59e0b','#6366f1','#10b981','#0ea5e9','#8b5cf6','#ec4899','#94a3b8'],borderWidth:0,hoverOffset:6}]},
@@ -2366,16 +2491,16 @@ function renderDashboard() {
   });
   // Last transactions
   const tbody = document.getElementById('dash-tx');
-  const recent = _dTxs.slice(-8).reverse();
+  const recent = d.recentes;
   tbody.innerHTML = recent.length ? recent.map(t => `<tr>
-    <td style="font-size:.75rem;color:var(--gray-400);white-space:nowrap">${t.date}</td>
-    <td style="font-size:.78rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.desc}">${t.desc}</td>
-    <td><span class="badge ${catBadge(t.cat)}">${t.cat}</span></td>
+    <td style="font-size:.75rem;color:var(--gray-400);white-space:nowrap">${fmtDataISOParaBR_(t.data)}</td>
+    <td style="font-size:.78rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.descricao}">${t.descricao}</td>
+    <td><span class="badge ${catBadge(t.categoria)}">${t.categoria}</span></td>
     <td style="font-size:.72rem;color:var(--gray-500)">${t.banco}</td>
-    <td class="${t.val>=0?'vp':'vn'}" style="text-align:right">${fM(t.val)}</td>
+    <td class="${t.valor>=0?'vp':'vn'}" style="text-align:right">${fM(t.valor)}</td>
   </tr>`).join('')
   : `<tr><td colspan="5"><div class="es" style="padding:24px"><div class="es-ic">📥</div><div class="es-tt">Nenhuma transação</div><div class="es-sb">Importe um extrato para começar</div></div></td></tr>`;
-  // Alerts
+  // Alerts (varredura leve, continua no navegador)
   const alts = computeAlerts();
   document.getElementById('dash-alert-badge').textContent = alts.length;
   document.getElementById('dash-alert-badge').className = 'badge ' + (alts.length ? 'bda' : 'bgr');
@@ -2389,33 +2514,19 @@ function renderDashboard() {
 // Painel "Resumo Executivo" do Dashboard — métricas pensadas pra quem toma
 // decisão (gerente financeiro, CEO, dono): margem, ticket médio, posição de
 // caixa em aberto (a pagar/a receber) e a maior categoria de despesa.
-function renderExecutiveSummary(){
+function renderExecutiveSummary(resumo){
   const el = document.getElementById('dash-exec-summary');
-  if(!el) return;
-  const txs = filterByPeriodo(filterByEmpresa(S.transactions), 'dash-f-de', 'dash-f-ate');
-  const revTotal = txs.filter(t=>t.val>0).reduce((s,t)=>s+t.val,0);
-  const expTxs = txs.filter(t=>t.val<0);
-  const expTotal = expTxs.reduce((s,t)=>s+Math.abs(t.val),0);
-  const netTotal = revTotal - expTotal;
-  const margem = revTotal>0 ? (netTotal/revTotal*100) : null;
-  const ticketMedioDespesa = expTxs.length ? (expTotal/expTxs.length) : 0;
-
-  const payAberto = filterByEmpresa(S.payables).filter(p=>p.status!=='paid').reduce((s,p)=>s+p.val,0);
-  const recAberto = filterByEmpresa(S.receivables).filter(r=>r.status!=='received').reduce((s,r)=>s+(r.val||0),0);
-  const saldoProjetado = recAberto - payAberto;
-
-  const cats = {}; expTxs.forEach(t=>{ cats[t.cat]=(cats[t.cat]||0)+Math.abs(t.val); });
-  const topCat = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
-
+  if(!el || !resumo) return;
+  const { margemPct, ticketMedioDespesa, payAberto, recAberto, saldoProjetado, topCategoria } = resumo;
   el.innerHTML = `
     <div class="fm" style="grid-template-columns:repeat(5,1fr)">
-      <div><span class="fml">Margem Líquida</span><span class="fmv" style="color:${margem===null?'inherit':margem>=0?'var(--success)':'var(--danger)'}">${margem===null?'—':margem.toFixed(1)+'%'}</span></div>
+      <div><span class="fml">Margem Líquida</span><span class="fmv" style="color:${margemPct===null?'inherit':margemPct>=0?'var(--success)':'var(--danger)'}">${margemPct===null?'—':margemPct.toFixed(1)+'%'}</span></div>
       <div><span class="fml">Ticket Médio de Despesa</span><span class="fmv">${fM(ticketMedioDespesa)}</span></div>
       <div><span class="fml">A Pagar em Aberto</span><span class="fmv" style="color:var(--danger)">${fM(payAberto)}</span></div>
       <div><span class="fml">A Receber em Aberto</span><span class="fmv" style="color:var(--success)">${fM(recAberto)}</span></div>
       <div><span class="fml">Saldo Projetado</span><span class="fmv" style="color:${saldoProjetado>=0?'var(--success)':'var(--danger)'}">${fM(saldoProjetado)}</span></div>
     </div>
-    ${topCat ? `<div class="dv"></div><div style="font-size:.78rem;color:var(--gray-500)">Maior categoria de despesa no período: <strong style="color:var(--gray-700)">${topCat[0]}</strong> — ${fM(-topCat[1])}</div>` : ''}
+    ${topCategoria ? `<div class="dv"></div><div style="font-size:.78rem;color:var(--gray-500)">Maior categoria de despesa no período: <strong style="color:var(--gray-700)">${topCategoria.categoria}</strong> — ${fM(-topCategoria.valor)}</div>` : ''}
   `;
 }
 
@@ -2456,8 +2567,21 @@ function computeDRE_(){
   return {receita, custosOperacionais, totalCustosOperacionais, tributos, financeiro, ebitda, lucroLiquido, margemEbitda, margemLiquida};
 }
 
-function openDreModal(){
-  const d = computeDRE_();
+async function buscarDRE_() {
+  const empresa = getActiveCompanyName();
+  const p = new URLSearchParams();
+  if (empresa) p.set('empresa', empresa);
+  const res = await apiFetch(API_BASE + '/conciliacao/dre?' + p.toString());
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.error || 'falha ao carregar DRE');
+  // Adapta pros mesmos nomes que o resto desta tela já usa (val/margemEbitda/margemLiquida)
+  return { ...d, custosOperacionais: d.custosOperacionais.map(c => ({ grupo: c.grupo, val: c.valor })),
+    margemEbitda: d.margemEbitdaPct, margemLiquida: d.margemLiquidaPct };
+}
+
+async function openDreModal(){
+  let d;
+  try { d = await buscarDRE_(); } catch(e) { toast('Erro ao carregar o DRE', '⚠️'); return; }
   const linha = (label, val, destaque) => `<div style="display:flex;justify-content:space-between;padding:8px 0;${destaque?'border-top:1px solid var(--gray-200);border-bottom:1px solid var(--gray-200);font-weight:700;margin:4px 0':''}">
     <span style="font-size:.82rem">${label}</span><span class="${val<0?'vn':'vp'}" style="font-family:var(--font-mono)">${fM(val)}</span>
   </div>`;
@@ -2476,8 +2600,9 @@ function openDreModal(){
   openModal('modal-dre');
 }
 
-function openEbitdaModal(){
-  const d = computeDRE_();
+async function openEbitdaModal(){
+  let d;
+  try { d = await buscarDRE_(); } catch(e) { toast('Erro ao carregar o EBITDA', '⚠️'); return; }
   const linhasFormula = d.custosOperacionais.map(c => `<dt>${tituloGrupo_(c.grupo)}</dt><dd>${fM(-c.val)}</dd>`).join('');
   const formulaTexto = 'EBITDA = Receita − ' + (d.custosOperacionais.map(c=>tituloGrupo_(c.grupo)).join(' − ') || '—');
   document.getElementById('ebitda-body').innerHTML = `
@@ -2498,12 +2623,18 @@ function openEbitdaModal(){
   openModal('modal-ebitda');
 }
 
-function openCentroCustosModal(){
-  const txs = filterByEmpresa(S.transactions).filter(t=>t.val<0 && !isTransferOrInvestment(t));
-  const porEmpresa = {};
-  txs.forEach(t=>{ const e=t.empresa||'—'; porEmpresa[e]=(porEmpresa[e]||0)+Math.abs(t.val); });
-  const entries = Object.entries(porEmpresa).sort((a,b)=>b[1]-a[1]);
-  const total = entries.reduce((s,[,v])=>s+v,0);
+async function openCentroCustosModal(){
+  const empresa = getActiveCompanyName();
+  const p = new URLSearchParams();
+  if (empresa) p.set('empresa', empresa);
+  let cc;
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/centro-custos?' + p.toString());
+    cc = await res.json();
+    if (!res.ok) throw new Error(cc.error || 'falha ao carregar');
+  } catch(e) { toast('Erro ao carregar o Centro de Custos', '⚠️'); return; }
+  const entries = cc.linhas.map(l => [l.empresa, l.valor]);
+  const total = cc.total;
   const max = entries.length ? entries[0][1] : 0;
   const el = document.getElementById('centro-custos-body');
   el.innerHTML = entries.length ? entries.map(([emp,val])=>`
@@ -3263,18 +3394,27 @@ function updateTxSelectAllCheckbox() {
   cb.indeterminate = selCount > 0 && selCount < _txFilteredCache.length;
 }
 
-function autoClassifyAll() {
-  let n = 0;
+async function autoClassifyAll() {
+  const paraClassificar = [];
   S.transactions.forEach(t => {
     if (t.status === 'unclassified') {
       const ai = classifyAI(t.desc);
       if (ai.cat !== 'CUSTO NÃO LOCALIZADO' && ai.cat !== 'Não Classificado') {
-        t.cat = ai.cat; t.conf = ai.conf; t.status = statusFromCat(ai.cat); n++;
+        paraClassificar.push({ t, cat: ai.cat, conf: ai.conf });
       }
     }
   });
+  if (!paraClassificar.length) { toast('Todas já estão classificadas.', '🤖'); return; }
+  try {
+    await Promise.all(paraClassificar.map(({t, cat, conf}) =>
+      apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categoria: cat, confianca: conf })
+      })
+    ));
+  } catch(e) { toast('Erro de conexão ao classificar em lote', '⚠️'); return; }
+  paraClassificar.forEach(({t, cat, conf}) => { t.cat = cat; t.conf = conf; t.status = statusFromCat(cat); });
   updateBadges(); updateKPIs(); renderTransactions();
-  toast(n ? n + ' transações classificadas pela IA!' : 'Todas já estão classificadas.', '🤖');
+  toast(paraClassificar.length + ' transações classificadas pela IA!', '🤖');
 }
 
 function exportTx() {
@@ -3522,17 +3662,22 @@ function resetConcilFilters() {
 }
 
 // ─── DESCONCILIAR ──────────────────────────────────────
-function desconciliarTx(idx) {
+async function desconciliarTx(idx) {
   const t = S.transactions[idx];
   if (!t) return;
-  t.status = 'unclassified';
-  saveState();
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/transacoes/desconciliar', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids:[t.id] })
+    });
+    if (!res.ok) { toast('Erro ao desconciliar', '⚠️'); return; }
+  } catch(e) { toast('Erro de conexão', '⚠️'); return; }
+  t.status = 'unclassified'; t.cat = 'Não Classificado'; t.conf = 0;
   updateBadges();
   filterConcil();
   toast('Lançamento desconciliado', '↺');
 }
 
-function desconciliarFiltro() {
+async function desconciliarFiltro() {
   const q    = (document.getElementById('con-search')  ||{value:''}).value.toLowerCase();
   const ty   = (document.getElementById('con-f-type')  ||{value:''}).value;
   const st   = (document.getElementById('con-f-status')||{value:''}).value;
@@ -3574,19 +3719,28 @@ function desconciliarFiltro() {
 
   // Desconciliar apaga tanto o status quanto a categoria que tinha sido
   // feita — volta pro estado "em branco" de verdade, não só o status.
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/transacoes/desconciliar', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids: conciliados.map(t=>t.id) })
+    });
+    if (!res.ok) { toast('Erro ao desconciliar em lote', '⚠️'); return; }
+  } catch(e) { toast('Erro de conexão', '⚠️'); return; }
   conciliados.forEach(t => { t.status = 'unclassified'; t.cat = 'Não Classificado'; t.conf = 0; });
-  saveState();
   updateBadges();
   filterConcil();
   toast(`${conciliados.length} lançamento(s) desconciliados (status e categoria apagados)`, '↺');
 }
 
-function deleteTx(idx) {
+async function deleteTx(idx) {
   const t = S.transactions[idx];
   if (!t) return;
   if (!confirm(`Excluir "${t.desc.slice(0,40)}" — ${fM(t.val)}?`)) return;
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, { method:'DELETE' });
+    if (!res.ok && res.status !== 204) { toast('Erro ao excluir', '⚠️'); return; }
+  } catch(e) { toast('Erro de conexão ao excluir', '⚠️'); return; }
   S.transactions.splice(idx, 1);
-  saveState(); updateBadges(); renderConciliation();
+  updateBadges(); renderConciliation();
   toast('Lançamento excluído', '🗑');
 }
 
@@ -3646,13 +3800,20 @@ function clearCfDates() {
   renderCashflow();
 }
 
-function autoReconcile() {
-  let n = 0;
+async function autoReconcile() {
+  const paraClassificar = [];
   S.transactions.forEach(t => {
-    if (t.status==='unclassified') { const ai=classifyAI(t.desc); if(ai.cat!=='Não Classificado'&&ai.cat!=='CUSTO NÃO LOCALIZADO'){t.cat=ai.cat;t.status=statusFromCat(ai.cat);n++;} }
+    if (t.status==='unclassified') { const ai=classifyAI(t.desc); if(ai.cat!=='Não Classificado'&&ai.cat!=='CUSTO NÃO LOCALIZADO') paraClassificar.push({t, cat:ai.cat}); }
   });
+  if (!paraClassificar.length) { toast('Todos já processados.', '🔀'); return; }
+  try {
+    await Promise.all(paraClassificar.map(({t, cat}) =>
+      apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categoria: cat }) })
+    ));
+  } catch(e) { toast('Erro de conexão ao conciliar em lote', '⚠️'); return; }
+  paraClassificar.forEach(({t, cat}) => { t.cat = cat; t.status = statusFromCat(cat); });
   updateBadges(); renderConciliation();
-  toast(n ? n+' lançamentos conciliados!' : 'Todos já processados.', '🔀');
+  toast(paraClassificar.length+' lançamentos conciliados!', '🔀');
 }
 
 // ═══════════════════════════════════════
@@ -3824,24 +3985,24 @@ function openSimilarityPrompt(baseTx, similar, origin) {
 }
 
 // Botão "✓ Sim, aplicar para todos" do prompt de similaridade
-function confirmApplySimilar() {
+async function confirmApplySimilar() {
   if (!_simPromptCtx) { closeModal('modal-sim-prompt'); return; }
   const { baseTx, similar, origin } = _simPromptCtx;
+  const kwConsolidada = simCore(baseTx.desc, 5) || baseTx.desc.split(' ').slice(0,3).join(' ');
+  try {
+    await apiFetch(API_BASE + '/conciliacao/transacoes/lote', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ids: similar.map(r=>r.tx.id), categoria: baseTx.cat })
+    });
+    const row = await apiFetch(API_BASE + '/conciliacao/aprendizados', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ keyword: kwConsolidada, categoria: baseTx.cat })
+    }).then(r => r.json());
+    S.learnings.unshift({ id: row.id, keyword: kwConsolidada, cat: baseTx.cat, date: new Date().toLocaleDateString('pt-BR'),
+      bulkApplied: similar.length, matchReason: similar[0] ? similar[0].reason : 'Padrão de descrição semelhante' });
+  } catch(e) { toast('Erro de conexão ao aplicar em lote', '⚠️'); return; }
+
   let n = 0;
-  similar.forEach(r => {
-    r.tx.cat = baseTx.cat;
-    r.tx.status = 'classified';
-    n++;
-  });
-  // Registra 1 regra de aprendizado consolidada (não 1 por lançamento, para
-  // não inflar S.learnings) com o núcleo textual identificado e o motivo
-  S.learnings.unshift({
-    keyword: simCore(baseTx.desc, 5) || baseTx.desc.split(' ').slice(0,3).join(' '),
-    cat: baseTx.cat,
-    date: new Date().toLocaleDateString('pt-BR'),
-    bulkApplied: n,
-    matchReason: similar[0] ? similar[0].reason : 'Padrão de descrição semelhante',
-  });
+  similar.forEach(r => { r.tx.cat = baseTx.cat; r.tx.status = 'classified'; n++; });
   const ctEl = document.getElementById('ia-manual-ct');
   if (ctEl) ctEl.textContent = S.learnings.length;
   catPickRegisterUsage(baseTx.cat);
@@ -4016,12 +4177,20 @@ function renderPayableAnalytics(){
   if(elEmp) elEmp.innerHTML = empEntries.length ? barRows(empEntries, 'var(--info)') : '<div class="es"><div class="es-ic">🏢</div><div class="es-tt">Sem dados ainda</div></div>';
 }
 
-function savePayable() {
+async function savePayable() {
   const sup=document.getElementById('py-sup').value.trim(), due=document.getElementById('py-due').value,
     val=parseFloat(document.getElementById('py-val').value)||0, cat=document.getElementById('py-cat').value,
     empresa=document.getElementById('py-emp').value, method=document.getElementById('py-met').value;
   if (!sup||!val||!due){toast('Preencha fornecedor, valor e vencimento','⚠️');return;}
-  S.payables.push({due,supplier:sup,val,cat,empresa,method,status:'pending'});
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ tipo:'Pagar', favorecido:sup, vencimento:due, valor:val, categoria:cat, empresa_cnpj:empresa, forma_pagamento:method })
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao salvar'), '⚠️'); return; }
+    S.payables.push(mapearPagarDoApi_(row));
+  } catch(e) { toast('Erro de conexão ao salvar', '⚠️'); return; }
   updateBadges(); closeModal('modal-payable'); renderPayable(); toast('Conta a pagar registrada!','✅');
   ['py-sup','py-val','py-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
 }
@@ -4184,16 +4353,20 @@ function renderReceivable() {
   }).join('');
 }
 
-function deleteRec(i) {
+async function deleteRec(i) {
   const r = S.receivables[i];
   if (!r) return;
   if (!confirm(`Excluir título de "${r.client}" — R$ ${fN(r.val)}?`)) return;
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro/' + r.id, { method:'DELETE' });
+    if (!res.ok && res.status !== 204) { toast('Erro ao excluir', '⚠️'); return; }
+  } catch(e) { toast('Erro de conexão ao excluir', '⚠️'); return; }
   S.receivables.splice(i, 1);
-  saveState(); updateBadges(); renderReceivable();
+  updateBadges(); renderReceivable();
   toast('Título excluído','🗑');
 }
 
-function saveReceivable() {
+async function saveReceivable() {
   const cli=document.getElementById('rc-cli').value.trim(), due=document.getElementById('rc-due').value,
     val=parseFloat(document.getElementById('rc-val').value)||0, svc=document.getElementById('rc-svc').value.trim(),
     empresa=document.getElementById('rc-emp').value, method=document.getElementById('rc-met').value,
@@ -4212,8 +4385,16 @@ function saveReceivable() {
     }
   }
 
-  S.receivables.push({due,client:cli,val,svc,empresa,method,status:'pending',doc,numFat,cat,dataCob,obs,historico:[]});
-  closeModal('modal-receivable'); renderReceivable(); toast('Conta a receber registrada!','✅');
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ tipo:'Receber', favorecido:cli, vencimento:due, valor:val, descricao:svc, empresa_cnpj:empresa, forma_pagamento:method, documento:doc, codigo_externo:numFat, categoria:cat, data_cobranca:dataCob||null, observacao:obs })
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao salvar'), '⚠️'); return; }
+    S.receivables.push(mapearReceberDoApi_(row));
+  } catch(e) { toast('Erro de conexão ao salvar', '⚠️'); return; }
+  updateBadges(); closeModal('modal-receivable'); renderReceivable(); toast('Conta a receber registrada!','✅');
   ['rc-cli','rc-val','rc-svc','rc-doc','rc-numfat','rc-datacob','rc-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
 }
 
@@ -4242,23 +4423,37 @@ function renderHistoricoCobranca() {
       </div>`).join('')
     : '<p style="font-size:.75rem;color:var(--gray-400)">Nenhuma atualização registrada ainda.</p>';
 }
-function adicionarNotaCobranca() {
+async function adicionarNotaCobranca() {
   const r = S.receivables[_hcIdx];
   if (!r) return;
   const input = document.getElementById('hc-nova-nota');
   const texto = input.value.trim();
   if (!texto) { toast('Escreva uma nota antes de adicionar','⚠️'); return; }
-  if (!Array.isArray(r.historico)) r.historico = [];
-  r.historico.unshift({data: new Date().toLocaleDateString('pt-BR'), texto});
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro/' + r.id + '/notas-cobranca', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texto })
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao salvar'), '⚠️'); return; }
+    r.historico = Array.isArray(row.historico_cobranca) ? row.historico_cobranca : r.historico;
+  } catch(e) { toast('Erro de conexão ao salvar', '⚠️'); return; }
   input.value = '';
-  saveState();
   renderHistoricoCobranca();
 }
 
-function markPaid(type, i) {
-  const hoje = new Date().toISOString().slice(0,10);
-  if (type==='pay')  { S.payables[i].status   = 'paid'; S.payables[i].paidAt = hoje; }
-  if (type==='rec')  { S.receivables[i].status = 'received'; S.receivables[i].paidAt = hoje; }
+async function markPaid(type, i) {
+  const item = type==='pay' ? S.payables[i] : S.receivables[i];
+  if (!item) return;
+  const novoStatus = type==='pay' ? 'Pago' : 'Recebido';
+  try {
+    const res = await apiFetch(API_BASE + '/financeiro/' + item.id + '/status', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: novoStatus })
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao atualizar'), '⚠️'); return; }
+    if (type==='pay') { item.status = 'paid'; item.paidAt = row.data_pagamento; }
+    else { item.status = 'received'; item.paidAt = row.data_pagamento; }
+  } catch(e) { toast('Erro de conexão ao atualizar', '⚠️'); return; }
   updateBadges();
   if (type==='pay') renderPayable(); else renderReceivable();
   toast('Status atualizado!','✅');
@@ -4267,18 +4462,25 @@ function markPaid(type, i) {
 // ═══════════════════════════════════════
 // CASHFLOW
 // ═══════════════════════════════════════
-function renderCashflow() {
-  const byDate = {};
-  filterByPeriodo(filterByEmpresa(S.transactions), 'cf-f-de', 'cf-f-ate').forEach(t => {
-    if (!byDate[t.date]) byDate[t.date] = {i:0, o:0};
-    if (t.val>0) byDate[t.date].i += t.val; else byDate[t.date].o += Math.abs(t.val);
-  });
-  const dates = Object.keys(byDate).sort((a,b)=>{
-    const [da,ma,ya]=a.split('/'), [db,mb,yb]=b.split('/');
-    return new Date(ya,ma-1,da)-new Date(yb,mb-1,db);
-  });
-  let acc = 0;
-  const rows = dates.map(d => { const r=byDate[d]; const bal=r.i-r.o; acc+=bal; return {date:d,in:r.i,out:r.o,bal,acc}; });
+async function renderCashflow() {
+  const empresa = getActiveCompanyName();
+  const de  = (document.getElementById('cf-f-de')  || {value:''}).value;
+  const ate = (document.getElementById('cf-f-ate') || {value:''}).value;
+  const p = new URLSearchParams();
+  if (empresa) p.set('empresa', empresa);
+  if (de) p.set('de', de);
+  if (ate) p.set('ate', ate);
+
+  let rows;
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/cashflow?' + p.toString());
+    const cf = await res.json();
+    if (!res.ok) throw new Error(cf.error || 'falha ao carregar fluxo de caixa');
+    rows = cf.linhas.map(l => ({ date: fmtDataISOParaBR_(l.data), in: l.entradas, out: l.saidas, bal: l.saldo, acc: l.acumulado }));
+  } catch(e) {
+    toast('Erro ao carregar o Fluxo de Caixa', '⚠️');
+    return;
+  }
 
   destroyChart('cf'); destroyChart('bal');
   const mkEmpty = id => {
@@ -4360,74 +4562,8 @@ function renderCashflow() {
   </tr>`).join('');
 }
 
-// ═══════════════════════════════════════
-// FLEET
-// ═══════════════════════════════════════
-function renderFleet() {
-  const fl = S.fleet;
-  document.getElementById('fl-active').textContent = fl.filter(f=>f.status==='active').length;
-  document.getElementById('fl-maint').textContent  = fl.filter(f=>f.status==='maintenance').length;
-  document.getElementById('fl-total').textContent  = fl.length;
-  document.getElementById('fl-cost').textContent   = 'R$ 0,00';
-  const grid = document.getElementById('fl-grid');
-  if (!fl.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1"><div class="es" style="padding:48px"><div class="es-ic">🚛</div><div class="es-tt">Nenhum veículo cadastrado</div><div class="es-sb">Clique em ＋ Cadastrar Veículo</div></div></div>`;
-    document.getElementById('fl-rank').innerHTML = '<div class="es" style="padding:20px"><div class="es-sb">Sem dados</div></div>'; return;
-  }
-  grid.innerHTML = fl.map((f,i) => `<div class="fleet-card">
-    <div class="plate">${f.plate}</div>
-    <div style="font-size:.72rem;color:var(--gray-500);margin-bottom:2px">${f.model||'—'}</div>
-    <div style="font-size:.7rem;color:var(--gray-400)">${f.empresa}</div>
-    <div style="margin-top:8px"><span class="badge ${f.status==='active'?'bsu':f.status==='maintenance'?'bwa':'bgr'}">${f.status==='active'?'● Ativo':f.status==='maintenance'?'🔧 Manutenção':'○ Inativo'}</span></div>
-    <div class="fm"><div><span class="fml">Motorista</span><span class="fmv" style="font-size:.75rem">${f.driver||'—'}</span></div><div><span class="fml">Ano</span><span class="fmv">${f.year||'—'}</span></div></div>
-    <button class="btn bg bsm" style="margin-top:10px;width:100%;justify-content:center" onclick="removeFleet(${i})">🗑 Remover</button>
-  </div>`).join('');
-  document.getElementById('fl-rank').innerHTML = fl.map((f,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100)">
-    <span style="width:22px;height:22px;border-radius:50%;background:${['#f59e0b','#94a3b8','#cd7c32'][i]||'var(--gray-200)'};color:${i<3?'#fff':'var(--gray-500)'};font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
-    <div style="flex:1"><div style="font-size:.78rem;font-weight:600">${f.plate}</div><div style="font-size:.68rem;color:var(--gray-400)">${f.driver||'—'}</div></div>
-    <span class="badge ${f.status==='active'?'bsu':'bwa'}">${f.status==='active'?'Ativo':'Manu.'}</span>
-  </div>`).join('');
-}
-
-function saveFleet() {
-  const plate=document.getElementById('fl-pl').value.trim().toUpperCase();
-  if (!plate){toast('Informe a placa do veículo','⚠️');return;}
-  S.fleet.push({plate, model:document.getElementById('fl-mo').value.trim(), driver:document.getElementById('fl-dr').value.trim(),
-    empresa:document.getElementById('fl-em').value, year:document.getElementById('fl-yr').value, status:document.getElementById('fl-st').value});
-  closeModal('modal-fleet'); renderFleet(); toast('Veículo cadastrado!','🚛');
-  ['fl-pl','fl-mo','fl-dr','fl-yr'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
-
-function removeFleet(i) {
-  if (!confirm('Remover este veículo?')) return;
-  S.fleet.splice(i,1); renderFleet(); toast('Veículo removido','🗑');
-}
-
-// ═══════════════════════════════════════
-// DRIVERS
-// ═══════════════════════════════════════
-function renderDrivers() {
-  const tbody = document.getElementById('drv-tbody');
-  if (!S.drivers.length) { tbody.innerHTML = emptyRow(7,'Nenhum motorista cadastrado','👤'); return; }
-  tbody.innerHTML = S.drivers.map((d,i)=>`<tr>
-    <td style="font-weight:500">${d.name}</td>
-    <td style="font-size:.72rem;color:var(--gray-400)">${d.cpf||'—'}</td>
-    <td><span class="plate" style="font-size:.7rem;padding:2px 8px">${d.truck||'—'}</span></td>
-    <td class="vn" style="text-align:right">R$ ${fN(d.advances||0)}</td>
-    <td class="vp" style="text-align:right">R$ 0,00</td>
-    <td style="font-size:.72rem;color:var(--gray-500)">${d.empresa}</td>
-    <td><span class="badge bsu">● Ativo</span></td>
-  </tr>`).join('');
-}
-
-function saveDriver() {
-  const name=document.getElementById('dr-nm').value.trim();
-  if (!name){toast('Informe o nome do motorista','⚠️');return;}
-  S.drivers.push({name, cpf:document.getElementById('dr-cp').value.trim(), cnh:document.getElementById('dr-cn').value.trim(),
-    phone:document.getElementById('dr-ph').value.trim(), empresa:document.getElementById('dr-em').value, advances:0, truck:'—'});
-  closeModal('modal-driver'); renderDrivers(); toast('Motorista cadastrado!','👤');
-  ['dr-nm','dr-cp','dr-cn','dr-ph'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
+// Frota/Motoristas (abas antigas sem link nenhum no menu, nunca
+// acessadas por ninguém) foram removidas daqui — código morto.
 
 // ═══════════════════════════════════════
 // INTELLIGENCE
@@ -5150,14 +5286,22 @@ function clearLastUsedCat() {
   toast('Categoria padrão da sessão removida','🧹');
 }
 
-function saveClassification() {
+async function saveClassification() {
   const idx = S.classifyIdx;
   const t = S.transactions[idx];
   if (!t) { closeModal('modal-classify'); return; }
   const cat   = document.getElementById('cl-cat').value;
   if (!cat) { toast('Selecione uma categoria','⚠️'); return; }
   const kw    = t.desc.split(' ').slice(0, 3).join(' ');
-  S.learnings.unshift({keyword: kw, cat, date: new Date().toLocaleDateString('pt-BR')});
+  try {
+    await apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categoria: cat })
+    });
+    const row = await apiFetch(API_BASE + '/conciliacao/aprendizados', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ keyword: kw, categoria: cat })
+    }).then(r => r.json());
+    S.learnings.unshift({id: row.id, keyword: kw, cat, date: new Date().toLocaleDateString('pt-BR')});
+  } catch(e) { toast('Erro de conexão ao salvar classificação', '⚠️'); return; }
   document.getElementById('ia-manual-ct').textContent = S.learnings.length;
   t.cat = cat; t.status = statusFromCat(cat);
   catPickRegisterUsage(cat);
@@ -5371,7 +5515,7 @@ function popularSelectGrupos(selectId, selecionado) {
   if (selecionado) el.value = selecionado;
 }
 
-function saveCategory() {
+async function saveCategory() {
   const name  = document.getElementById('mc-name').value.trim();
   const grupo = document.getElementById('mc-grupo').value;
   const type  = document.getElementById('mc-type').value;
@@ -5383,8 +5527,15 @@ function saveCategory() {
   if (S.categories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
     toast('Já existe uma categoria com este nome','⚠️'); return;
   }
-  // Add to categories
-  S.categories.push({name, grupo, categoria: grupo, type, color, acc, kw, obs});
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/categorias', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, grupo, categoria: grupo, tipo: type, color, acc, kw, obs })
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao criar'), '⚠️'); return; }
+    S.categories.push({ id: row.id, name: row.name, grupo: row.grupo, categoria: row.categoria, type: row.tipo, color: row.color, acc: row.acc, kw: row.kw });
+  } catch(e) { toast('Erro de conexão ao criar categoria', '⚠️'); return; }
   // Sync with AI_RULES if keywords provided
   if (kw) {
     AI_RULES.unshift({kw: kw.split(',').map(k=>k.trim().toUpperCase()).filter(Boolean), cat: name});
@@ -5410,14 +5561,14 @@ function editCategory(i) {
   openModal('modal-category-edit');
 }
 
-function updateCategory() {
+async function updateCategory() {
   const i    = parseInt(document.getElementById('mce-idx').value);
   const name = document.getElementById('mce-name').value.trim();
   const type = document.getElementById('mce-type').value;
   if (!name) { toast('Informe o nome da categoria','⚠️'); return; }
   const oldName = S.categories[i].name;
-  S.categories[i] = {
-    name, type,
+  const payload = {
+    name, tipo: type,
     grupo: S.categories[i].grupo,
     categoria: S.categories[i].categoria,
     color: document.getElementById('mce-color').value,
@@ -5425,7 +5576,16 @@ function updateCategory() {
     kw:    document.getElementById('mce-kw').value.trim(),
     obs:   document.getElementById('mce-obs').value.trim(),
   };
-  // Update transactions that used old name
+  try {
+    // O backend já cuida de retaguear qualquer transação que usava o
+    // nome antigo (rename em cascata), não precisa fazer isso aqui.
+    const res = await apiFetch(API_BASE + '/conciliacao/categorias/' + S.categories[i].id, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const row = await res.json();
+    if (!res.ok) { toast('Erro: ' + (row.error||'falha ao atualizar'), '⚠️'); return; }
+    S.categories[i] = { id: row.id, name: row.name, grupo: row.grupo, categoria: row.categoria, type: row.tipo, color: row.color, acc: row.acc, kw: row.kw };
+  } catch(e) { toast('Erro de conexão ao atualizar categoria', '⚠️'); return; }
   if (oldName !== name) {
     S.transactions.forEach(t => { if (t.cat === oldName) t.cat = name; });
   }
@@ -5443,15 +5603,26 @@ function updateCategory() {
   toast('Categoria atualizada!','✅');
 }
 
-function deleteCategory(i) {
+async function deleteCategory(i) {
   const c = S.categories[i];
   if (!c) return;
   if (c.name === 'CUSTO NÃO LOCALIZADO') { toast('Esta categoria não pode ser excluída','⚠️'); return; }
-  const inUse = S.transactions.filter(t => t.cat === c.name).length;
-  if (inUse > 0) {
-    if (!confirm(`A categoria "${c.name}" está em uso em ${inUse} transação(ões).\n\nAs transações serão marcadas como "CUSTO NÃO LOCALIZADO".\n\nDeseja continuar?`)) return;
-    S.transactions.forEach(t => { if (t.cat === c.name) { t.cat = 'CUSTO NÃO LOCALIZADO'; t.status = 'unclassified'; } });
+  const emUso = S.transactions.filter(t => t.cat === c.name);
+  if (emUso.length > 0) {
+    if (!confirm(`A categoria "${c.name}" está em uso em ${emUso.length} transação(ões).\n\nAs transações serão marcadas como "CUSTO NÃO LOCALIZADO".\n\nDeseja continuar?`)) return;
+    try {
+      const res = await apiFetch(API_BASE + '/conciliacao/transacoes/lote', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ids: emUso.map(t=>t.id), categoria:'CUSTO NÃO LOCALIZADO' })
+      });
+      if (!res.ok) { toast('Erro ao reclassificar transações', '⚠️'); return; }
+    } catch(e) { toast('Erro de conexão', '⚠️'); return; }
+    emUso.forEach(t => { t.cat = 'CUSTO NÃO LOCALIZADO'; t.status = 'unclassified'; });
   }
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/categorias/' + c.id, { method:'DELETE' });
+    if (!res.ok && res.status !== 204) { toast('Erro ao excluir categoria', '⚠️'); return; }
+  } catch(e) { toast('Erro de conexão ao excluir', '⚠️'); return; }
   // Remove from AI_RULES
   const ri = AI_RULES.findIndex(r => r.cat === c.name);
   if (ri >= 0) AI_RULES.splice(ri, 1);
@@ -5465,17 +5636,9 @@ function deleteCategory(i) {
 // STORAGE INFO
 // ═══════════════════════════════════════
 function updateStorageInfo() {
-  const urlInput = document.getElementById('backend-url-input');
-  if (urlInput && !urlInput.value) urlInput.value = getConciliacaoUrl();
   const el = document.getElementById('storage-info');
   if (!el) return;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) { el.textContent = 'Nenhum dado salvo ainda'; return; }
-    const kb = (raw.length / 1024).toFixed(1);
-    const data = JSON.parse(raw);
-    el.innerHTML = `<strong>${(data.transactions||[]).length}</strong> transações · <strong>${(data.payables||[]).length}</strong> contas a pagar · <strong>${(data.fleet||[]).length}</strong> veículos · <strong>${kb} KB</strong> usados`;
-  } catch(e) { el.textContent = 'Erro ao ler dados'; }
+  el.innerHTML = `<strong>${S.transactions.length}</strong> transações · <strong>${S.payables.length}</strong> contas a pagar · <strong>${S.receivables.length}</strong> contas a receber`;
 }
 
 // ═══════════════════════════════════════
@@ -5740,7 +5903,12 @@ function populateTxCatFilter() {
 }
 
 // ═══════════════════════════════════════
-// PERSISTÊNCIA — localStorage
+// PERSISTÊNCIA
+// Transações, categorias, histórico de importação e aprendizados da IA
+// agora moram no Supabase (ver /api/conciliacao/*) — cada ação já grava
+// direto na linha certa. saveState() virou só um espelho local (cache de
+// emergência, caso a API esteja fora do ar num momento), não é mais a
+// fonte de verdade nem sincroniza em lote com nada.
 // ═══════════════════════════════════════
 const STORAGE_KEY = 'barretos_fin_v4';
 
@@ -5762,123 +5930,139 @@ function saveState() {
   } catch(e) {
     console.warn('Erro ao salvar estado:', e);
   }
-  agendarSyncBackend_();
+}
+
+function dataBRParaISO_(dataBR) {
+  if (!dataBR) return null;
+  const p = String(dataBR).split('/');
+  return p.length === 3 ? (p[2]+'-'+p[1]+'-'+p[0]) : null;
 }
 
 // ═══════════════════════════════════════
-// BACKEND (Google Sheets) — Transações + Categorias + Histórico de
-// Importação + Aprendizados da IA. Contas a Pagar continua só local
-// por enquanto. saveState() já roda depois de toda mutação no app, então
-// só precisamos agendar (debounce) um envio completo daqui — sem
-// precisar tocar em cada ponto que classifica/importa/edita categoria.
+// MIGRAÇÃO ÚNICA: dados que estavam só neste navegador (localStorage) →
+// Supabase. Roda uma vez, manualmente (botão em Configurações), em cada
+// navegador/computador onde esta tela já foi usada de verdade — depois
+// disso os dados desse navegador já estão no servidor e a tela passa a
+// carregar sempre de lá (ver loadDoServidor()).
 // ═══════════════════════════════════════
-// URL já implantada do apps_script_conciliacao.gs — mesmo padrão dos
-// outros módulos (URL fixa no código). O campo em Configurações continua
-// funcionando como um override manual, caso um dia troque de planilha.
-const CONCILIACAO_WEBAPP_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbx7zUYPvOIiAqERI8dzKVWHEW7Ol59BQWEoE6n99SZ8NvjIpNXXf3AlPyLamRERjZja/exec';
-const CONCILIACAO_URL_KEY = 'conciliacao_webapp_url';
-function getConciliacaoUrl() { return (localStorage.getItem(CONCILIACAO_URL_KEY) || '').trim() || CONCILIACAO_WEBAPP_URL_PADRAO; }
-function setConciliacaoUrl(url) { localStorage.setItem(CONCILIACAO_URL_KEY, (url||'').trim()); }
+async function migrarDadosLocaisParaServidor() {
+  const statusEl = document.getElementById('migracao-status');
+  const setStatus = t => { if (statusEl) statusEl.textContent = t; };
 
-function salvarConciliacaoUrl() {
-  const input = document.getElementById('backend-url-input');
-  if (!input) return;
-  setConciliacaoUrl(input.value);
-  toast('URL do backend salva!', '💾');
-  if (getConciliacaoUrl()) syncDoBackendNaAbertura();
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) { setStatus('Nada encontrado neste navegador pra migrar.'); return; }
+  let local;
+  try { local = JSON.parse(raw); } catch(e) { setStatus('Não consegui ler os dados salvos.'); return; }
+
+  if (!confirm('Isso vai enviar tudo que está salvo neste navegador (extratos, categorizações, categorias, aprendizados e contas a pagar) pro servidor. Pode levar alguns minutos se tiver bastante coisa. Continuar?')) return;
+
+  const resumo = [];
+  setStatus('Migrando...');
+
+  // 1) Categorias personalizadas que ainda não existem no servidor
+  const catsServidor = new Set(S.categories.map(c => c.name));
+  const catsLocais = Array.isArray(local.categories) ? local.categories : [];
+  let catsNovas = 0;
+  for (const c of catsLocais) {
+    if (!c.name || catsServidor.has(c.name)) continue;
+    try {
+      await apiFetch(API_BASE + '/conciliacao/categorias', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:c.name, grupo:c.grupo, categoria:c.categoria, tipo:c.type, color:c.color, acc:c.acc, kw:c.kw }) });
+      catsServidor.add(c.name);
+      catsNovas++;
+    } catch(e) {}
+  }
+  resumo.push(catsNovas + ' categoria(s) nova(s)');
+
+  // 2) Importações + transações, agrupadas pelo importId original
+  const importacoesLocais = Array.isArray(local.importHistory) ? local.importHistory : [];
+  const transacoesLocais = Array.isArray(local.transactions) ? local.transactions : [];
+  const mapTx = t => ({ data: dataBRParaISO_(t.date), descricao: t.desc, valor: t.val, tipo: t.type, fitid: t.fitid,
+    categoria: t.cat, confianca: t.conf, banco: t.banco, empresa: t.empresa, complemento: t.complemento,
+    cpf_cnpj: t.cpfCnpj, favorecido: t.favorecido, saldo_inicial: t.saldoInicial });
+
+  let importadas = 0, transacoesEnviadas = 0;
+  for (const imp of importacoesLocais) {
+    const linhas = transacoesLocais.filter(t => t.importId === imp.id).filter(t => dataBRParaISO_(t.date));
+    if (!linhas.length) continue;
+    const payload = { meta: { fileName: imp.fileName, banco: imp.banco, empresa: imp.empresa, count: imp.count,
+      unclassified: imp.u, duplicates: imp.d, classified: imp.c, creditos: imp.creditos, debitos: imp.debitos,
+      ignorados: imp.ignorados, total: imp.total, status: imp.status, log: imp.log }, transacoes: linhas.map(mapTx) };
+    try {
+      const res = await apiFetch(API_BASE + '/conciliacao/transacoes/importar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if (res.ok) { importadas++; transacoesEnviadas += linhas.length; }
+    } catch(e) {}
+    setStatus(`Migrando importações... ${importadas}/${importacoesLocais.length}`);
+  }
+  const orfas = transacoesLocais.filter(t => !importacoesLocais.some(imp => imp.id === t.importId)).filter(t => dataBRParaISO_(t.date));
+  if (orfas.length) {
+    const payload = { meta: { fileName:'Migração — transações avulsas', status:'ok', count:orfas.length, total:orfas.length }, transacoes: orfas.map(mapTx) };
+    try {
+      const res = await apiFetch(API_BASE + '/conciliacao/transacoes/importar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if (res.ok) transacoesEnviadas += orfas.length;
+    } catch(e) {}
+  }
+  resumo.push(transacoesEnviadas + ' transação(ões)');
+
+  // 3) Aprendizados da IA
+  const aprendizadosLocais = Array.isArray(local.learnings) ? local.learnings : [];
+  let aprendizadosEnviados = 0;
+  for (const a of aprendizadosLocais) {
+    try {
+      await apiFetch(API_BASE + '/conciliacao/aprendizados', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ keyword:a.keyword, categoria:a.cat }) });
+      aprendizadosEnviados++;
+    } catch(e) {}
+  }
+  resumo.push(aprendizadosEnviados + ' aprendizado(s) da IA');
+
+  // 4) Contas a Pagar locais (unificadas com o Financeiro)
+  const payablesLocais = Array.isArray(local.payables) ? local.payables : [];
+  let payablesEnviados = 0;
+  for (const p of payablesLocais) {
+    try {
+      const res = await apiFetch(API_BASE + '/financeiro', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tipo:'Pagar', favorecido:p.supplier, vencimento:dataBRParaISO_(p.due), valor:p.val,
+          categoria:p.cat, empresa_cnpj:p.empresa, forma_pagamento:p.method, status: p.status==='paid'?'Pago':'A Pagar',
+          documento:p.cnpj, banco_origem:p.banco, observacao:p.obs }) });
+      if (res.ok) payablesEnviados++;
+    } catch(e) {}
+  }
+  resumo.push(payablesEnviados + ' conta(s) a pagar');
+
+  setStatus('✅ Migração concluída: ' + resumo.join(', ') + '. Recarregando a tela...');
+  toast('Migração concluída!', '✅');
+  setTimeout(() => location.reload(), 2500);
 }
 
-// Só é seguro EMPURRAR (push) o estado local pro backend depois que a
-// primeira LEITURA (pull) do backend já tiver terminado — senão um push
-// disparado enquanto o pull ainda está em voo manda um S.transactions
-// incompleto (ex: acabou de importar hoje, mas ainda não puxou o
-// histórico) e o REPLACE completo do backend apaga tudo que já existia
-// lá. Isso é exatamente o bug de "apaga o histórico e fica só com hoje".
-let _backendCarregado = false;
-let _syncBackendTimer = null;
-function agendarSyncBackend_() {
-  const url = getConciliacaoUrl();
-  if (!url) return;
-  clearTimeout(_syncBackendTimer);
-  _syncBackendTimer = setTimeout(() => {
-    if (!_backendCarregado) {
-      // Ainda não terminamos de puxar o histórico do backend — não é
-      // seguro empurrar por cima agora. Tenta de novo em breve, sem
-      // perder a mutação pendente.
-      agendarSyncBackend_();
-      return;
-    }
-    syncParaBackend();
-  }, 2000);
-}
-
-async function syncParaBackend() {
-  const url = getConciliacaoUrl();
-  if (!url) return;
-  const statusEl = document.getElementById('backend-sync-status');
-  if (statusEl) statusEl.textContent = '🔄 sincronizando…';
+// Carrega transações/categorias/histórico/aprendizados direto do servidor
+// (fonte de verdade). Se a API falhar por qualquer motivo, mantém o que
+// já estava no cache local (saveState()) como rede de segurança.
+async function loadDoServidor() {
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'salvar_tudo',
-        transactions: S.transactions,
-        categories: S.categories,
-        importHistory: S.importHistory,
-        learnings: S.learnings
-      })
-    });
+    const res = await apiFetch(API_BASE + '/conciliacao/tudo');
     const json = await res.json();
-    if (statusEl) statusEl.textContent = json.success
-      ? '✅ sincronizado ' + new Date().toLocaleTimeString('pt-BR')
-      : '⚠️ erro: ' + (json.error || 'desconhecido');
+    if (!res.ok) return false;
+    S.transactions  = (json.transactions||[]).map(t => ({
+      id: t.id, importId: t.import_id, date: fmtDataISOParaBR_(t.data), desc: t.descricao, val: Number(t.valor)||0,
+      type: t.tipo, fitid: t.fitid, cat: t.categoria, conf: Number(t.confianca)||0, banco: t.banco, empresa: t.empresa,
+      complemento: t.complemento, cpfCnpj: t.cpf_cnpj, favorecido: t.favorecido, saldoInicial: t.saldo_inicial,
+      status: statusFromCat(t.categoria)
+    }));
+    S.categories    = (json.categories||[]).map(c => ({ id:c.id, name:c.name, grupo:c.grupo, categoria:c.categoria, type:c.tipo, color:c.color, acc:c.acc, kw:c.kw }));
+    S.importHistory = (json.importHistory||[]).map(h => ({ id:h.id, date: new Date(h.data_hora).toLocaleDateString('pt-BR'), time: new Date(h.data_hora).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+      fileName:h.file_name, banco:h.banco, empresa:h.empresa, count:h.count, u:h.unclassified, d:h.duplicates, c:h.classified,
+      creditos:h.creditos, debitos:h.debitos, ignorados:h.ignorados, total:h.total, status:h.status, deletedAt:h.deleted_at, log:h.log||[] }));
+    S.learnings     = (json.learnings||[]).map(a => ({ id:a.id, keyword:a.keyword, cat:a.categoria, date: new Date(a.criado_em).toLocaleDateString('pt-BR') }));
+    return true;
   } catch(e) {
-    if (statusEl) statusEl.textContent = '⚠️ sem conexão com o backend';
+    console.warn('Falha ao carregar do servidor, usando cache local se houver.', e);
+    return false;
   }
 }
-
-// Ao carregar: se já existe URL configurada, busca o que está no backend.
-// Se o backend já tiver dados, ele vira a fonte de verdade (permite usar
-// de mais de um aparelho/navegador); se estiver vazio (primeira conexão),
-// empurra o que já existe localmente pra "batizar" a planilha.
-async function syncDoBackendNaAbertura() {
-  const url = getConciliacaoUrl();
-  if (!url) { _backendCarregado = true; return; }
-  _backendCarregado = false; // bloqueia pushes agendados até este pull terminar (cobre também re-pull manual em "⬇️ Buscar do backend")
-  const statusEl = document.getElementById('backend-sync-status');
-  try {
-    const res = await fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=listar');
-    const json = await res.json();
-    if (!json.success) { if(statusEl) statusEl.textContent = '⚠️ ' + (json.error||'erro ao ler backend'); return; }
-    const backendTemDados = (json.transactions && json.transactions.length) || (json.categories && json.categories.length);
-    if (backendTemDados) {
-      if (json.transactions) S.transactions = json.transactions.map(t => ({...t, val: parseFloat(t.val)||0, conf: parseFloat(t.conf)||0}));
-      if (json.categories && json.categories.length) S.categories = json.categories;
-      if (json.importHistory) S.importHistory = json.importHistory;
-      if (json.learnings) S.learnings = json.learnings;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        transactions: S.transactions, payables: S.payables, receivables: S.receivables,
-        fleet: S.fleet, drivers: S.drivers, importHistory: S.importHistory,
-        learnings: S.learnings, categories: S.categories, catUsage: S.catUsage, catFavs: S.catFavs
-      }));
-      updateBadges(); updateKPIs();
-      const cur = document.querySelector('.view.active');
-      if (cur) { const name = cur.id.replace('view-',''); const r={transactions:renderTransactions,conciliation:renderConciliation,dashboard:renderDashboard}; if(r[name])r[name](); }
-      if (statusEl) statusEl.textContent = '✅ carregado do backend ' + new Date().toLocaleTimeString('pt-BR');
-    } else {
-      if (statusEl) statusEl.textContent = 'ℹ️ backend vazio — enviando dados locais…';
-      _backendCarregado = true;
-      syncParaBackend();
-      return;
-    }
-  } catch(e) {
-    if (statusEl) statusEl.textContent = '⚠️ sem conexão com o backend';
-  } finally {
-    // Libera os pushes agendados (push só é seguro depois do pull ter
-    // sido tentado, com sucesso ou não — travar pra sempre também não
-    // é seguro, é melhor deixar o próximo save tentar de novo)
-    _backendCarregado = true;
-  }
+function fmtDataISOParaBR_(iso) {
+  if (!iso) return '';
+  const p = String(iso).split('-');
+  return p.length === 3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso;
 }
 
 function loadState() {
@@ -5972,9 +6156,9 @@ function withSave(fn) {
 }
 
 // Wrap state-mutating functions to auto-save after each call
-const _wrap = ['savePayable','saveReceivable','markPaid','saveFleet','removeFleet',
-                'saveDriver','saveClassification','saveCategory','updateCategory',
-                'deleteCategory','saveRule','autoClassifyAll','autoReconcile'];
+const _wrap = ['savePayable','saveReceivable','markPaid','saveClassification',
+                'saveCategory','updateCategory','deleteCategory','saveRule',
+                'autoClassifyAll','autoReconcile'];
 // Applied after definitions via patch below
 
 
@@ -5998,7 +6182,7 @@ function importReceivableCSV(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
+  reader.onload = async ev => {
     // Remove BOM if present
     let raw = ev.target.result.replace(/^﻿/, '');
     const lines = raw.split('\n').filter(l => l.trim());
@@ -6020,6 +6204,7 @@ function importReceivableCSV(input) {
     const headers = lines[0].split(sep).map(norm);
     const getIdx  = h => headers.indexOf(norm(h));
     let imported  = 0, skipped = 0;
+    const linhasParaImportar = [];
 
     lines.slice(1).forEach(line => {
       if (!line.trim()) return;
@@ -6037,32 +6222,33 @@ function importReceivableCSV(input) {
       const val    = parseFloat(valRaw.replace(/\./g,'').replace(',','.')) || 0;
       if (!client && !val) { skipped++; return; }
 
-      // Status mapping
+      // Status mapping (colapsado pro modelo A Receber/Recebido do Financeiro)
       const rawStatus = get('status','situacao','situação').toLowerCase();
-      let status = 'boleto';
-      if (/receb|liquid|pago|baixado/.test(rawStatus)) status = 'received';
-      else if (/carteira|emit/.test(rawStatus))         status = 'boleto';
-      else if (/pend|aguard/.test(rawStatus))           status = 'pending';
-      else if (/fatur/.test(rawStatus))                 status = 'billed';
+      const status = /receb|liquid|pago|baixado/.test(rawStatus) ? 'Recebido' : 'A Receber';
 
-      S.receivables.push({
-        client,
-        cnpj:      get('cnpj','cnpj_sacado','documento'),
-        svc:       get('svc','servico','serviço','descricao','descrição','descricao'),
-        val,
-        empresa:   get('empresa','company') || getActiveCompanyName() || "Barreto's Transportes e Serviços",
-        method:    get('method','forma','metodo','método') || 'Boleto',
+      linhasParaImportar.push({
+        tipo: 'Receber',
+        favorecido: client,
+        documento: get('cnpj','cnpj_sacado','documento'),
+        descricao: get('svc','servico','serviço','descricao','descrição','descricao'),
+        valor: val,
+        empresa_cnpj: get('empresa','company') || getActiveCompanyName() || "Barreto's Transportes e Serviços",
+        forma_pagamento: get('method','forma','metodo','método') || 'Boleto',
         status,
-        prazo:     '',
-        fat:       get('fat','emissao','emissão','data_emissao','emissao'),
-        due:       get('due','vencimento','venc','data_vencimento'),
-        obs:       get('obs','observacoes','observações','nosso_numero','observacao'),
-        receivedAt: status === 'received' ? new Date().toLocaleDateString('pt-BR') : '',
+        vencimento: get('due','vencimento','venc','data_vencimento') || null,
+        observacao: get('obs','observacoes','observações','nosso_numero','observacao'),
       });
-      imported++;
     });
 
-    saveState();
+    for (const linha of linhasParaImportar) {
+      try {
+        const res = await apiFetch(API_BASE + '/financeiro', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(linha) });
+        const row = await res.json();
+        if (res.ok) { S.receivables.push(mapearReceberDoApi_(row)); imported++; }
+        else skipped++;
+      } catch(e) { skipped++; }
+    }
+
     updateBadges();
     renderReceivable();
     input.value = '';
@@ -6316,78 +6502,56 @@ function getDefaultCategories() {
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-const hadData = loadState();
+(async function initApp() {
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
 
-// Ensure categories are loaded
-if (!S.categories || S.categories.length === 0 || !S.categories.some(c => c.grupo)) {
-  S.categories = getDefaultCategories();
-}
+  // Fonte de verdade é o servidor agora. Se a API falhar (offline etc.),
+  // cai pro cache local (saveState()) como rede de segurança.
+  const carregouDoServidor = await loadDoServidor();
+  if (!carregouDoServidor) loadState();
 
-// Migra pra nova taxonomia de DRE (grupos macro enxutos) se a sessão
-// ainda estiver com o catálogo de categorias antigo
-migrarCategoriasParaNovaTaxonomia();
-
-// Migração não destrutiva: garante "Água" e "Energia Elétrica" como
-// subcategorias próprias (separadas de "Predial") mesmo em sessões que
-// já tinham migrado pra taxonomia nova antes dessas duas existirem
-if (!S.categories.find(c => c.name === 'Água')) {
-  S.categories.push({grupo:'CUSTO ADMINISTRATIVO', categoria:'Estrutura', name:'Água', type:'expense', color:'#0284c7', kw:'SABESP', acc:''});
-}
-if (!S.categories.find(c => c.name === 'Energia Elétrica')) {
-  S.categories.push({grupo:'CUSTO ADMINISTRATIVO', categoria:'Estrutura', name:'Energia Elétrica', type:'expense', color:'#ca8a04', kw:'NEOENERGIA, ELEKTRO', acc:''});
-}
-
-// Migração não destrutiva: "Receitas Diversas" vira só "Receita", e nova
-// categoria de crédito "Estorno/Devolução" — renomeia a categoria e
-// retagueia qualquer lançamento/conta que já usava o nome antigo
-(function migrarReceitaEstorno_() {
-  const catAntiga = S.categories.find(c => c.name === 'Receitas Diversas');
-  if (catAntiga) catAntiga.name = 'Receita';
-  if (!S.categories.find(c => c.name === 'Receita')) {
-    S.categories.push({grupo:'RECEITAS', categoria:'Outras Receitas', name:'Receita', type:'revenue', color:'#22d3ee', kw:'', acc:''});
+  // Ensure categories are loaded
+  if (!S.categories || S.categories.length === 0 || !S.categories.some(c => c.grupo)) {
+    S.categories = getDefaultCategories();
   }
-  if (!S.categories.find(c => c.name === 'Estorno/Devolução')) {
-    S.categories.push({grupo:'RECEITAS', categoria:'Estornos', name:'Estorno/Devolução', type:'revenue', color:'#67e8f9', kw:'', acc:''});
+
+  // Migra pra nova taxonomia de DRE (grupos macro enxutos) se a sessão
+  // ainda estiver com o catálogo de categorias antigo
+  migrarCategoriasParaNovaTaxonomia();
+
+  // Clear any stale browser-restored filter values
+  ['con-f-status','con-f-type','con-f-bank','con-search',
+   'tx-f-bank','tx-f-cat','tx-f-subcat','tx-f-type','tx-search'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  populateCategorySelects();
+  updateBadges();
+  updateKPIs();
+  showView('dashboard');
+  // Pré-renderiza conciliação com dados já existentes
+  if (S.transactions.length > 0) {
+    try { renderConciliation(); } catch(e) { console.warn('renderConciliation init:', e); }
   }
-  [S.transactions, S.payables, S.receivables].forEach(arr => arr.forEach(item => {
-    if (item.cat === 'Receitas Diversas') item.cat = 'Receita';
-  }));
+
+  // Contas a Pagar/Receber vêm do Financeiro (financeiro_lancamentos) —
+  // se falhar (offline etc.), mantém o que já estava no cache local.
+  carregarContasAReceberDaPlanilha().then(ok => {
+    if (ok) {
+      const cur = document.querySelector('.view.active');
+      if (cur && cur.id === 'view-receivable') renderReceivable();
+      updateBadges();
+    }
+  });
+  carregarContasAPagarDoFinanceiro().then(ok => {
+    if (ok) {
+      const cur = document.querySelector('.view.active');
+      if (cur && cur.id === 'view-payable') renderPayable();
+      updateBadges();
+    }
+  });
 })();
-
-// Clear any stale browser-restored filter values
-['con-f-status','con-f-type','con-f-bank','con-search',
- 'tx-f-bank','tx-f-cat','tx-f-subcat','tx-f-type','tx-search'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.value = '';
-});
-
-populateCategorySelects();
-updateBadges();
-updateKPIs();
-showView('dashboard');  // ← corrigido: era renderView() que não existe
-// Pré-renderiza conciliação com dados já existentes
-if (S.transactions.length > 0) {
-  try { renderConciliation(); } catch(e) { console.warn('renderConciliation init:', e); }
-}
-
-if (hadData && S.transactions.length > 0) {
-  toast('✅ ' + S.transactions.length + ' transações restauradas automaticamente', '💾');
-}
-
-// Se já tiver uma URL de backend configurada, sincroniza (puxa do backend
-// se já tiver dados, ou envia o que já existe local se for a primeira vez)
-if (getConciliacaoUrl()) syncDoBackendNaAbertura();
-
-// Busca a aba real de Contas a Receber (mesma planilha do financeiro.html)
-// assim que a página carrega — se falhar (offline, CORS etc.), mantém o que
-// já estava salvo localmente.
-carregarContasAReceberDaPlanilha().then(ok => {
-  if (ok) {
-    const cur = document.querySelector('.view.active');
-    if (cur && cur.id === 'view-receivable') renderReceivable();
-    updateBadges();
-  }
-});
 
 // Patch: wrap all mutating functions to auto-save
 setTimeout(() => {

@@ -445,6 +445,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <option value="PAGO">Pago</option>
           <option value="VENCIDO">Vencido</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModalStatusEmMassa()" style="white-space:nowrap">
+          <i class="ti ti-checks" style="font-size:13px"></i> Alterar Status em Massa
+        </button>
         <button class="btn btn-ghost btn-sm" onclick="exportViagensExcel()" style="white-space:nowrap">
           <i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel
         </button>
@@ -834,6 +837,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       <div class="form-group"><label class="form-label">F. Empresa (R$) <span class="req">*</span></label><input class="form-input" id="vg-fempresa" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Pedágio (R$)</label><input class="form-input" id="vg-pedagio" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Abastecimento (R$)</label><input class="form-input" id="vg-abast" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="form-group"><label class="form-label">Litros Abastecidos</label><input class="form-input" id="vg-litros" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Comissão (R$)</label><input class="form-input" id="vg-comissao" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">KM Total (Odômetro)</label><input class="form-input" id="vg-km" type="number" placeholder="0"></div>
       <div class="form-group"><label class="form-label">Situação</label>
@@ -846,6 +850,33 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-viagem').classList.remove('open')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveViagem()"><i class="ti ti-check" style="font-size:14px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Alterar status em massa (Viagens) -->
+<div id="modal-viagens-lote" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-checks" style="color:var(--gold);margin-right:6px"></i>Alterar Status em Massa</div>
+      <button class="modal-close" onclick="document.getElementById('modal-viagens-lote').classList.remove('open')">×</button>
+    </div>
+    <div style="padding:2px 0 10px;font-size:12.5px;color:var(--txt-dim)" id="vg-lote-resumo">
+      0 viagens no período/filtro selecionado
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Novo status para essas viagens</label>
+        <select class="form-input" id="vg-lote-status">
+          <option value="A Vencer">À Vencer</option>
+          <option value="Pago">Pago</option>
+          <option value="Vencido">Vencido</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-viagens-lote').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="aplicarStatusEmMassaViagens()"><i class="ti ti-check" style="font-size:14px"></i> Aplicar</button>
     </div>
   </div>
 </div>
@@ -1038,8 +1069,77 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
 /* ═══════════════════════════════════════
    CONFIG & STATE
 ════════════════════════════════════════ */
-const SHEETS_ID = '1bFAxTfvZqzK4ZY14lMQaCHKcbyD5dvVLk_TVSJ2InWU';
-var WEBAPP_URL='https://script.google.com/macros/s/AKfycbxotPbQ44MYstDRfLGq1fhRk_gCq4oYHfc0uMQ-k8l5jJVKa8nC7D5f1rw7RtlW4ueI/exec';
+// API_BASE aponta pra API Node.js/Supabase nova (antes era WEBAPP_URL, a URL
+// do Apps Script). Continua podendo ser sobrescrita pela tela de
+// "Configurar" — útil no dia em que isso for publicado num servidor de
+// verdade e precisar apontar pra outra URL sem mexer no código.
+var API_BASE = localStorage.getItem('frota_api_base') || 'https://barretos-backend.onrender.com/api';
+
+// ── LOGIN ───────────────────────────────────────────────────
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Toda chamada à API passa por aqui em vez de fetch() direto, pra sempre
+// ir com o token de login e tentar renovar sozinho se ele já tiver expirado.
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
 let currentView = 'dashboard';
 let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[] };
 
@@ -1092,6 +1192,7 @@ function openAddModal() {
       document.getElementById('v-status').value='Ativo';
     }
     if(currentView==='multas'){
+      editingMulta=null;
       document.getElementById('modal-multa').querySelector('.modal-title').innerHTML='<i class="ti ti-alert-octagon" style="color:var(--gold);margin-right:6px"></i>Lançar Multa';
       document.getElementById('modal-multa').querySelectorAll('input,textarea').forEach(el=>{ el.value=''; });
       document.getElementById('mt-orgao').value='DETRAN SP';
@@ -1128,22 +1229,184 @@ function setTodayDates() {
 }
 
 /* ═══════════════════════════════════════
-   APPS SCRIPT / DATA
+   API NOVA (Node.js / Supabase) — LEITURA
+   ---------------------------------------
+   Toda a lógica de renderização abaixo (as ~2000 linhas de funções
+   render, filter e export) foi escrita pra ler o mesmo formato "de planilha" que o Apps
+   Script sempre devolveu: chaves em Maiúsculo (Placa, F.EMPRESA, ...) e
+   datas como texto dd/MM/yyyy. Em vez de reescrever cada uma dessas
+   funções, os adaptadores abaixo traduzem o formato novo (Postgres, com
+   chaves limpas tipo "placa" e datas em ISO) de volta pro formato antigo.
+   É a mesma ideia de manter o "shell" da tela igual e só trocar quem
+   fornece o dado. Ponto único de tradução: essas funções aqui e o
+   apiPost() logo abaixo (que faz o caminho inverso, na escrita).
 ════════════════════════════════════════ */
-async function apiPost(data) {
-  if(!WEBAPP_URL) return null;
-  try {
-    const r = await fetch(WEBAPP_URL, { method:'POST', body:JSON.stringify(data) });
-    return await r.json();
-  } catch(e) { console.error(e); return null; }
+
+// yyyy-MM-dd (o que a API nova devolve) → dd/MM/yyyy (o que este arquivo
+// inteiro já sabe ler). Manipulação de texto, sem "new Date()", pra não
+// cair na pegadinha de fuso horário.
+function isoParaBR(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
+}
+
+// A tela usa "À VENCER"/"PAGO"/"VENCIDO" (maiúsculo) pro status de
+// pagamento da viagem, mas o banco guarda 'A Vencer'/'Pago'/'Vencido'
+// (mesmo padrão dos outros status do sistema). Traduz nos dois sentidos.
+const SITUACAO_PARA_BANCO = { 'À VENCER': 'A Vencer', 'PAGO': 'Pago', 'VENCIDO': 'Vencido' };
+const SITUACAO_DO_BANCO = { 'A Vencer': 'À VENCER', 'Pago': 'PAGO', 'Vencido': 'VENCIDO' };
+
+function adaptarVeiculo(v) {
+  return {
+    _id: v.id,
+    Placa: v.placa || '',
+    Tipo: v.tipo || '',
+    Modelo: v.modelo || '',
+    Ano: v.ano || '',
+    'Vcto CRLV': v.ano_licenciamento || '',
+    Status: v.status || 'Ativo',
+    'Placa Vinculada': v.placa_vinculada || '',
+    Renavam: v.renavam || '',
+    CRLV: v.crlv_link || '',
+    Observacoes: v.observacoes || '',
+    Motorista: (v.motorista_vinculado && v.motorista_vinculado.nome) || '',
+  };
+}
+function adaptarMotorista(m) {
+  return {
+    _id: m.id,
+    Nome: m.nome || '',
+    CPF: m.cpf || '',
+    CNH: m.cnh || '',
+    Categoria: m.categoria_cnh || '',
+    'Vencimento CNH': isoParaBR(m.vencimento_cnh),
+    Telefone: m.telefone || '',
+    Status: m.status || 'Ativo',
+    'CNH Link': m.cnh_link || '',
+    Observacoes: m.observacoes || '',
+  };
+}
+function adaptarViagem(v) {
+  const fat = Number(v.valor_faturamento) || 0, aba = Number(v.valor_abastecimento) || 0,
+        ped = Number(v.valor_pedagio) || 0, com = Number(v.valor_comissao) || 0;
+  return {
+    _id: v.id,
+    DATA: isoParaBR(v.data),
+    ORGIEM: v.origem || '',
+    UF: v.uf_origem || '',
+    ROTA: v.destino || '',
+    UF2: v.uf_destino || '',
+    CLIENTE: v.cliente || '',
+    PLACA: (v.veiculo && v.veiculo.placa) || '',
+    MOTORISTA: (v.motorista && v.motorista.nome) || '',
+    'NUMEDO DO EMBARQUE': v.numero_embarque || '',
+    PESO: v.peso || '',
+    'F.EMPRESA': fat,
+    ABASTECIMENTO: aba,
+    LITROS: v.litros || '',
+    PEDAGIO: ped,
+    'COMISSÃO': com,
+    'KM TOTAL': v.km_total || '',
+    KM: v.km_total || '',
+    'KM RODADO': v.km_rodado || '',
+    MEDIA: v.media_consumo || '',
+    MOTORISTA3: v.tipo_veiculo || '',
+    'SITUAÇÃO DE PAGAMENTO': SITUACAO_DO_BANCO[v.situacao_pagamento] || 'À VENCER',
+    LIQUIDO: fat - aba - ped - com,
+  };
+}
+function adaptarCombustivel(c) {
+  return {
+    _id: c.id,
+    Data: isoParaBR(c.data),
+    Placa: (c.veiculo && c.veiculo.placa) || '',
+    Motorista: (c.motorista && c.motorista.nome) || '',
+    Posto: c.posto || '',
+    Litros: c.litros || 0,
+    'Valor Litro': c.valor_litro || 0,
+    Total: c.total || 0,
+    KM: c.km || '',
+    Media: c.media_consumo || '',
+    Observacao: c.observacao || '',
+  };
+}
+function adaptarDespesa(d) {
+  return {
+    _id: d.id,
+    Data: isoParaBR(d.data),
+    Veiculo: '',
+    Placa: (d.veiculo && d.veiculo.placa) || '',
+    Motorista: (d.motorista && d.motorista.nome) || '',
+    Descricao: d.descricao || '',
+    Fornecedor: d.fornecedor || '',
+    Pagamento: d.forma_pagamento || '',
+    Categoria: d.categoria || '',
+    Valor: d.valor || 0,
+    Status: d.status || 'Pago',
+    Comprovante: d.comprovante_link || '',
+  };
+}
+function adaptarManutencao(m) {
+  return {
+    _id: m.id,
+    Data: isoParaBR(m.data),
+    Veiculo: '',
+    Placa: (m.veiculo && m.veiculo.placa) || '',
+    Motorista: (m.motorista && m.motorista.nome) || '',
+    Tipo: m.tipo || '',
+    Fornecedor: m.fornecedor || '',
+    Descricao: m.descricao || '',
+    KM: m.km || '',
+    Valor: m.valor || 0,
+    'Proximo KM': m.proximo_km || '',
+    'Proxima Data': isoParaBR(m.proxima_data),
+    Status: m.status || 'Pendente',
+  };
+}
+function adaptarMulta(m) {
+  return {
+    _id: m.id,
+    Data: isoParaBR(m.data_infracao),
+    Placa: (m.veiculo && m.veiculo.placa) || '',
+    'Motorista Real': (m.motorista && m.motorista.nome) || '',
+    Orgao: m.orgao || '',
+    'Auto de Infracao': m.numero_auto || '',
+    Codigo: m.codigo_infracao || '',
+    Descricao: m.descricao || '',
+    Local: m.local || '',
+    Valor: m.valor || 0,
+    'Valor Desconto': m.valor_desconto || '',
+    'Prazo Pagamento': isoParaBR(m.prazo_pagamento),
+    'Prazo Recurso': isoParaBR(m.prazo_recurso),
+    Responsabilidade: m.responsabilidade || 'Empresa',
+    Status: m.status || 'A Vencer',
+    Comprovante: m.comprovante_link || '',
+  };
 }
 
 async function apiGet() {
-  if(!WEBAPP_URL) return null;
   try {
-    const r = await fetch(WEBAPP_URL);
-    return await r.json();
-  } catch(e) { return null; }
+    const [veiculos, motoristas, viagens, combustivel, despesas, manutencoes, multas] = await Promise.all([
+      apiFetch(`${API_BASE}/veiculos`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/motoristas`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/viagens`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/combustivel`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/despesas`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/manutencoes`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/multas`).then(r=>r.json()),
+    ]);
+    return {
+      status: 'ok',
+      veiculos: (veiculos||[]).map(adaptarVeiculo),
+      motoristas: (motoristas||[]).map(adaptarMotorista),
+      viagens: (viagens||[]).map(adaptarViagem),
+      combustivel: (combustivel||[]).map(adaptarCombustivel),
+      despesas: (despesas||[]).map(adaptarDespesa),
+      manutencao: (manutencoes||[]).map(adaptarManutencao),
+      multas: (multas||[]).map(adaptarMulta),
+    };
+  } catch(e) { console.error(e); return null; }
 }
 
 async function loadAllData() {
@@ -1157,11 +1420,8 @@ async function loadAllData() {
     db.despesas    = res.despesas    || [];
     db.manutencao  = res.manutencao  || [];
     db.multas      = res.multas      || [];
-    console.log('[FROTA DEBUG] Sample viagem raw:', db.viagens[0]);
-    console.log('[FROTA DEBUG] F.EMPRESA first 3:', db.viagens.slice(0,3).map(r=>r['F.EMPRESA']||r['F.Empresa']));
-    console.log('[FROTA DEBUG] LIQUIDO first 3:', db.viagens.slice(0,3).map(r=>r['LIQUIDO']||r['LÍQUIDO']||r['Liquido']));
     renderAll();
-  } else if(!WEBAPP_URL) {
+  } else {
     showNoConfig();
   }
   document.getElementById('btn-refresh').innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
@@ -1183,10 +1443,10 @@ function renderAll() {
 function showNoConfig() {
   ['tbody-veiculos','tbody-motoristas','tbody-viagens','tbody-combustivel','tbody-despesas','tbody-multas'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.innerHTML='<tr><td colspan="11" class="tbl-empty" style="color:var(--txt-dim)">Configure o Apps Script para carregar dados <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openConfig()">Configurar</button></td></tr>';
+    if(el) el.innerHTML='<tr><td colspan="11" class="tbl-empty" style="color:var(--txt-dim)">Não foi possível falar com a API. Verifique se o backend está rodando <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="openConfig()">Configurar</button></td></tr>';
   });
   const kpi = document.getElementById('dash-kpis');
-  if(kpi) kpi.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--txt-dim);font-size:13px">Conecte o Apps Script para ver os dados da sua frota. <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="openConfig()"><i class="ti ti-settings" style="font-size:13px"></i> Configurar</button></div>';
+  if(kpi) kpi.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--txt-dim);font-size:13px">Não foi possível falar com a API. <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="openConfig()"><i class="ti ti-settings" style="font-size:13px"></i> Configurar</button></div>';
 }
 
 /* ═══════════════════════════════════════
@@ -1246,37 +1506,32 @@ const daysDiff = s => {
 /* ═══════════════════════════════════════
    DASHBOARD
 ════════════════════════════════════════ */
-function renderDashboard() {
-  const mes = thisMonth();
-  const viMes = db.viagens.filter(r=>{
-    const d=parseDate(r['DATA']||r['Data']||'');
-    return d && monthStr(d)===mes;
-  });
-  const totFat  = viMes.reduce((s,r)=>s+parseBRL(r['F.EMPRESA']||r['F.Empresa']),0);
-  const totAba  = viMes.reduce((s,r)=>s+parseBRL(r['ABASTECIMENTO']||r['Abastecimento']),0);
-  const totPed  = viMes.reduce((s,r)=>s+parseBRL(r['PEDAGIO']||r['Pedagio']),0);
-  const totCom  = viMes.reduce((s,r)=>s+parseBRL(r['COMISSÃO']||r['Comissao']),0);
+// Dashboard, resumo por placa e alertas eram calculados aqui em cima dos
+// dados inteiros baixados do banco — a mesma conta pesada refeita do zero
+// toda vez que a tela abria. Agora só pedem o resultado já pronto pra API
+// (/api/frota/dashboard, /alertas, /resumo-por-placa), que faz a soma no
+// servidor. Isso é o que evita a tela ficar mais lenta conforme o histórico
+// de viagens/despesas crescer ao longo dos anos.
+async function renderDashboard() {
+  let dash, alertas;
+  try {
+    [dash, alertas] = await Promise.all([
+      apiFetch(`${API_BASE}/frota/dashboard?mes=${thisMonth()}`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/frota/alertas`).then(r=>r.json()),
+    ]);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('dash-kpis').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--txt-dim);font-size:13px">Erro ao carregar o dashboard. Verifique se o backend está rodando.</div>';
+    return;
+  }
 
-  // Integrar despesas e manutenção no resultado
-  const despMes = db.despesas.filter(r=>{const d=parseDate(r['Data']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
-  const manutMes= db.manutencao.filter(r=>{const d=parseDate(r['Data']||r['DATA']||'');return d&&!isNaN(d)&&monthStr(d)===mes;});
-  const multasMes=(db.multas||[]).filter(r=>{const rawD=r['Prazo Pagamento']||r['Prazo de Pagamento']||r['Data']||'';const d=parseDate(rawD);return d&&!isNaN(d)&&monthStr(d)===mes;});
-  const totDesp = despMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
-  const totManut= manutMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
-  const totMultas= multasMes.reduce((s,r)=>s+parseBRL(r['Valor']),0);
-  const totLiqInteg = totFat - totAba - totPed - totCom - totDesp - totManut - totMultas;
-  // Despesas + multas a pagar (todos os status pendentes, sem filtro de mês)
-  const despAPagar  = db.despesas.filter(r=>r['Status']==='A Vencer'||r['Status']==='Vencido'||r['Status']==='Pendente'||r['Status']==='Em Andamento').reduce((s,r)=>s+parseBRL(r['Valor']),0)
-    + (db.multas||[]).filter(r=>r['Status']==='A Vencer'||r['Status']==='Em Recurso').reduce((s,r)=>s+parseBRL(r['Valor']),0);
-  const despAVencer = db.despesas.filter(r=>r['Status']==='A Vencer'||r['Status']==='Vencido'||r['Status']==='Pendente'||r['Status']==='Em Andamento').length
-    + (db.multas||[]).filter(r=>r['Status']==='A Vencer'||r['Status']==='Em Recurso').length;
-
+  const totLiqInteg = dash.liquido;
   document.getElementById('dash-kpis').innerHTML = `
     <div class="kpi-card green">
       <i class="ti ti-trending-up kpi-icon green"></i>
-      <div class="kpi-val txt-green">${fmtBRL(totFat)}</div>
+      <div class="kpi-val txt-green">${fmtBRL(dash.faturamento)}</div>
       <div class="kpi-lbl">Faturamento — mês atual</div>
-      <div class="kpi-delta">${viMes.length} viagens</div>
+      <div class="kpi-delta">${dash.viagens} viagens</div>
     </div>
     <div class="kpi-card ${totLiqInteg<0?'red':'green'}">
       <i class="ti ti-coin kpi-icon ${totLiqInteg<0?'red':'green'}"></i>
@@ -1286,63 +1541,31 @@ function renderDashboard() {
     </div>
     <div class="kpi-card red">
       <i class="ti ti-alert-circle kpi-icon red"></i>
-      <div class="kpi-val txt-red">${fmtBRL(despAPagar)}</div>
+      <div class="kpi-val txt-red">${fmtBRL(dash.aPagar)}</div>
       <div class="kpi-lbl">Despesas a pagar</div>
-      <div class="kpi-delta">${despAVencer} pendente${despAVencer!==1?'s':''}</div>
+      <div class="kpi-delta">${dash.aPagarQtd} pendente${dash.aPagarQtd!==1?'s':''}</div>
     </div>
     <div class="kpi-card red">
       <i class="ti ti-gas-station kpi-icon red"></i>
-      <div class="kpi-val txt-red">${fmtBRL(totAba)}</div>
+      <div class="kpi-val txt-red">${fmtBRL(dash.abastecimento)}</div>
       <div class="kpi-lbl">Combustível — mês atual</div>
     </div>
     <div class="kpi-card orange">
       <i class="ti ti-road kpi-icon orange"></i>
-      <div class="kpi-val" style="color:var(--orange)">${fmtBRL(totPed)}</div>
+      <div class="kpi-val" style="color:var(--orange)">${fmtBRL(dash.pedagio)}</div>
       <div class="kpi-lbl">Pedágio — mês atual</div>
-      <div class="kpi-delta">${viMes.length} viagens</div>
+      <div class="kpi-delta">${dash.viagens} viagens</div>
     </div>
 `;
 
-  // Alerts
-  const alerts = [];
-  db.veiculos.forEach(v=>{
-    // Use calcCRLVVencimento to get the exact expiry date (month from plate digit)
-    const crlvDate = calcCRLVVencimento(v['Placa']||'', v['Vcto CRLV']||v['Vencimento CRLV']||v['KM']||'');
-    const d = crlvDate ? daysDiff(crlvDate) : null;
-    if(d!==null && d<=90) alerts.push({icon:'ti-file-text',col:d<=0?'var(--red)':'var(--orange)',
-      main:`CRLV vencendo — ${v['Placa']||''}`,sub:d<=0?'VENCIDO!':d===0?'Vence hoje':`Vence em ${d} dias`});
-  });
-  db.motoristas.forEach(m=>{
-    const d=daysDiff(m['Vencimento CNH']||m['Vencimento']);
-    if(d!==null && d<=60) alerts.push({icon:'ti-id-badge',col:d<=0?'var(--red)':'var(--orange)',
-      main:`CNH vencendo — ${m['Nome']}`,sub:d<=0?'VENCIDA!':d===0?'Vence hoje':`Vence em ${d} dias`});
-  });
-  // Alertas de multas próximas do vencimento
-  (db.multas||[]).forEach(m=>{
-    const diff=daysDiff(m['Prazo Pagamento']||m['Prazo Recurso']||'');
-    const st=m['Status']||'';
-    if(st!=='Pago'&&diff!==null&&diff<=7) alerts.push({icon:'ti-alert-octagon',col:diff<=0?'var(--red)':'var(--orange)',
-      main:`Multa — ${m['Placa']||''} (${m['Orgao']||''})`,
-      sub:`${fmtBRL(parseBRL(m['Valor']))} — ${diff<=0?'VENCIDA':diff===0?'Vence hoje':'Vence em '+diff+' dias'}`});
-  });
-  db.despesas.forEach(d=>{
-    const diff=daysDiff(d['Vencimento']||d['Data']);
-    if((d['Status']==='A Vencer'||d['Status']==='Vencido'||d['Status']==='Pendente'||d['Status']==='Em Andamento') && diff!==null && diff<=30)
-      alerts.push({icon:'ti-receipt',col:diff<=0?'var(--red)':'var(--blue)',
-        main:`${d['Categoria']||'Despesa'} — ${d['Placa']||''}`,
-        sub:`R$ ${parseBRL(d['Valor']).toLocaleString('pt-BR',{minimumFractionDigits:2})} — ${diff<=0?'VENCIDA':'vence em '+diff+' dias'}`});
-  });
-  db.manutencao.forEach(m=>{
-    const diff=daysDiff(m['Proxima Data']||m['Próxima Data']);
-    if(diff!==null && diff<=7) alerts.push({icon:'ti-tool',col:'var(--orange)',
-      main:`Manutenção — ${m['Placa']}`,sub:`${m['Tipo']||''} — vence em ${diff} dias`});
-  });
+  const ALERTA_ICONE = { crlv:'ti-file-text', cnh:'ti-id-badge', multa:'ti-alert-octagon', despesa:'ti-receipt', manutencao:'ti-tool' };
+  const corAlerta = a => a.tipo==='manutencao' ? 'var(--orange)' : a.tipo==='despesa' ? (a.critico?'var(--red)':'var(--blue)') : (a.critico?'var(--red)':'var(--orange)');
 
   const alertsEl = document.getElementById('dash-alerts');
-  if(alertsEl) alertsEl.innerHTML = alerts.length
-    ? alerts.map(a=>`<div class="alert-item">
-        <i class="ti ${a.icon}" style="color:${a.col}"></i>
-        <div class="alert-item-main"><strong>${a.main}</strong><span>${a.sub}</span></div>
+  if(alertsEl) alertsEl.innerHTML = (alertas && alertas.length)
+    ? alertas.map(a=>`<div class="alert-item">
+        <i class="ti ${ALERTA_ICONE[a.tipo]||'ti-alert-triangle'}" style="color:${corAlerta(a)}"></i>
+        <div class="alert-item-main"><strong>${a.mensagem}</strong><span>${a.detalhe}</span></div>
       </div>`).join('')
     : '<p style="color:var(--txt-dim);font-size:12px;text-align:center;padding:16px">Nenhum alerta no momento ✓</p>';
 
@@ -1351,7 +1574,9 @@ function renderDashboard() {
   populateDashMesSelect();
   renderResumoPorPlaca();
 
-  // (recent trips replaced by resumo por placa)
+  // O gráfico de barras por placa continua no cliente — usa só db.viagens,
+  // que já está carregado pra aba Viagens mesmo, então não é a mesma conta
+  // pesada que o dashboard fazia (7 tabelas inteiras).
   buildPlacaChart();
 }
 
@@ -1791,6 +2016,7 @@ function filterManutencao() {
    SAVE FUNCTIONS
 ════════════════════════════════════════ */
 let editingVeiculo=null;
+let editingMulta=null;
 async function saveVeiculo() {
   const placa=(document.getElementById('v-placa').value||'').toUpperCase().trim();
   const data={action:editingVeiculo?'updateVeiculo':'veiculo',
@@ -1893,6 +2119,7 @@ async function saveViagem() {
     MOTORISTA:document.getElementById('vg-motorista').value,'NUMEDO DO EMBARQUE':document.getElementById('vg-embarque').value,
     PESO:document.getElementById('vg-peso').value,'F.EMPRESA':document.getElementById('vg-fempresa').value,
     PEDAGIO:document.getElementById('vg-pedagio').value,ABASTECIMENTO:document.getElementById('vg-abast').value,
+    LITROS:document.getElementById('vg-litros').value,
     COMISSÃO:document.getElementById('vg-comissao').value,'KM TOTAL':document.getElementById('vg-km').value,KM:document.getElementById('vg-km').value,
     'SITUAÇÃO DE PAGAMENTO':document.getElementById('vg-situacao').value,MOTORISTA3:document.getElementById('vg-tipo-veic').value};
   if(!data.PLACA||!data['F.EMPRESA']){alert('Preencha placa e faturamento');return;}
@@ -1977,10 +2204,11 @@ async function postAndRefresh(data,modalId) {
   const res=await apiPost(data);
   btn.innerHTML=orig; btn.disabled=false;
   if(res?.success){ document.getElementById(modalId).classList.remove('open'); await loadAllData(); }
-  else if(WEBAPP_URL) alert('Erro ao salvar. Verifique o Apps Script.');
+  else if(res){ alert('Erro ao salvar: ' + (res.error || 'verifique os dados e tente de novo.')); }
+  else if(API_BASE) alert('Erro ao salvar. Verifique se o backend está rodando.');
   else {
     document.getElementById(modalId).classList.remove('open');
-    // Local preview (no Sheets configured)
+    // Local preview (sem backend configurado)
     if(data.action==='updateVeiculo') {
       const idx=db.veiculos.findIndex(v=>(v['Placa']||'')===(data.PlacaOriginal||data.Placa));
       if(idx>=0) db.veiculos[idx]={...db.veiculos[idx],...data};
@@ -2070,7 +2298,228 @@ function maskCPF(el) {
 /* ═══════════════════════════════════════
    CONFIG
 ════════════════════════════════════════ */
-const APPS_SCRIPT=`// Apps Script — Controle de Frota Barreto's
+/* ═══════════════════════════════════════
+   API NOVA (Node.js / Supabase) — ESCRITA
+   ---------------------------------------
+   Todas as funções save*() e saveStatusInline() abaixo continuam montando
+   o mesmo payload "de planilha" de sempre (action + campos em Maiúsculo)
+   e chamando apiPost(data). Só o que muda é o que apiPost() faz com esse
+   payload: em vez de mandar pro Apps Script, ele traduz pro formato da
+   API nova e escolhe o POST/PUT/DELETE certo. Nenhuma tela precisou saber
+   que o backend trocou.
+════════════════════════════════════════ */
+function idDoVeiculoPorPlaca(placa) {
+  const v = db.veiculos.find(v => (v.Placa||'') === (placa||''));
+  return v ? v._id : null;
+}
+function idDoMotoristaPorNome(nome) {
+  const m = db.motoristas.find(m => (m.Nome||'') === (nome||''));
+  return m ? m._id : null;
+}
+// Aceita tanto dd/MM/yyyy (o formato que este arquivo usa) quanto
+// yyyy-MM-dd (o que os <input type="date"> já mandam) e devolve sempre
+// ISO, que é o que a API nova espera.
+function brOuIsoParaIso(valor) {
+  if (!valor) return null;
+  const s = String(valor).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const p = s.split('/');
+  if (p.length === 3) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  return null;
+}
+
+function montarRequisicao(data) {
+  switch (data.action) {
+    case 'veiculo':
+    case 'updateVeiculo': {
+      const payload = {
+        placa: (data.Placa||'').toUpperCase(),
+        tipo: data.Tipo || null,
+        modelo: data.Modelo || null,
+        ano: data.Ano ? Number(data.Ano) : null,
+        ano_licenciamento: data['Vcto CRLV'] ? Number(data['Vcto CRLV']) : null,
+        status: data.Status || 'Ativo',
+        placa_vinculada: data['Placa Vinculada'] || null,
+        renavam: data.Renavam || null,
+        crlv_link: data.CRLV || null,
+        observacoes: data.Observacoes || null,
+        motorista_vinculado_id: idDoMotoristaPorNome(data.Motorista),
+      };
+      if (data.action === 'updateVeiculo') {
+        const id = idDoVeiculoPorPlaca(data.PlacaOriginal || data.Placa);
+        if (!id) return {};
+        return { url: `${API_BASE}/veiculos/${id}`, method: 'PUT', body: payload };
+      }
+      return { url: `${API_BASE}/veiculos`, method: 'POST', body: payload };
+    }
+    case 'motorista':
+    case 'updateMotorista': {
+      const payload = {
+        nome: data.Nome,
+        cpf: data.CPF || null,
+        cnh: data.CNH || null,
+        categoria_cnh: data.Categoria || null,
+        vencimento_cnh: brOuIsoParaIso(data['Vencimento CNH']),
+        telefone: data.Telefone || null,
+        status: data.Status || 'Ativo',
+        cnh_link: data['CNH Link'] || null,
+        observacoes: data.Observacoes || null,
+      };
+      if (data.action === 'updateMotorista') {
+        const id = idDoMotoristaPorNome(data.NomeOriginal || data.Nome);
+        if (!id) return {};
+        return { url: `${API_BASE}/motoristas/${id}`, method: 'PUT', body: payload };
+      }
+      return { url: `${API_BASE}/motoristas`, method: 'POST', body: payload };
+    }
+    case 'viagem':
+    case 'updateViagem': {
+      const payload = {
+        data: brOuIsoParaIso(data.DATA),
+        veiculo_id: idDoVeiculoPorPlaca(data.PLACA),
+        motorista_id: idDoMotoristaPorNome(data.MOTORISTA),
+        origem: data.ORGIEM || null,
+        uf_origem: data.UF || null,
+        destino: data.ROTA || null,
+        uf_destino: data.UF2 || null,
+        cliente: data.CLIENTE || null,
+        numero_embarque: data['NUMEDO DO EMBARQUE'] || null,
+        peso: data.PESO ? Number(data.PESO) : null,
+        valor_faturamento: Number(data['F.EMPRESA'])||0,
+        valor_abastecimento: Number(data.ABASTECIMENTO)||0,
+        valor_pedagio: Number(data.PEDAGIO)||0,
+        valor_comissao: Number(data['COMISSÃO'])||0,
+        litros: data.LITROS ? Number(data.LITROS) : null,
+        km_total: data['KM TOTAL'] ? Number(data['KM TOTAL']) : null,
+        tipo_veiculo: data.MOTORISTA3 || null,
+        situacao_pagamento: SITUACAO_PARA_BANCO[data['SITUAÇÃO DE PAGAMENTO']] || 'A Vencer',
+      };
+      if (data.action === 'updateViagem') {
+        const original = db.viagens.find(v => viagemEditKey(v) === data._editKey);
+        if (!original) return {};
+        return { url: `${API_BASE}/viagens/${original._id}`, method: 'PUT', body: payload };
+      }
+      if (!payload.veiculo_id || !payload.motorista_id) return {};
+      return { url: `${API_BASE}/viagens`, method: 'POST', body: payload };
+    }
+    case 'deleteViagem': {
+      const original = db.viagens.find(v => viagemEditKey(v) === data._editKey);
+      if (!original) return {};
+      return { url: `${API_BASE}/viagens/${original._id}`, method: 'DELETE' };
+    }
+    case 'combustivel': {
+      const veiculo_id = idDoVeiculoPorPlaca(data.Placa);
+      if (!veiculo_id) return {};
+      const payload = {
+        data: brOuIsoParaIso(data.Data),
+        veiculo_id,
+        motorista_id: idDoMotoristaPorNome(data.Motorista),
+        posto: data.Posto || null,
+        litros: data.Litros ? Number(data.Litros) : null,
+        valor_litro: data['Valor Litro'] ? Number(data['Valor Litro']) : null,
+        total: Number(data.Total)||0,
+        km: data.KM ? Number(data.KM) : null,
+        observacao: data.Observacao || null,
+      };
+      return { url: `${API_BASE}/combustivel`, method: 'POST', body: payload };
+    }
+    case 'despesa':
+    case 'updateDespesa': {
+      const payload = {
+        data: brOuIsoParaIso(data.Data),
+        veiculo_id: idDoVeiculoPorPlaca(data.Placa),
+        motorista_id: idDoMotoristaPorNome(data.Motorista),
+        descricao: data.Descricao,
+        fornecedor: data.Fornecedor || null,
+        forma_pagamento: data.Pagamento || null,
+        categoria: data.Categoria,
+        valor: Number(data.Valor)||0,
+        status: data.Status || 'Pago',
+        comprovante_link: data.Comprovante || null,
+      };
+      if (data.action === 'updateDespesa' && data._originalData && data._originalData._id) {
+        return { url: `${API_BASE}/despesas/${data._originalData._id}`, method: 'PUT', body: payload };
+      }
+      return { url: `${API_BASE}/despesas`, method: 'POST', body: payload };
+    }
+    case 'manutencao': {
+      const veiculo_id = idDoVeiculoPorPlaca(data.Placa);
+      if (!veiculo_id) return {};
+      const payload = {
+        data: brOuIsoParaIso(data.Data),
+        veiculo_id,
+        motorista_id: idDoMotoristaPorNome(data.Motorista),
+        tipo: data.Tipo || null,
+        fornecedor: data.Fornecedor || null,
+        descricao: data.Descricao,
+        km: data.KM ? Number(data.KM) : null,
+        valor: data.Valor ? Number(data.Valor) : null,
+        proximo_km: data['Proximo KM'] ? Number(data['Proximo KM']) : null,
+        proxima_data: brOuIsoParaIso(data['Proxima Data']),
+      };
+      return { url: `${API_BASE}/manutencoes`, method: 'POST', body: payload };
+    }
+    case 'multa':
+    case 'updateMulta': {
+      const veiculo_id = idDoVeiculoPorPlaca(data.Placa);
+      if (!veiculo_id) return {};
+      const payload = {
+        data_infracao: brOuIsoParaIso(data.Data),
+        veiculo_id,
+        motorista_id: idDoMotoristaPorNome(data['Motorista Real']),
+        orgao: data.Orgao || null,
+        numero_auto: data['Auto de Infracao'],
+        codigo_infracao: data.Codigo || null,
+        descricao: data.Descricao || null,
+        local: data.Local || null,
+        valor: Number(data.Valor)||0,
+        valor_desconto: data['Valor Desconto'] ? Number(data['Valor Desconto']) : null,
+        prazo_pagamento: brOuIsoParaIso(data['Prazo Pagamento']),
+        prazo_recurso: brOuIsoParaIso(data['Prazo Recurso']),
+        responsabilidade: data.Responsabilidade || 'Empresa',
+        status: data.Status || 'A Vencer',
+        comprovante_link: data.Comprovante || null,
+      };
+      if (data.action === 'updateMulta' && data._originalData && data._originalData._id) {
+        return { url: `${API_BASE}/multas/${data._originalData._id}`, method: 'PUT', body: payload };
+      }
+      return { url: `${API_BASE}/multas`, method: 'POST', body: payload };
+    }
+    case 'updateStatus': {
+      const mapa = {
+        veiculo:    { url: id => `${API_BASE}/veiculos/${id}`,    linha: () => db.veiculos.find(v => (v.Placa||'')===(data.key1||'')) },
+        motorista:  { url: id => `${API_BASE}/motoristas/${id}`,  linha: () => db.motoristas.find(m => (m.Nome||'')===(data.key1||'')) },
+        despesa:    { url: id => `${API_BASE}/despesas/${id}`,    linha: () => db.despesas.find(d => d.Data===data.key1 && (d.Placa||'')===(data.key2||'')) },
+        manutencao: { url: id => `${API_BASE}/manutencoes/${id}`, linha: () => db.manutencao.find(m => m.Data===data.key1 && (m.Placa||'')===(data.key2||'')) },
+        multa:      { url: id => `${API_BASE}/multas/${id}`,      linha: () => db.multas.find(m => (m['Auto de Infracao']||'')===(data.key1||'') && (m.Placa||'')===(data.key2||'')) },
+      };
+      const cfg = mapa[data.tipo];
+      const row = cfg && cfg.linha();
+      if (!row) return {};
+      return { url: cfg.url(row._id), method: 'PUT', body: { status: data.status } };
+    }
+    default:
+      return {};
+  }
+}
+
+async function apiPost(data) {
+  try {
+    const { url, method, body } = montarRequisicao(data);
+    if (!url) return null;
+    const r = await apiFetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (method === 'DELETE') return { success: r.ok };
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok) return { success: false, error: json.error || 'Erro ao salvar' };
+    return { success: true, data: json };
+  } catch(e) { console.error(e); return null; }
+}
+
+const _APPS_SCRIPT_OBSOLETO=`// Apps Script — Controle de Frota Barreto's
 const SS = SpreadsheetApp.openById('1bFAxTfvZqzK4ZY14lMQaCHKcbyD5dvVLk_TVSJ2InWU');
 
 function getOrCreate(name, headers) {
@@ -2232,29 +2681,28 @@ function doPost(e) {
 }`;
 
 function openConfig(){
-  document.getElementById('apps-script-frota').textContent=APPS_SCRIPT;
-  const saved=localStorage.getItem('frota_webapp_url')||'';
-  if(saved) document.getElementById('input-frota-url').value=saved;
+  const info = document.getElementById('apps-script-frota');
+  if (info) info.textContent = 'Backend Node.js/Supabase — não usa mais Apps Script. Este campo mostra só a URL base da API (ex: http://localhost:3000/api).';
+  document.getElementById('input-frota-url').value = API_BASE;
   document.getElementById('modal-config').classList.add('open');
 }
-function copyFrotaScript(){ navigator.clipboard.writeText(APPS_SCRIPT); }
 async function testFrotaURL(){
   const url=(document.getElementById('input-frota-url').value||'').trim();
   const msg=document.getElementById('config-msg');
   if(!url){msg.style.display='block';msg.style.color='var(--red)';msg.textContent='Cole a URL primeiro.';return;}
   msg.style.display='block';msg.style.color='var(--txt-dim)';msg.innerHTML='<span class="spinner" style="width:11px;height:11px;border-width:2px;display:inline-block;vertical-align:-3px;margin-right:6px"></span>Testando…';
-  try{const r=await fetch(url);const j=await r.json();
+  try{const r=await fetch(url.replace(/\/$/,'')+'/health');const j=await r.json();
     if(j.status==='ok'){msg.style.color='var(--green)';msg.textContent='✓ Conexão OK!';}
     else{msg.style.color='var(--red)';msg.textContent='Resposta inesperada.';}
   }catch(e){msg.style.color='var(--red)';msg.textContent='Erro de conexão. Verifique a URL.';}
 }
 function saveFrotaURL(){
-  const url=(document.getElementById('input-frota-url').value||'').trim();
+  const url=(document.getElementById('input-frota-url').value||'').trim().replace(/\/$/,'');
   if(!url)return;
-  WEBAPP_URL=url; localStorage.setItem('frota_webapp_url',url);
+  API_BASE=url; localStorage.setItem('frota_api_base',url);
   const dot=document.getElementById('config-dot');
   dot.style.background='var(--green)';
-  document.getElementById('config-label').textContent='Sheets conectado';
+  document.getElementById('config-label').textContent='API conectada';
   document.getElementById('config-msg').style.color='var(--green)';
   document.getElementById('config-msg').style.display='block';
   document.getElementById('config-msg').textContent='✓ Salvo!';
@@ -2280,138 +2728,49 @@ function populateDashMesSelect() {
   if(!sel.value && months.length) sel.value=months[0];
 }
 
-function renderResumoPorPlaca() {
+async function renderResumoPorPlaca() {
   const sel=document.getElementById('dash-mes-select');
   const mes=sel?.value||thisMonth();
   const tb=document.getElementById('tbody-resumo-placas');
   if(!tb) return;
 
-  const viMes=db.viagens.filter(r=>{
-    const d=parseDate(r['DATA']||r['Data']||''); return d&&!isNaN(d)&&monthStr(d)===mes;
-  });
+  let resumo;
+  try {
+    resumo = await apiFetch(`${API_BASE}/frota/resumo-por-placa?mes=${mes}`).then(r=>r.json());
+  } catch(e) {
+    console.error(e);
+    tb.innerHTML='<tr><td colspan="9" class="tbl-empty">Erro ao carregar o resumo</td></tr>';
+    return;
+  }
 
-  // Build per-placa aggregation — normalize plate (strip everything non-alphanumeric)
-  const placas={};
-  const normPlaca=p=>{
-    let s=String(p||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
-    // Fix common O↔0 confusion in Brazilian plates
-    // Old format (LLLNNNN): positions 3,4,5,6 should be digits
-    // Mercosul (LLLNLNN): position 3 and 5,6 should be digits, position 4 is letter
-    if(s.length===7){
-      // Position 3: always a digit in both formats — convert O to 0
-      s=s.slice(0,3)+(s[3]==='O'?'0':s[3])+s.slice(4);
-      // Positions 4,5,6 old format (all digits): convert O to 0
-      if(/^[A-Z]{3}[0-9]{4}$/.test(s)||/^[A-Z]{3}[0-9][A-Z][0-9]{2}$/.test(s)){
-        // already valid, leave as-is
-      } else {
-        // try fixing position 5,6 O→0
-        s=s.slice(0,5)+(s[5]==='O'?'0':s[5])+(s[6]==='O'?'0':s[6]);
-      }
-    }
-    return s;
-  };
-  // gp() receives ALREADY-NORMALIZED key — no double-normalizing
-  const gp=(key)=>{
-    if(!key||key==='GERAL') key='GERAL';
-    if(!placas[key]) placas[key]={display:key,fat:0,aba:0,ped:0,com:0,pessoal:0,manut:0,borra:0,doc:0,outros:0};
-    return placas[key];
-  };
-
-  viMes.forEach(r=>{
-    // Viagens sem placa vão para GERAL para não perder do faturamento total
-    const rawPlaca=r['PLACA']||r['Placa']||'';
-    const k=normPlaca(rawPlaca)||'GERAL';
-    const pp=gp(k); pp.display=k;
-    pp.fat+=parseBRL(r['F.EMPRESA']||r['F.Empresa']);
-    pp.aba+=parseBRL(r['ABASTECIMENTO']||r['Abastecimento']);
-    pp.ped+=parseBRL(r['PEDAGIO']||r['Pedagio']);
-    pp.com+=parseBRL(r['COMISSÃO']||r['Comissao']);
-  });
-
-  db.despesas.forEach(r=>{
-    const d=parseDate(r['Data']||''); if(!d||isNaN(d)||monthStr(d)!==mes) return;
-    const k=normPlaca(r['Placa']||''); // '' → gp treats as GERAL
-    const pp=gp(k);
-    const cat=(r['Categoria']||'').toLowerCase();
-    const val=parseBRL(r['Valor']);
-    if(cat==='pessoal'||cat==='rh'||cat==='folha de pagamento'||cat==='salarios'||cat==='salários') pp.pessoal+=val;
-    else if(cat==='manutenção'||cat==='manutencao'||cat==='serviços/peças'||cat==='servicos/pecas'||cat==='peças'||cat==='pecas') pp.manut+=val;
-    else if(cat==='borracharia') pp.borra+=val;
-    else if(cat==='documentação'||cat==='documentacao'||cat==='licenciamento') pp.doc+=val;
-    else if(cat==='combustível'||cat==='combustivel') pp.aba+=val;
-    else pp.outros+=val;
-  });
-
-  db.manutencao.forEach(r=>{
-    const d=parseDate(r['Data']||r['DATA']||''); if(!d||isNaN(d.getTime())) return;
-    if(mes&&monthStr(d)!==mes) return;
-    const k=normPlaca(r['Placa']||r['PLACA']||''); if(!k) return;
-    const pp=gp(k);
-    const tipo=(r['Tipo']||'').toLowerCase();
-    const val=parseBRL(r['Valor']||r['VALOR']);
-    if(tipo==='borracharia') pp.borra+=val; else pp.manut+=val;
-  });
-
-  // Multas impactam resultado por placa — TODAS (empresa e motorista)
-  // Gestão do valor do motorista é feita na aba Multas
-  // Filtra pelo prazo de pagamento (não pela data da infração) — impacto financeiro correto
-  (db.multas||[]).forEach(r=>{
-    // Usa prazo de pagamento; se não tiver, usa data da infração
-    const rawDate = r['Prazo Pagamento']||r['Prazo de Pagamento']||r['Data']||'';
-    const d=parseDate(rawDate); if(!d||isNaN(d.getTime())) return;
-    if(mes&&monthStr(d)!==mes) return;
-    const k=normPlaca(r['Placa']||''); if(!k) return;
-    const pp=gp(k);
-    pp.outros+=parseBRL(r['Valor']);
-  });
-
-  // Debug: log plate keys to console
-  const allKeys=Object.keys(placas);
-  console.log('[FROTA] Placas no resumo:', JSON.stringify(allKeys));
-  // Show any suspicious duplicate-looking keys
-  const dupes=allKeys.filter((k,i)=>allKeys.findIndex(x=>x===k)!==i);
-  if(dupes.length) console.warn('[FROTA] DUPLICATAS:', dupes);
-  // Show keys with their char codes if count > 8
-  if(allKeys.length > 8) allKeys.forEach(k=>console.log(`  key: "${k}" chars: ${[...k].map(c=>c.charCodeAt(0)).join(',')}`));
-
-
-  const entries=Object.entries(placas).sort((a,b)=>(b[1].fat-b[1].aba-b[1].ped-b[1].manut-b[1].borra-b[1].doc-b[1].outros)-(a[1].fat-a[1].aba-a[1].ped-a[1].manut-a[1].borra-a[1].doc-a[1].outros));
-  
-  if(!entries.length){tb.innerHTML='<tr><td colspan="9" class="tbl-empty">Sem dados no período</td></tr>';return;}
-
-  let totFat=0,totAba=0,totPed=0,totCom=0,totPessoal=0,totManut=0,totBorra=0,totDoc=0,totOut=0;
-  entries.forEach(([,v])=>{totFat+=v.fat;totAba+=v.aba;totPed+=v.ped;totCom+=v.com||0;totPessoal+=v.pessoal;totManut+=v.manut;totBorra+=v.borra;totDoc+=v.doc;totOut+=v.outros;});
-  const totLiq=totFat-totAba-totPed-totCom-totPessoal-totManut-totBorra-totDoc-totOut;
+  const linhas = resumo?.linhas || [];
+  if(!linhas.length){ tb.innerHTML='<tr><td colspan="9" class="tbl-empty">Sem dados no período</td></tr>'; return; }
 
   const fC=(v,red)=>`<span style="color:${v>0?(red?'var(--red)':'var(--txt)'):'var(--txt-muted)'}">${v>0?fmtBRL(v):'—'}</span>`;
-  
-  tb.innerHTML = entries.map(([p,v])=>{
-    const liq=v.fat-v.aba-v.ped-(v.com||0)-v.pessoal-v.manut-v.borra-v.doc-v.outros;
-    return `<tr>
-      <td><span class="placa">${v.display||p}</span></td>
-      <td class="txt-green">${fmtBRL(v.fat)}</td>
-      <td>${fC(v.aba,true)}</td>
-      <td>${fC(v.ped,true)}</td>
+
+  tb.innerHTML = linhas.map(v=>`<tr>
+      <td><span class="placa">${v.placa}</span></td>
+      <td class="txt-green">${fmtBRL(v.faturamento)}</td>
+      <td>${fC(v.abastecimento,true)}</td>
+      <td>${fC(v.pedagio,true)}</td>
       <td>${fC(v.pessoal,true)}</td>
-      <td>${fC(v.manut,true)}</td>
-      <td>${fC(v.borra,true)}</td>
-      <td>${fC(v.doc,true)}</td>
-      <td>${fC((v.outros||0)+(v.com||0),true)}</td>
-      <td class="${liq>=0?'txt-green':'txt-red'}" style="font-weight:700">${fmtBRL(liq)}</td>
-    </tr>`;
-  }).join('') +
-  `<tr class="total-row">
+      <td>${fC(v.manutencao,true)}</td>
+      <td>${fC(v.borracharia,true)}</td>
+      <td>${fC(v.documentacao,true)}</td>
+      <td>${fC(v.outros,true)}</td>
+      <td class="${v.liquido>=0?'txt-green':'txt-red'}" style="font-weight:700">${fmtBRL(v.liquido)}</td>
+    </tr>`).join('') + (resumo.total ? `<tr class="total-row">
     <td><strong>TOTAL</strong></td>
-    <td class="txt-green">${fmtBRL(totFat)}</td>
-    <td class="txt-red">${fmtBRL(totAba)}</td>
-    <td class="txt-dim">${fmtBRL(totPed)}</td>
-    <td class="txt-dim">${fmtBRL(totPessoal)}</td>
-    <td class="txt-dim">${fmtBRL(totManut)}</td>
-    <td class="txt-dim">${fmtBRL(totBorra)}</td>
-    <td class="txt-dim">${fmtBRL(totDoc)}</td>
-    <td class="txt-dim">${fmtBRL(totOut+totCom)}</td>
-    <td class="${totLiq>=0?'txt-green':'txt-red'}" style="font-weight:800">${fmtBRL(totLiq)}</td>
-  </tr>`;
+    <td class="txt-green">${fmtBRL(resumo.total.faturamento)}</td>
+    <td class="txt-red">${fmtBRL(resumo.total.abastecimento)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.pedagio)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.pessoal)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.manutencao)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.borracharia)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.documentacao)}</td>
+    <td class="txt-dim">${fmtBRL(resumo.total.outros)}</td>
+    <td class="${resumo.total.liquido>=0?'txt-green':'txt-red'}" style="font-weight:800">${fmtBRL(resumo.total.liquido)}</td>
+  </tr>` : '');
 }
 
 /* ═══════════════════════════════════════
@@ -2449,10 +2808,10 @@ async function deleteViagemFromPanel() {
   if(res?.success){
     closeSidePanel();
     await loadAllData();
-  } else if(WEBAPP_URL) {
-    alert('Erro ao excluir a viagem. ' + (res?.error ? res.error : 'Verifique o Apps Script.'));
+  } else if(API_BASE) {
+    alert('Erro ao excluir a viagem. ' + (res?.error ? res.error : 'Verifique se o backend está rodando.'));
   } else {
-    alert('Configure o Apps Script para excluir viagens na planilha.');
+    alert('Configure a API para excluir viagens.');
   }
 }
 function openEditViagem(r) {
@@ -2482,6 +2841,7 @@ function openEditViagem(r) {
   document.getElementById('vg-fempresa').value   = parseBRL(r['F.EMPRESA']||r['F.Empresa'])||'';
   document.getElementById('vg-pedagio').value    = parseBRL(r['PEDAGIO']||r['Pedagio'])||'';
   document.getElementById('vg-abast').value      = parseBRL(r['ABASTECIMENTO']||r['Abastecimento'])||'';
+  document.getElementById('vg-litros').value     = r['LITROS']||r['Litros']||'';
   document.getElementById('vg-comissao').value   = parseBRL(r['COMISSÃO']||r['Comissao'])||'';
   document.getElementById('vg-km').value         = r['KM TOTAL']||r['KM']||'';
   document.getElementById('vg-situacao').value   = r['SITUAÇÃO DE PAGAMENTO']||r['Situacao Pagamento']||'À VENCER';
@@ -2553,10 +2913,43 @@ async function saveViagemStatusInline(sel, r) {
     'NUMEDO DO EMBARQUE':r['NUMEDO DO EMBARQUE']||r['Embarque']||'',PESO:r['PESO']||'',
     'F.EMPRESA':parseBRL(r['F.EMPRESA']||r['F.Empresa']),PEDAGIO:parseBRL(r['PEDAGIO']||r['Pedagio']),
     ABASTECIMENTO:parseBRL(r['ABASTECIMENTO']||r['Abastecimento']),COMISSÃO:parseBRL(r['COMISSÃO']||r['Comissao']),
+    LITROS:r['LITROS']||r['Litros']||'',
     'KM TOTAL':r['KM TOTAL']||r['KM']||'',KM:r['KM TOTAL']||r['KM']||'',
     'SITUAÇÃO DE PAGAMENTO':newStatus,MOTORISTA3:r['MOTORISTA3']||''};
   const res = await apiPost(data);
-  if(!res?.success && WEBAPP_URL) alert('Erro ao salvar status. '+(res?.error?res.error:'Verifique o Apps Script.'));
+  if(!res?.success && API_BASE) alert('Erro ao salvar status. '+(res?.error?res.error:'Verifique se o backend está rodando.'));
+}
+
+// Abre o modal de alteração em massa considerando as viagens que estão
+// atualmente na tela (respeita todos os filtros ativos — placa, motorista,
+// cliente, embarque, status e principalmente o período "De/Até").
+function abrirModalStatusEmMassa() {
+  const rows = window.filteredViagens || [];
+  if (!rows.length) { alert('Nenhuma viagem no filtro atual pra alterar.'); return; }
+  document.getElementById('vg-lote-resumo').textContent =
+    rows.length + (rows.length === 1 ? ' viagem no período/filtro selecionado' : ' viagens no período/filtro selecionado');
+  document.getElementById('modal-viagens-lote').classList.add('open');
+}
+
+// Aplica o status escolhido a todas as viagens filtradas de uma vez (mesma
+// ideia da classificação em lote da Conciliação Bancária: junta os ids e
+// manda uma chamada só pro backend).
+async function aplicarStatusEmMassaViagens() {
+  const rows = window.filteredViagens || [];
+  const situacaoPagamento = document.getElementById('vg-lote-status').value;
+  const ids = rows.map(r => r._id).filter(Boolean);
+  if (!ids.length) { alert('Nenhuma viagem no filtro atual pra alterar.'); return; }
+  try {
+    const res = await apiFetch(`${API_BASE}/viagens/lote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, situacaoPagamento }),
+    });
+    if (!res.ok) { const j = await res.json().catch(()=>({})); alert('Erro ao alterar status em massa. ' + (j.error || '')); return; }
+  } catch (e) { alert('Erro de conexão ao alterar status em massa.'); return; }
+
+  document.getElementById('modal-viagens-lote').classList.remove('open');
+  await loadAllData();
 }
 
 /* ═══════════════════════════════════════
@@ -2846,11 +3239,13 @@ async function saveMulta() {
   if(!placa||!auto||!document.getElementById('mt-valor').value){
     alert('Preencha Placa, Nº Auto de Infração e Valor'); return;
   }
-  // Check duplicate by Auto de Infração
-  if((db.multas||[]).some(m=>(m['Auto de Infracao']||m['Auto']||'')=== auto)){
+  // Check duplicate by Auto de Infração — só avisa quando NÃO é uma edição
+  // (editando, o Auto normalmente é o mesmo de propósito)
+  if(!editingMulta && (db.multas||[]).some(m=>(m['Auto de Infracao']||m['Auto']||'')=== auto)){
     if(!confirm(`Auto de Infração ${auto} já cadastrado. Deseja cadastrar mesmo assim?`)) return;
   }
-  const data={action:'multa',
+  const data={action: editingMulta?'updateMulta':'multa',
+    _originalData: editingMulta,
     Data:document.getElementById('mt-data').value,
     Placa:placa,
     'Motorista Real':document.getElementById('mt-motorista').value,
@@ -2866,12 +3261,14 @@ async function saveMulta() {
     Responsabilidade:document.getElementById('mt-resp').value,
     Status:document.getElementById('mt-status').value,
     Comprovante:document.getElementById('mt-comp').value};
+  editingMulta=null;
   await postAndRefresh(data,'modal-multa');
 }
 
 /* ── Editar multa (abre modal preenchido) ── */
 function openEditMulta(idx) {
   const r=(window.filteredMultas||[])[idx]; if(!r) return;
+  editingMulta=r;
   populateSelects();
   document.getElementById('modal-multa').querySelector('.modal-title').innerHTML=
     '<i class="ti ti-pencil" style="color:var(--gold);margin-right:6px"></i>Editar Multa — '+(r['Auto de Infracao']||r['Auto']||'');
@@ -2982,9 +3379,12 @@ function exportDespesasExcel() {
    INIT
 ════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded',()=>{
-  const saved=localStorage.getItem('frota_webapp_url');
-  if(saved){ WEBAPP_URL=saved; document.getElementById('config-dot').style.background='var(--green)'; document.getElementById('config-label').textContent='Sheets conectado'; loadAllData(); }
-  else showNoConfig();
+  // API_BASE já vem com um valor padrão (ver CONFIG & STATE), então
+  // sempre tentamos carregar — showNoConfig() só aparece se a chamada
+  // falhar de verdade (backend fora do ar).
+  document.getElementById('config-dot').style.background='var(--green)';
+  document.getElementById('config-label').textContent='API conectada';
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); } else { loadAllData(); }
   const mes=new Date().toISOString().slice(0,7);
   // Set date range for viagens to current month
   const firstDay=mes+'-01', lastDay=new Date(parseInt(mes.split('-')[0]),parseInt(mes.split('-')[1]),0).toISOString().split('T')[0];

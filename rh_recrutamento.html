@@ -597,7 +597,107 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
    POST sem Content-Type customizado (evita preflight de CORS).
    Cole abaixo a URL /exec gerada ao implantar apps_script_rh.gs.
 ============================================================= */
-const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwN1v2n3ZDf2QNGz7LaIU-Kyzkg4vDfiPzqk-w23VEuXD7f6mEX8B_-0FI5NJwQmWA/exec";
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+// Converte uma vaga/candidato vindo da API (snake_case) pro formato usado
+// no resto desta tela (nomes de campo em camelCase, igual ao antigo cache local).
+function fmtDataBR_(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  var p = function(n){ return String(n).padStart(2,'0'); };
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();
+}
+function mapearVagaDoApi_(v) {
+  return {
+    id: v.id,
+    titulo: v.titulo||'',
+    departamento: v.departamento||'',
+    empresa: v.empresa||'',
+    tipo: v.tipo||'',
+    local: v.local||'',
+    status: v.status||'',
+    descricao: v.descricao||'',
+    requisitos: v.requisitos||'',
+    dataAbertura: fmtDataBR_(v.criado_em),
+    candidatos: (v.candidatos||[]).map(mapearCandidatoDoApi_)
+  };
+}
+function mapearCandidatoDoApi_(c) {
+  return {
+    id: c.id,
+    nome: c.nome||'',
+    arquivoNome: c.arquivo_nome||'',
+    textoExtraido: c.texto_extraido||'',
+    score: c.score||0,
+    pontosFortes: c.pontos_fortes||[],
+    pontosAtencao: c.pontos_atencao||[],
+    resumoIA: c.resumo_ia||'',
+    status: c.status||'',
+    dataUpload: fmtDataBR_(c.criado_em)
+  };
+}
 
 const EMPRESAS = {
   barretos:"Barreto's Transportes e Serviços",
@@ -617,7 +717,7 @@ let carregandoDados = false;
 let modalOuPainelAberto = () => document.getElementById('modalVaga').classList.contains('open') || document.getElementById('candPanel').classList.contains('open');
 
 function urlConfigurada(){
-  return WEBAPP_URL && !WEBAPP_URL.startsWith("COLE_AQUI");
+  return !!getAuthToken();
 }
 
 // Cache local só para pintar a tela instantaneamente ao abrir;
@@ -642,9 +742,10 @@ async function loadAllData(mostrarCarregando){
   carregandoDados = true;
   if(mostrarCarregando) setTopoCarregando(true);
   try{
-    const resp = await fetch(WEBAPP_URL);
+    const resp = await apiFetch(API_BASE + '/rh/vagas');
     const data = await resp.json();
-    state.vagas = data.vagas || [];
+    if (!resp.ok) throw new Error(data.error||'Erro ao carregar');
+    state.vagas = (data||[]).map(mapearVagaDoApi_);
     salvarCacheLocal();
   }catch(err){
     console.error('Falha ao carregar dados do RH:', err);
@@ -663,15 +764,30 @@ function setTopoCarregando(ligado){
 }
 
 async function enviarAoServidor(payload){
-  if(!urlConfigurada()) return; // modo de teste local — não envia nada
+  if(!urlConfigurada()) return null; // sem sessão — não envia nada
   try{
-    await fetch(WEBAPP_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
+    var acao = payload.action;
+    var res;
+    if(acao === 'criarVaga'){
+      res = await apiFetch(API_BASE + '/rh/vagas', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }else if(acao === 'atualizarVaga'){
+      res = await apiFetch(API_BASE + '/rh/vagas/' + payload.id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ descricao: payload.descricao, requisitos: payload.requisitos }) });
+    }else if(acao === 'limparCandidatosVaga'){
+      res = await apiFetch(API_BASE + '/rh/vagas/' + payload.vagaId + '/candidatos', { method:'DELETE' });
+    }else if(acao === 'criarCandidato'){
+      res = await apiFetch(API_BASE + '/rh/candidatos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }else if(acao === 'atualizarStatusCandidato'){
+      res = await apiFetch(API_BASE + '/rh/candidatos/' + payload.id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: payload.status }) });
+    }else{
+      return null;
+    }
+    var j = await res.json();
+    if(!res.ok) throw new Error(j.error||'Erro ao salvar');
+    return j;
   }catch(err){
-    console.error('Falha ao gravar na planilha:', err);
-    alert('Não foi possível salvar na planilha agora. A alteração ficou só nesta tela — tente novamente em instantes.');
+    console.error('Falha ao gravar no banco:', err);
+    alert('Não foi possível salvar agora. A alteração ficou só nesta tela — tente novamente em instantes.');
+    return null;
   }
 }
 
@@ -827,25 +943,24 @@ document.getElementById('btnNovaVaga').addEventListener('click',()=>{
 });
 function fecharModalVaga(){ document.getElementById('modalVaga').classList.remove('open'); }
 
-function criarVaga(){
+async function criarVaga(){
   const titulo = document.getElementById('nvTitulo').value.trim();
   if(!titulo){ alert('Informe o título da vaga.'); return; }
-  const vaga = {
-    id: uid(),
+  const payload = {
+    action: 'criarVaga',
     titulo,
     departamento: document.getElementById('nvDepto').value.trim() || '—',
     empresa: document.getElementById('nvEmpresa').value,
     tipo: document.getElementById('nvTipo').value,
     local: document.getElementById('nvLocal').value.trim(),
-    status: 'Aberta',
     descricao: document.getElementById('nvDescricao').value.trim(),
-    requisitos: document.getElementById('nvRequisitos').value.trim(),
-    dataAbertura: new Date().toLocaleDateString('pt-BR'),
-    candidatos: []
+    requisitos: document.getElementById('nvRequisitos').value.trim()
   };
+  const criada = await enviarAoServidor(payload);
+  if(!criada){ alert('Não foi possível criar a vaga agora. Tente novamente.'); return; }
+  const vaga = mapearVagaDoApi_(criada);
   state.vagas.unshift(vaga);
   salvarCacheLocal();
-  enviarAoServidor({ action:'criarVaga', ...vaga, candidatos: undefined });
   ['nvTitulo','nvDepto','nvLocal','nvDescricao','nvRequisitos'].forEach(id=>document.getElementById(id).value='');
   fecharModalVaga();
   abrirVaga(vaga.id);
@@ -1046,21 +1161,25 @@ async function processarCurriculo(file, vaga){
     setUploadStatus(`<div class="loading-inline"><div class="spin"></div> Analisando aderência à vaga...</div>`);
     const analise = analisarCurriculoLocal(texto, vaga);
 
-    const candidato = {
-      id: uid(),
+    const payloadCandidato = {
+      action: 'criarCandidato',
+      vagaId: vaga.id,
       nome: analise.nome_candidato || file.name.replace(/\.(pdf|docx?|DOC)$/i,''),
       arquivoNome: file.name,
       textoExtraido: texto.slice(0, 6000),
       score: clampScore(analise.score),
       pontosFortes: analise.pontos_fortes || [],
       pontosAtencao: analise.pontos_de_atencao || [],
-      resumoIA: analise.resumo || 'Análise indisponível.',
-      status: 'Triagem',
-      dataUpload: new Date().toLocaleDateString('pt-BR')
+      resumoIA: analise.resumo || 'Análise indisponível.'
     };
+    const criado = await enviarAoServidor(payloadCandidato);
+    if(!criado){
+      setUploadStatus(`<div style="color:var(--red);font-size:12px;">Não foi possível salvar "${escapeHtml(file.name)}" agora. Tente novamente.</div>`);
+      return;
+    }
+    const candidato = mapearCandidatoDoApi_(criado);
     vaga.candidatos.push(candidato);
     salvarCacheLocal();
-    enviarAoServidor({ action:'criarCandidato', vagaId: vaga.id, ...candidato });
     renderAll();
     setUploadStatus(`<div style="color:var(--green);font-size:12px;"><i class="ti ti-check"></i> "${escapeHtml(file.name)}" analisado — aderência ${candidato.score}%.</div>`);
     setTimeout(()=>setUploadStatus(''), 4000);
@@ -1282,6 +1401,7 @@ window.addEventListener('message', (e)=>{
    INIT
 ============================================================= */
 (async function init(){
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   await loadAllData(true);
   renderAll();
   switchView('dashboard');

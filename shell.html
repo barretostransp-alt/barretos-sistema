@@ -418,7 +418,7 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
     <!-- LOGIN -->
     <div class="fg">
       <label>Login <span class="req">*</span></label>
-      <input class="fi" id="lg-login" placeholder="Seu usuário" autocomplete="username"
+      <input class="fi" id="lg-login" type="text" placeholder="Seu usuário" autocomplete="username"
         onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="fg">
@@ -430,280 +430,13 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
       <i class="ti ti-login" style="font-size:13px"></i> Entrar
     </button>
 
-    <div class="divider"><span>ou</span></div>
-
-    <button class="btn btn-ghost" id="btn-toggle-reg" onclick="toggleReg()">
-      <i class="ti ti-user-plus" style="font-size:12px"></i> Criar novo usuário
-    </button>
-
-    <!-- CADASTRO -->
-    <div class="reg-form" id="reg-form">
-      <div class="fg" style="margin-bottom:0">
-        <label>Nome Completo <span class="req">*</span></label>
-        <input class="fi" id="rg-nome" placeholder="Seu nome completo">
-      </div>
-      <div class="two-col">
-        <div class="fg" style="margin-bottom:0">
-          <label>Login <span class="req">*</span></label>
-          <input class="fi" id="rg-login" placeholder="Ex: joao.silva">
-        </div>
-        <div class="fg" style="margin-bottom:0">
-          <label>Perfil <span class="req">*</span></label>
-          <select class="fi" id="rg-perfil">
-            <option value="colaborador">Colaborador</option>
-            <option value="gestor">Gestor</option>
-          </select>
-        </div>
-      </div>
-      <div class="two-col">
-        <div class="fg" style="margin-bottom:0">
-          <label>Senha <span class="req">*</span></label>
-          <input class="fi" id="rg-senha" type="password" placeholder="Mín. 6 caracteres">
-        </div>
-        <div class="fg" style="margin-bottom:0">
-          <label>Confirmar <span class="req">*</span></label>
-          <input class="fi" id="rg-conf" type="password" placeholder="Repita a senha">
-        </div>
-      </div>
-      <button class="btn" id="btn-reg" onclick="doRegister()"
-        style="background:var(--green);color:#fff;margin-top:2px">
-        <i class="ti ti-check" style="font-size:12px"></i> Cadastrar
-      </button>
-    </div>
+    <!-- Cadastro self-service removido: novos usuários são criados só pelo
+         administrador, direto no painel do Supabase. -->
 
     <div class="footer-link">Acesso restrito a colaboradores autorizados</div>
   </div>
 </div>
 
-<!-- CONFIG MODAL -->
-<div id="modal-cfg" class="modal-ov" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <div class="modal-hd">
-      <div class="modal-title"><i class="ti ti-settings" style="color:var(--gold);margin-right:8px"></i>Configurar URL</div>
-      <button class="modal-close" onclick="document.getElementById('modal-cfg').classList.remove('open')">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="fg">
-        <label>URL do Apps Script — Gestão de Usuários</label>
-        <input class="fi" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
-        <p class="help">Implante o Apps Script na planilha de usuários e cole a URL aqui.</p>
-      </div>
-    </div>
-    <div class="modal-ft">
-      <button class="btn-sm ghost" onclick="document.getElementById('modal-cfg').classList.remove('open')">Cancelar</button>
-      <button class="btn-sm primary" onclick="saveConfig()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- SCRIPT MODAL -->
-<div id="modal-script" class="modal-ov" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal script-modal">
-    <div class="modal-hd">
-      <div class="modal-title"><i class="ti ti-code" style="color:var(--gold);margin-right:8px"></i>Apps Script — Gestão de Usuários</div>
-      <button class="modal-close" onclick="document.getElementById('modal-script').classList.remove('open')">×</button>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:11px;color:var(--txt-dim);margin-bottom:10px">
-        1. Crie uma <strong>nova planilha</strong> no Google Sheets chamada "Gestão de Usuários"<br>
-        2. Extensões → Apps Script → apague tudo → cole o código<br>
-        3. Salve → Implantar → Nova implantação → Web App (Execute como: Eu / Acesso: Qualquer pessoa)<br>
-        4. Cole a URL gerada em <strong>Configurar</strong>
-      </p>
-      <textarea id="script-code" readonly
-        style="width:100%;height:260px;background:var(--surface);border:1px solid var(--border);
-        border-radius:7px;color:var(--txt);font-family:monospace;font-size:10px;
-        padding:11px;resize:vertical;outline:none"></textarea>
-    </div>
-    <div class="modal-ft">
-      <button class="btn-sm ghost" onclick="document.getElementById('modal-script').classList.remove('open')">Fechar</button>
-      <button class="btn-sm primary" onclick="copyScript()">
-        <i class="ti ti-copy" style="font-size:11px"></i> Copiar código
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- GAS SOURCE -->
-<textarea id="gas-src" style="display:none">// Planilha: Gestao de Usuarios (nova planilha independente)
-// Cole este codigo no Apps Script dessa planilha e implante como Web App
-
-function getOrCreateUsuarios() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(&#x27;USUARIOS&#x27;);
-  if (!sh) {
-    sh = ss.insertSheet(&#x27;USUARIOS&#x27;);
-    sh.appendRow([&#x27;ID&#x27;,&#x27;Nome&#x27;,&#x27;Login&#x27;,&#x27;Senha&#x27;,&#x27;Perfil&#x27;,&#x27;Ativo&#x27;,&#x27;Data Cadastro&#x27;]);
-  }
-  return sh;
-}
-
-function getOrCreatePermissoes() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(&#x27;PERMISSOES&#x27;);
-  if (!sh) {
-    sh = ss.insertSheet(&#x27;PERMISSOES&#x27;);
-    sh.appendRow([&#x27;Login&#x27;,&#x27;Ferramentas&#x27;]);
-    sh.setFrozenRows(1);
-    sh.getRange(1,1,1,2).setBackground(&#x27;#F5B800&#x27;).setFontWeight(&#x27;bold&#x27;).setFontColor(&#x27;#111&#x27;);
-  }
-  return sh;
-}
-
-function doGet(e) {
-  try {
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;login&#x27;) {
-      var login = String(e.parameter.login || &#x27;&#x27;).toLowerCase().trim();
-      var senha = String(e.parameter.senha || &#x27;&#x27;);
-      var sh = getOrCreateUsuarios();
-      if (sh.getLastRow() &lt;= 1) return respErr(&#x27;Nenhum usuario cadastrado ainda.&#x27;);
-      var data = sh.getDataRange().getValues();
-      var h = data[0].map(String);
-      var ci=h.indexOf(&#x27;Login&#x27;), cs=h.indexOf(&#x27;Senha&#x27;),
-          cn=h.indexOf(&#x27;Nome&#x27;),  cp=h.indexOf(&#x27;Perfil&#x27;), ca=h.indexOf(&#x27;Ativo&#x27;);
-      for (var i = 1; i &lt; data.length; i++) {
-        if (String(data[i][ci]).toLowerCase().trim() === login
-            &amp;&amp; String(data[i][cs]) === senha
-            &amp;&amp; String(data[i][ca]) !== &#x27;false&#x27;) {
-          return respOk({ user: {
-            nome:   String(data[i][cn]),
-            perfil: String(data[i][cp]),
-            login:  login
-          }});
-        }
-      }
-      return respErr(&#x27;Login ou senha incorretos.&#x27;);
-    }
-
-    // Retorna todas as permissões
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_permissoes&#x27;) {
-      var sh = getOrCreatePermissoes();
-      if (sh.getLastRow() &lt;= 1) return respOk({ permissoes: {} });
-      var data = sh.getDataRange().getValues();
-      var obj = {};
-      for (var i = 1; i &lt; data.length; i++) {
-        var login = String(data[i][0]).toLowerCase().trim();
-        var ferr  = String(data[i][1]||&#x27;&#x27;);
-        if (login) obj[login] = ferr ? ferr.split(&#x27;,&#x27;).map(function(s){return s.trim();}) : [];
-      }
-      return respOk({ permissoes: obj });
-    }
-
-    // Retorna permissões de um usuário específico
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_permissoes_user&#x27;) {
-      var login = String(e.parameter.login || &#x27;&#x27;).toLowerCase().trim();
-      var sh = getOrCreatePermissoes();
-      if (sh.getLastRow() &lt;= 1) return respOk({ ferramentas: [] });
-      var data = sh.getDataRange().getValues();
-      for (var i = 1; i &lt; data.length; i++) {
-        if (String(data[i][0]).toLowerCase().trim() === login) {
-          var ferr = String(data[i][1]||&#x27;&#x27;);
-          var lista = ferr ? ferr.split(&#x27;,&#x27;).map(function(s){return s.trim();}) : [];
-          return respOk({ ferramentas: lista });
-        }
-      }
-      return respOk({ ferramentas: [] });
-    }
-
-    // Lista usuários
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;get_users&#x27;) {
-      var sh = getOrCreateUsuarios();
-      if (sh.getLastRow() &lt;= 1) return respOk({ users: [] });
-      var data = sh.getDataRange().getValues();
-      var h = data[0].map(String);
-      var users = [];
-      for (var i = 1; i &lt; data.length; i++) {
-        var row = {};
-        h.forEach(function(k,j){ row[k] = String(data[i][j]||&#x27;&#x27;); });
-        users.push(row);
-      }
-      return respOk({ users: users });
-    }
-
-    return respErr(&#x27;Acao nao reconhecida.&#x27;);
-  } catch(err) { return respErr(err); }
-}
-
-function doPost(e) {
-  try {
-    var d = JSON.parse(e.postData.contents);
-
-    if (d.action === &#x27;set_permissoes&#x27;) {
-      var login = String(d.login || &#x27;&#x27;).toLowerCase().trim();
-      var ferr  = Array.isArray(d.ferramentas) ? d.ferramentas.join(&#x27;,&#x27;) : String(d.ferramentas||&#x27;&#x27;);
-      var sh = getOrCreatePermissoes();
-      var data = sh.getLastRow() &gt; 1 ? sh.getDataRange().getValues() : null;
-      if (data) {
-        for (var i = 1; i &lt; data.length; i++) {
-          if (String(data[i][0]).toLowerCase().trim() === login) {
-            sh.getRange(i+1, 2).setValue(ferr);
-            return respOk({ ok: true });
-          }
-        }
-      }
-      sh.appendRow([login, ferr]);
-      return respOk({ ok: true });
-    }
-
-    if (d.action === &#x27;update_password&#x27;) {
-      var sh = getOrCreateUsuarios();
-      var allData = sh.getDataRange().getValues();
-      var h = allData[0].map(String);
-      var ci = h.indexOf(&#x27;Login&#x27;), cs = h.indexOf(&#x27;Senha&#x27;);
-      for (var i = 1; i &lt; allData.length; i++) {
-        if (String(allData[i][ci]).toLowerCase().trim() === String(d.login).toLowerCase().trim()) {
-          sh.getRange(i+1, cs+1).setValue(d.novaSenha);
-          return respOk({ ok: true });
-        }
-      }
-      return respErr(&#x27;Usuário não encontrado.&#x27;);
-    }
-
-    if (d.action === &#x27;register_user&#x27;) {
-      var sh = getOrCreateUsuarios();
-      var data = sh.getLastRow() &gt; 1 ? sh.getDataRange().getValues() : [sh.getRange(1,1,1,7).getValues()[0]];
-      var h = data[0].map(String);
-      var ci = h.indexOf(&#x27;Login&#x27;);
-      for (var i = 1; i &lt; data.length; i++) {
-        if (String(data[i][ci]).toLowerCase().trim() === String(d.login).toLowerCase().trim())
-          return respErr(&#x27;Login ja cadastrado. Escolha outro.&#x27;);
-      }
-      var tz = Session.getScriptTimeZone();
-      sh.appendRow([
-        &#x27;USR-&#x27; + Date.now(),
-        d.nome,
-        d.login.toLowerCase().trim(),
-        d.senha,
-        d.perfil || &#x27;colaborador&#x27;,
-        &#x27;true&#x27;,
-        Utilities.formatDate(new Date(), tz, &#x27;dd/MM/yyyy&#x27;)
-      ]);
-      return respOk({ ok: true });
-    }
-
-    return respErr(&#x27;Acao desconhecida: &#x27; + d.action);
-  } catch(err) { return respErr(err); }
-}
-
-function respOk(obj) {
-  obj.success = true;
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-function respErr(e) {
-  return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(e) }))
-    .setMimeType(ContentService.MimeType.JSON);
-}</textarea>
-
-<!-- CONFIG + SCRIPT BUTTONS -->
-<div style="position:fixed;bottom:16px;right:16px;display:flex;gap:8px">
-  <button class="cfg-btn" onclick="document.getElementById('modal-script').classList.add('open')">
-    <i class="ti ti-code" style="font-size:12px"></i> Apps Script
-  </button>
-  <button class="cfg-btn" onclick="openConfig()">
-    <i class="ti ti-settings" style="font-size:12px"></i> Configurar
-  </button>
-</div>
 </div>
 
 <div id="shell">
@@ -744,6 +477,9 @@ function respErr(e) {
       </div>
       <div class="sb-item" id="nav-relatorio" onclick="navigate('relatorio')">
         <i class="ti ti-chart-bar"></i><span>Relatório de Vendedor</span>
+      </div>
+      <div class="sb-item" id="nav-crm" onclick="navigate('crm')">
+        <i class="ti ti-target-arrow"></i><span>CRM</span>
       </div>
       <div class="sb-item" id="nav-clientes" onclick="navigate('clientes')">
         <i class="ti ti-users"></i><span>Clientes</span>
@@ -811,30 +547,6 @@ function respErr(e) {
 <script>
 
 /* ══════════════════════════════
-   CONFIG
-══════════════════════════════ */
-var WEBAPP_URL=localStorage.getItem('login_webapp_url')||'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
-
-
-
-function openConfig() {
-  document.getElementById('cfg-url').value = WEBAPP_URL;
-  document.getElementById('modal-cfg').classList.add('open');
-}
-function saveConfig() {
-  const url = document.getElementById('cfg-url').value.trim();
-  if (!url) { alert('Cole a URL do Apps Script.'); return; }
-  WEBAPP_URL = url;
-  localStorage.setItem('login_webapp_url', url);
-  document.getElementById('modal-cfg').classList.remove('open');
-}
-function copyScript() {
-  const t = document.getElementById('script-code');
-  t.select(); document.execCommand('copy');
-  alert('Código copiado!');
-}
-
-/* ══════════════════════════════
    MENSAGENS
 ══════════════════════════════ */
 function setMsg(err, ok) {
@@ -858,68 +570,117 @@ function toggleReg() {
 }
 
 /* ══════════════════════════════
-   LOGIN
+   LOGIN — Supabase Auth
+   Novos usuários não se auto-cadastram aqui — são criados pelo
+   administrador direto no painel do Supabase (Authentication → Users).
 ══════════════════════════════ */
+var SUPABASE_URL = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Usado pelos alertas de fundo (fila do Financeiro, cotação, calendário) —
+// diferente do apiFetch dos outros módulos, não força tela de "sem acesso"
+// se falhar: é uma checagem silenciosa em segundo plano, não uma ação que
+// o usuário pediu agora. Se o token expirou, a próxima ação explícita do
+// usuário (abrir uma tela) já vai lidar com o re-login normalmente.
+async function apiFetchShell(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401 && await tentarRenovarToken()) {
+    headers.Authorization = 'Bearer ' + getAuthToken();
+    res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  }
+  return res;
+}
+
+// O Supabase só entende e-mail — quem digita um "usuário" comum (sem @)
+// ganha um e-mail disfarçado por trás dos panos, só pra ele conseguir
+// logar (ex: "sabrina ferreira" vira "sabrina.ferreira@barretos.sistema").
+// Quem já tem e-mail de verdade cadastrado usa ele normalmente.
+function loginParaEmail(login) {
+  if (login.indexOf('@') !== -1) return login;
+  var normalizado = login.toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9.]/g, '');
+  return normalizado + '@barretos.sistema';
+}
+
 async function doLogin() {
-  const login = document.getElementById('lg-login').value.trim();
+  const digitado = document.getElementById('lg-login').value.trim();
   const senha = document.getElementById('lg-senha').value;
-  if (!login || !senha) { setMsg('Preencha login e senha.',''); return; }
-  // URL sempre disponível via hardcode
+  if (!digitado || !senha) { setMsg('Preencha login e senha.',''); return; }
   const btn = document.getElementById('btn-login');
   btn.innerHTML = '<span class="spinner"></span> Entrando…'; btn.disabled = true;
   setMsg('','');
   try {
-    const url = WEBAPP_URL + '?action=login&login=' + encodeURIComponent(login) + '&senha=' + encodeURIComponent(senha);
-    const r = await fetch(url);
-    const j = await r.json();
-    if (j.success && j.user) {
-      // Salva sessão para todos os HTMLs usarem
-      sessionStorage.setItem('barretos_user', JSON.stringify(j.user));
-      localStorage.setItem('barretos_nome',   j.user.nome);
-      localStorage.setItem('barretos_perfil', j.user.perfil);
-      localStorage.setItem('barretos_login',  j.user.login);
-      // Redireciona para o dashboard principal
-      if (window._shellLoginSuccess) { window._shellLoginSuccess(j.user); }
-    } else {
-      setMsg(j.error || 'Login ou senha incorretos.','');
-    }
-  } catch(e) { setMsg('Erro de conexão. Verifique a URL do Apps Script.',''); }
-  btn.innerHTML = '<i class="ti ti-login" style="font-size:13px"></i> Entrar';
-  btn.disabled = false;
-}
-
-/* ══════════════════════════════
-   CADASTRO
-══════════════════════════════ */
-async function doRegister() {
-  const nome   = document.getElementById('rg-nome').value.trim();
-  const login  = document.getElementById('rg-login').value.trim().toLowerCase();
-  const perfil = document.getElementById('rg-perfil').value;
-  const senha  = document.getElementById('rg-senha').value;
-  const conf   = document.getElementById('rg-conf').value;
-  if (!nome||!login||!senha||!conf) { setMsg('Preencha todos os campos.',''); return; }
-  if (senha.length < 6)  { setMsg('Senha deve ter no mínimo 6 caracteres.',''); return; }
-  if (senha !== conf)    { setMsg('As senhas não coincidem.',''); return; }
-  // URL sempre disponível via hardcode
-  const btn = document.getElementById('btn-reg');
-  btn.innerHTML = '<span class="spinner"></span> Cadastrando…'; btn.disabled = true;
-  setMsg('','');
-  try {
-    const r = await fetch(WEBAPP_URL, {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
       method: 'POST',
-      body: JSON.stringify({action:'register_user',nome,login,perfil,senha})
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: loginParaEmail(digitado), password: senha }),
     });
     const j = await r.json();
-    if (j.success) {
-      setMsg('', '✓ Usuário criado! Faça login com suas credenciais.');
-      toggleReg();
-      document.getElementById('lg-login').value = login;
-      document.getElementById('lg-senha').focus();
+    if (r.ok && j.access_token) {
+      // Nome, perfil e permissões vêm das tabelas "usuarios"/"permissoes"
+      // no banco (mesmo Supabase dos outros módulos) — não mais do Apps
+      // Script (era isso que o botão "Configurar" servia antes).
+      const pr = await fetch(
+        SUPABASE_URL + '/rest/v1/usuarios?select=nome,login,perfil,permissoes(ferramentas)&auth_user_id=eq.' + j.user.id,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + j.access_token } }
+      );
+      const linhas = await pr.json();
+      const perfilRow = Array.isArray(linhas) ? linhas[0] : null;
+      const permRel = perfilRow && perfilRow.permissoes;
+      const ferramentas = Array.isArray(permRel) ? (permRel[0] && permRel[0].ferramentas) || [] : (permRel && permRel.ferramentas) || [];
+      const user = {
+        nome:   (perfilRow && perfilRow.nome)   || digitado,
+        perfil: (perfilRow && perfilRow.perfil) || 'colaborador',
+        login:  (perfilRow && perfilRow.login)  || digitado,
+      };
+      // Salva sessão para todos os HTMLs usarem
+      sessionStorage.setItem('barretos_user', JSON.stringify(user));
+      localStorage.setItem('barretos_nome',   user.nome);
+      localStorage.setItem('barretos_perfil', user.perfil);
+      localStorage.setItem('barretos_login',  user.login);
+      localStorage.setItem('barretos_permissoes', JSON.stringify(ferramentas));
+      // Token do Supabase — repassado pros módulos via onFrameLoad()
+      localStorage.setItem('barretos_auth_token',   j.access_token);
+      localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+      // Redireciona para o dashboard principal
+      if (window._shellLoginSuccess) { window._shellLoginSuccess(user); }
     } else {
-      setMsg(j.error || 'Erro ao cadastrar.','');
+      setMsg(j.error_description || j.msg || 'Login ou senha incorretos.', '');
     }
-  } catch(e) { setMsg('Erro de conexão. Verifique a URL do Apps Script.',''); }
-  btn.innerHTML = '<i class="ti ti-check" style="font-size:12px"></i> Cadastrar';
+  } catch(e) { setMsg('Erro de conexão com o Supabase.',''); }
+  btn.innerHTML = '<i class="ti ti-login" style="font-size:13px"></i> Entrar';
   btn.disabled = false;
 }
 
@@ -935,6 +696,7 @@ var TOOLS = {
   recrutamento: { src:"rh_recrutamento.html",   cat:"RH",          label:"Recrutamento e Seleção", icon:"ti-user-search"     },
   cotacao:   { src:"cotacao_comercial.html",     cat:"Comercial",   label:"Cotação Comercial",     icon:"ti-calculator"       },
   relatorio: { src:"relatorio_de_vendedor.html", cat:"Comercial",   label:"Relatório de Vendedor", icon:"ti-chart-bar"        },
+  crm:       { src:"nexsales_crm.html",          cat:"Comercial",   label:"CRM",                     icon:"ti-target-arrow"     },
   clientes:  { src:"clientes.html",              cat:"Comercial",   label:"Clientes",               icon:"ti-users"            },
   financeiro:{ src:"financeiro.html",            cat:"Financeiro",  label:"Financeiro",             icon:"ti-cash"             },
   faturamento:{ src:"faturamento.html",          cat:"Financeiro",  label:"Faturamento",            icon:"ti-file-invoice"     },
@@ -962,6 +724,9 @@ function showShell(){
   
 }
 function applyUser(user){
+  if (localStorage.getItem("barretos_deve_trocar_senha") === "1") {
+    document.getElementById("troca-senha-overlay").style.display = "flex";
+  }
   var nome=user.nome||user.login||"?", perfil=user.perfil||"colaborador", login=user.login||"";
   document.getElementById("sb-uname").textContent    = nome;
   document.getElementById("sb-urole").textContent    = perfil.charAt(0).toUpperCase()+perfil.slice(1);
@@ -974,57 +739,43 @@ function applyUser(user){
   var cn=document.getElementById("nav-config");
   if(cn) cn.style.display="none";
 
-  // Busca e aplica permissões
-  setTimeout(function(){ aplicarPermissoes(login); }, 200);
+  // Aplica permissões (já vieram do banco no momento do login, salvas em
+  // barretos_permissoes — nada de buscar isso de novo aqui)
+  var perms = [];
+  try { perms = JSON.parse(localStorage.getItem("barretos_permissoes")||"[]"); } catch(e) { perms = []; }
+  if (perms.length > 0) { aplicarMenuPermissoes(perms); } else { mostrarTudo(); }
   // Restore user colors after login
   setTimeout(carregarCorSalva, 100);
-  // Alerta de novas solicitações no Financeiro (só pra Lisa Marie)
-  // DESATIVADO TEMPORARIAMENTE (plano paliativo de redução de chamadas no
-  // Apps Script, enquanto a migração de banco de dados não fica pronta) —
-  // religar assim que o banco novo estiver no ar.
-  // iniciarAlertaFilaFinanceiro(user);
-  // Alerta de "você foi incluído em um evento" do Calendário (pra todo mundo)
-  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
-  // iniciarAlertaEventoCalendario(user);
+  // Alerta de novas solicitações no Financeiro (só pra Lisa Marie) —
+  // reativado, agora busca do backend (/api/financeiro/pendentes-pagar)
+  // em vez do Apps Script antigo.
+  iniciarAlertaFilaFinanceiro(user);
+  // Alerta de atualização na Fila de Faturamento (só pra Gisele Bonfim) —
+  // dispara em qualquer solicitação nova ou canhoto enviado aguardando
+  // análise (/api/faturamento/fila).
+  iniciarAlertaFilaFaturamento(user);
+  // Alerta de "você foi incluído em um evento" do Calendário (pra todo
+  // mundo) — reativado, agora busca do backend
+  // (/api/calendario/participando) em vez do Apps Script antigo.
+  iniciarAlertaEventoCalendario(user);
   // Lembrete diário às 16h com os eventos do dia seguinte (pra todo mundo)
-  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
-  // iniciarLembreteDiario(user);
-  // Alerta de cotação aguardando aprovação (cascata Filipe → Gabriel Pinheiro → Diego Flórido)
-  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
-  // iniciarAlertaAprovacaoCotacao(user);
-  // Alerta de atividade na própria cotação (comentário ou decisão) — Sabrina Ferreira e Leonardo
-  // DESATIVADO TEMPORARIAMENTE (mesmo motivo acima)
-  // iniciarAlertaAtividadeCotacao(user);
-}
-
-async function aplicarPermissoes(login){
-  var url=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
-  if(!url){ mostrarTudo(); return; }
-  try{
-    var r=await fetch(url+"?action=get_permissoes_user&login="+encodeURIComponent(login));
-    var j=await r.json();
-    if(j.success && j.ferramentas){
-      // Garante array — pode vir como string "a,b,c" ou array ["a","b","c"]
-      var p = Array.isArray(j.ferramentas)
-        ? j.ferramentas
-        : String(j.ferramentas).split(',').map(function(s){return s.trim();}).filter(Boolean);
-      if(p.length>0){
-        sessionStorage.setItem("barretos_perms_"+login, JSON.stringify(p));
-        aplicarMenuPermissoes(p);
-        return;
-      }
-    }
-    mostrarTudo();
-  } catch(e){
-    var cached=sessionStorage.getItem("barretos_perms_"+login);
-    if(cached){
-      try{
-        var p = JSON.parse(cached);
-        if(!Array.isArray(p)) p = String(p).split(',').map(function(s){return s.trim();}).filter(Boolean);
-        aplicarMenuPermissoes(p);
-      } catch(e2){ mostrarTudo(); }
-    } else{ mostrarTudo(); }
-  }
+  // — reativado, agora busca do backend
+  // (/api/calendario/participando-na-data) em vez do Apps Script antigo.
+  iniciarLembreteDiario(user);
+  // Alerta de cotação aguardando aprovação (cascata Filipe → Gabriel
+  // Pinheiro → Diego Flórido) — reativado, agora busca do backend
+  // (/api/cotacoes/aguardando-aprovacao) em vez do Apps Script antigo.
+  iniciarAlertaAprovacaoCotacao(user);
+  // Alerta de atividade na própria cotação (comentário ou decisão) —
+  // Sabrina Ferreira e Leonardo — reativado, agora busca do backend
+  // (/api/cotacoes/por-vendedor) em vez do Apps Script antigo.
+  iniciarAlertaAtividadeCotacao(user);
+  // Alertas do Kanban (só Alex e Macelly, por enquanto): às 17h, cards
+  // com coleta amanhã que ainda precisam de Ordem de Coleta e/ou
+  // motorista cadastrado; e, sem hora fixa, cards com coleta HOJE ainda
+  // sem Vale Pedágio (nunca antecipado pro dia anterior).
+  iniciarAlertaColetaAmanha(user);
+  iniciarAlertaValePedagioHoje(user);
 }
 
 function aplicarMenuPermissoes(p){
@@ -1036,12 +787,12 @@ function aplicarMenuPermissoes(p){
   // nunca deveria acessar. Se uma ferramenta nova precisar ser liberada
   // pra alguém, isso deve ser feito atualizando a permissão dela mesmo,
   // não escondendo o controle de acesso inteiro.)
-  ["cotacao","relatorio","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
+  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","crm","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -1049,7 +800,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-geral","section-rh","section-comercial","section-financeiro","section-operacional","section-melhoria"].forEach(function(s){
@@ -1082,7 +833,7 @@ function onFrameLoad(){
 
   try{
     var fw=document.getElementById("main-frame").contentWindow;
-    ["barretos_user","barretos_nome","barretos_perfil","barretos_login"].forEach(function(k){
+    ["barretos_user","barretos_nome","barretos_perfil","barretos_login","barretos_permissoes","barretos_auth_token","barretos_auth_refresh"].forEach(function(k){
       var sv=sessionStorage.getItem(k); if(sv) fw.sessionStorage.setItem(k,sv);
       var lv=localStorage.getItem(k);   if(lv) fw.localStorage.setItem(k,lv);
     });
@@ -1091,7 +842,7 @@ function onFrameLoad(){
   }catch(e){}
 }
 function logout(){
-  ["barretos_user","barretos_nome","barretos_perfil","barretos_login"].forEach(function(k){
+  ["barretos_user","barretos_nome","barretos_perfil","barretos_login","barretos_permissoes","barretos_auth_token","barretos_auth_refresh","barretos_deve_trocar_senha"].forEach(function(k){
     sessionStorage.removeItem(k); localStorage.removeItem(k);
   });
   currentTool=null;
@@ -1105,12 +856,6 @@ document.addEventListener("DOMContentLoaded", function(){
   carregarCorSalva();
   // Re-apply color after user session loads (login might not be set yet)
   setTimeout(carregarCorSalva, 800);
-  var saved=localStorage.getItem("login_webapp_url")||sessionStorage.getItem("login_webapp_url")||"";
-  if(saved){ WEBAPP_URL=saved; localStorage.setItem("login_webapp_url",saved); sessionStorage.setItem("login_webapp_url",saved); }
-  var cfgEl=document.getElementById("cfg-url"); if(cfgEl) cfgEl.value=WEBAPP_URL;
-  var sc=document.getElementById("script-code"), gs=document.getElementById("gas-src");
-  if(sc&&gs) sc.value=gs.value;
-  if(!WEBAPP_URL){ setTimeout(function(){ if(typeof openConfig==="function") openConfig(); },600); }
   var raw=sessionStorage.getItem("barretos_user")||localStorage.getItem("barretos_user");
   if(raw){ try{ var u=JSON.parse(raw); applyUser(u); showShell(); navigate("inicio"); setTimeout(function(){ mostrarAgendaDia(u); },1200); return; }catch(e){} }
   showLogin();
@@ -1254,16 +999,6 @@ function salvarCorLocal() {
   setCookie('b_fundo_'+(login||'g'), _fundoAtual, 365);
   setCookie('b_cor',   _corAtual,   365);
   setCookie('b_fundo', _fundoAtual, 365);
-  // Save to server if URL is available
-  var usuUrl = localStorage.getItem('login_webapp_url')||'';
-  if (usuUrl && login) {
-    var payload = {};
-    payload['barretos_cor_'+login]   = _corAtual;
-    payload['barretos_fundo_'+login] = _fundoAtual;
-    fetch(usuUrl, {method:'POST',
-      body:JSON.stringify({action:'set_urls',urls:payload})
-    }).catch(function(){});
-  }
 }
 
 function openPerfilModal(){
@@ -1351,17 +1086,19 @@ async function savePerfilModal(){
   // Update sidebar avatar
   applyUser(user);
 
-  // If password change requested, update via Apps Script
+  // If password change requested, update via Supabase Auth (troca a senha
+  // da própria conta logada — precisa do token de acesso do login atual)
   if(senha){
-    var url = localStorage.getItem("login_webapp_url")||"";
-    if(url){
+    var token = localStorage.getItem("barretos_auth_token")||"";
+    if(token){
       try{
-        var res = await fetch(url, {
-          method:"POST",
-          body: JSON.stringify({action:"update_password", login:login, novaSenha:senha})
+        var res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+          method:"PUT",
+          headers:{ "Content-Type":"application/json", apikey:SUPABASE_ANON_KEY, Authorization:"Bearer "+token },
+          body: JSON.stringify({ password: senha })
         });
         var j = await res.json();
-        if(!j.success){ msgEl.textContent="Erro ao atualizar senha: "+(j.error||""); msgEl.className="perfil-msg err"; return; }
+        if(!res.ok){ msgEl.textContent="Erro ao atualizar senha: "+(j.msg||j.error_description||""); msgEl.className="perfil-msg err"; return; }
       } catch(e){ msgEl.textContent="Erro de conexão ao salvar senha."; msgEl.className="perfil-msg err"; return; }
     }
   }
@@ -1371,7 +1108,57 @@ async function savePerfilModal(){
   msgEl.className = "perfil-msg";
   setTimeout(closePerfilModal, 1200);
 }
+
+/* ── Troca de senha obrigatória (senha temporária/padrão) ──
+   Aparece por cima de tudo assim que o login termina, se a conta ainda
+   estiver marcada como "precisa trocar a senha" (ver deve_trocar_senha na
+   tabela usuarios). Só desaparece depois que a pessoa define uma senha
+   nova de verdade. */
+async function salvarTrocaSenhaObrigatoria(){
+  var senha  = document.getElementById("ts-senha").value;
+  var senha2 = document.getElementById("ts-senha2").value;
+  var msg    = document.getElementById("ts-msg");
+  msg.textContent = "";
+  if (!senha || senha.length < 8) { msg.textContent = "A senha precisa ter pelo menos 8 caracteres."; return; }
+  if (senha !== senha2) { msg.textContent = "As senhas não conferem."; return; }
+  var btn = document.getElementById("ts-btn");
+  btn.disabled = true; btn.textContent = "Salvando…";
+  try {
+    var res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+      method: "PUT",
+      headers: { "Content-Type":"application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + getAuthToken() },
+      body: JSON.stringify({ password: senha }),
+    });
+    if (!res.ok) {
+      var j = await res.json().catch(function(){ return {}; });
+      msg.textContent = j.msg || j.error_description || "Erro ao trocar a senha.";
+      btn.disabled = false; btn.textContent = "Salvar e continuar";
+      return;
+    }
+    await apiFetchShell(API_BASE + "/usuarios/me/senha-trocada", { method: "PUT" }).catch(function(){});
+    localStorage.removeItem("barretos_deve_trocar_senha");
+    document.getElementById("troca-senha-overlay").style.display = "none";
+  } catch(e) {
+    msg.textContent = "Erro de conexão.";
+    btn.disabled = false; btn.textContent = "Salvar e continuar";
+  }
+}
 </script>
+
+<!-- TROCA DE SENHA OBRIGATÓRIA -->
+<div id="troca-senha-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#151820;border:1px solid #1E2130;border-radius:14px;padding:28px;max-width:380px;width:calc(100% - 32px);font-family:'DM Sans',sans-serif;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#E8EAF0">Defina uma nova senha</div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:18px">Por segurança, antes de continuar você precisa trocar a senha temporária por uma só sua.</div>
+    <label style="font-size:11px;font-weight:600;color:#6B7280;display:block;margin-bottom:5px">Nova senha</label>
+    <input type="password" id="ts-senha" style="width:100%;box-sizing:border-box;padding:11px;border-radius:8px;border:1px solid #1E2130;background:#0F1117;color:#E8EAF0;margin-bottom:12px;font-family:inherit" placeholder="Mínimo 8 caracteres">
+    <label style="font-size:11px;font-weight:600;color:#6B7280;display:block;margin-bottom:5px">Confirmar nova senha</label>
+    <input type="password" id="ts-senha2" style="width:100%;box-sizing:border-box;padding:11px;border-radius:8px;border:1px solid #1E2130;background:#0F1117;color:#E8EAF0;margin-bottom:8px;font-family:inherit" placeholder="Repita a senha">
+    <div id="ts-msg" style="font-size:12px;color:#EF4444;min-height:16px;margin-bottom:10px"></div>
+    <button id="ts-btn" onclick="salvarTrocaSenhaObrigatoria()" style="width:100%;background:#F5B800;color:#111;border:none;border-radius:8px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">Salvar e continuar</button>
+    <button onclick="logout()" style="width:100%;background:none;border:none;color:#6B7280;padding:10px;font-size:12px;cursor:pointer;margin-top:4px;font-family:inherit">Sair</button>
+  </div>
+</div>
 
 <!-- MODAL PERFIL -->
 <div class="perfil-ov" id="perfil-ov" onclick="if(event.target===this)closePerfilModal()">
@@ -1544,6 +1331,34 @@ async function savePerfilModal(){
   </div>
 </div>
 
+<!-- MODAL ALERTA — FILA DE FATURAMENTO (usuária Gisele Bonfim) -->
+<div id="fila-fat-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="fila-fat-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🧾</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="fila-fat-alerta-titulo">Fila de Faturamento atualizada</div>
+        <div style="font-size:11px;color:#6B7280" id="fila-fat-alerta-sub">Solicitações e canhotos pendentes</div>
+      </div>
+      <button onclick="fecharAlertaFilaFat()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="fila-fat-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaFilaFat()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaFilaFat();navigate('faturamento')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver no Faturamento</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ALERTA — EVENTO DO CALENDÁRIO (participação nova ou lembrete do dia seguinte às 16h) -->
 <div id="evento-alerta-overlay" style="
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
@@ -1568,6 +1383,58 @@ async function savePerfilModal(){
     <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
       <button onclick="fecharAlertaEvento()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
       <button onclick="fecharAlertaEvento();navigate('calendario')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Calendário</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL ALERTA — COLETA AMANHÃ (17h, criar Ordem de Coleta) -->
+<div id="coleta-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="coleta-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📦</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="coleta-alerta-titulo">Cards com coleta amanhã</div>
+        <div style="font-size:11px;color:#6B7280" id="coleta-alerta-sub">Criar Ordem de Coleta</div>
+      </div>
+      <button onclick="fecharAlertaColeta()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="coleta-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaColeta()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL ALERTA — VALE PEDÁGIO DO DIA (cards com coleta hoje sem vale pedágio) -->
+<div id="vale-pedagio-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="vale-pedagio-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎫</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="vale-pedagio-alerta-titulo">Cards com coleta hoje sem Vale Pedágio</div>
+        <div style="font-size:11px;color:#6B7280">Kanban</div>
+      </div>
+      <button onclick="fecharAlertaValePedagio()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="vale-pedagio-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaValePedagio()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
     </div>
   </div>
 </div>
@@ -1630,9 +1497,6 @@ async function savePerfilModal(){
 <style>@keyframes filaAlertaPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}</style>
 
 <script>
-var CAL_URL = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
-var FINANCEIRO_URL = 'https://script.google.com/macros/s/AKfycbx2WTA0VrEk339HfK3gHxyoSo0L8ufFgJJZ1fwRmMELLaKc3IMMr1S8-cPxv1FohyDXYQ/exec';
-var COTACAO_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
 
 var TYPE_LABEL = { evento:'Evento', reuniao:'Reunião', alerta:'Alerta', lembrete:'Lembrete' };
 var TYPE_COLOR = { evento:'#3B82F6', reuniao:'#8B5CF6', alerta:'#F97316', lembrete:'#F5B800' };
@@ -1668,17 +1532,9 @@ async function mostrarAgendaDia(user) {
     // Sempre mostra ao logar
 
   try {
-    var r = await fetch(CAL_URL + '?action=cal_listar');
-    var j = await r.json();
-    var eventos = (j.rows||[]).filter(function(ev) {
-      var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
-      var dataFim = normDateShell(ev.DataFim||ev.dataFim||dataIni);
-      if (hoje < dataIni || hoje > dataFim) return false;
-      // Filtra pelo usuário logado
-      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
-      var criador = (ev.Criador||ev.criador||'').trim().toLowerCase();
-      return parts.indexOf(loginAtual) >= 0 || criador === loginAtual;
-    });
+    var r = await apiFetchShell(API_BASE + '/calendario/participando-na-data?login=' + encodeURIComponent(loginAtual) + '&data=' + hoje);
+    var eventos = r.ok ? await r.json() : [];
+    if (!Array.isArray(eventos)) eventos = [];
 
     // Mesmo sem eventos mostra (agenda vazia)
     var meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -1693,25 +1549,25 @@ async function mostrarAgendaDia(user) {
         '<div style="font-size:32px;margin-bottom:8px">🗓️</div>Sua agenda está livre hoje!</div>';
     } else {
       var contagem = {};
-      eventos.forEach(function(ev){ var t=ev.Tipo||ev.tipo||'evento'; contagem[t]=(contagem[t]||0)+1; });
+      eventos.forEach(function(ev){ var t=ev.tipo||'evento'; contagem[t]=(contagem[t]||0)+1; });
       var resumo = Object.keys(contagem).map(function(t){
         return contagem[t]+' '+(contagem[t]>1 ? (t==='reuniao'?'reuniões':TYPE_LABEL[t]+'s') : TYPE_LABEL[t]).toLowerCase();
       }).join(', ');
       document.getElementById('agenda-titulo').textContent = 'Você tem '+resumo+' hoje';
 
       var html = eventos.map(function(ev) {
-        var tipo  = ev.Tipo||ev.tipo||'evento';
+        var tipo  = ev.tipo||'evento';
         var color = TYPE_COLOR[tipo]||'#6B7280';
         var icon  = TYPE_ICON[tipo]||'📌';
-        var hora  = normHoraShell(ev.HoraIni||ev.horaIni||'');
-        var horaFim = normHoraShell(ev.HoraFim||ev.horaFim||'');
+        var hora  = normHoraShell(ev.hora_inicio||'');
+        var horaFim = normHoraShell(ev.hora_fim||'');
         var horaTxt = hora ? hora+(horaFim?' – '+horaFim:'') : 'Dia inteiro';
         return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
           '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
           '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
+            '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.titulo||'Sem título')+'</div>'+
             '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+horaTxt+
-              (ev.Local||ev.local ? ' · '+(ev.Local||ev.local) : '')+
+              (ev.local ? ' · '+ev.local : '')+
             '</div>'+
           '</div>'+
           '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+TYPE_LABEL[tipo]+'</div>'+
@@ -1751,18 +1607,17 @@ function iniciarAlertaFilaFinanceiro(user){
 }
 
 async function verificarNovaSolicitacaoFinanceiro(){
-  if(!FINANCEIRO_URL) return;
   try{
-    var r = await fetch(FINANCEIRO_URL);
-    var rows = await r.json();
-    if(!Array.isArray(rows)) return;
+    var r = await apiFetchShell(API_BASE + '/financeiro/pendentes-pagar');
+    if(!r.ok) return;
+    var pendentes = await r.json();
+    if(!Array.isArray(pendentes)) return;
 
-    var pendentes = rows.filter(function(row){ return row.solicitacao !== 'PAGAMENTO EFETUADO'; });
     var chaveVistos = 'financeiro_fila_vista';
     var vistosRaw = localStorage.getItem(chaveVistos);
     var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
 
-    var chavesAtuais = pendentes.map(function(row){ return (row.codigo||'')+'|'+(row.favorecido||''); });
+    var chavesAtuais = pendentes.map(function(row){ return row.id; });
 
     if(!vistos){
       // Primeira vez rodando neste navegador — só registra a base, sem alertar
@@ -1770,10 +1625,7 @@ async function verificarNovaSolicitacaoFinanceiro(){
       return;
     }
 
-    var novos = pendentes.filter(function(row){
-      var chave = (row.codigo||'')+'|'+(row.favorecido||'');
-      return vistos.indexOf(chave) === -1;
-    });
+    var novos = pendentes.filter(function(row){ return vistos.indexOf(row.id) === -1; });
 
     localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
 
@@ -1794,13 +1646,13 @@ function mostrarAlertaFila(novos){
   sub.textContent = 'Fila do Dia — Contas a Pagar';
 
   body.innerHTML = novos.map(function(row){
-    var valor = Number(row.valorTotal)||0;
+    var valor = Number(row.valor)||0;
     var valorFmt = 'R$\u00A0' + valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
       '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💰</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(row.favorecido||'Sem nome')+'</div>'+
-        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.empresa||'')+(row.efetuar?' · '+row.efetuar:'')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.empresa_cnpj||'')+(row.forma_pagamento?' · '+row.forma_pagamento:'')+'</div>'+
       '</div>'+
       '<div style="font-size:12px;font-weight:700;color:#F5B800;white-space:nowrap;flex-shrink:0">'+valorFmt+'</div>'+
     '</div>';
@@ -1811,6 +1663,81 @@ function mostrarAlertaFila(novos){
 
 function fecharAlertaFila(){
   document.getElementById('fila-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE FILA DE FATURAMENTO (usuária Gisele Bonfim) ──
+   Mesmo esqueleto do alerta de fila do Financeiro (polling 45s, popup
+   estilo "novo e-mail", diff de ids vistos no localStorage) — só que aqui
+   "atualização" é qualquer mudança na Fila de Faturamento: tanto uma
+   solicitação nova (aguardando emissão do CT-e) quanto um canhoto que
+   acabou de ser enviado (aguardando análise). ── */
+var _filaFatIntervalId = null;
+
+function iniciarAlertaFilaFaturamento(user){
+  if(_filaFatIntervalId){ clearInterval(_filaFatIntervalId); _filaFatIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var ehGisele = nome.indexOf('gisele')===0 || login.indexOf('gisele')===0;
+  if(!ehGisele) return; // só pra Gisele Bonfim
+  setTimeout(verificarAtualizacaoFilaFaturamento, 3000); // dá um tempo pro login/permissões carregarem primeiro
+  _filaFatIntervalId = setInterval(verificarAtualizacaoFilaFaturamento, 45000);
+}
+
+async function verificarAtualizacaoFilaFaturamento(){
+  try{
+    var r = await apiFetchShell(API_BASE + '/faturamento/fila');
+    if(!r.ok) return;
+    var itens = await r.json();
+    if(!Array.isArray(itens)) return;
+
+    var chaveVistos = 'faturamento_fila_vista';
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+
+    var idsAtuais = itens.map(function(row){ return row.id; });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+      return;
+    }
+
+    var novos = itens.filter(function(row){ return vistos.indexOf(row.id) === -1; });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+
+    if(novos.length > 0) mostrarAlertaFilaFat(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaFilaFat(novos){
+  var titulo = document.getElementById('fila-fat-alerta-titulo');
+  var body = document.getElementById('fila-fat-alerta-body');
+
+  titulo.textContent = novos.length === 1
+    ? 'Fila de Faturamento atualizada'
+    : novos.length + ' atualizações na Fila de Faturamento';
+
+  body.innerHTML = novos.map(function(row){
+    var aguardandoCte = row.status === 'Aguardando Faturamento';
+    var rotulo = aguardandoCte ? 'Aguardando emissão do CT-e' : 'Canhoto aguardando análise';
+    var principal = aguardandoCte ? (row.cliente||'Sem nome') : ('CT-e '+(row.cte||'—')+' · '+(row.cliente||'Sem nome'));
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+(aguardandoCte?'📝':'🧾')+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+principal+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+rotulo+' · Cód. '+(row.cod||'—')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('fila-fat-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaFilaFat(){
+  document.getElementById('fila-fat-alerta-overlay').style.display = 'none';
 }
 
 /* ── ALERTA DE COTAÇÃO AGUARDANDO APROVAÇÃO (cascata Filipe → Gabriel
@@ -1838,14 +1765,6 @@ function contemTodosTokens_(base, tokens){
   return tokens.every(function(t){ return base.indexOf(t) !== -1; });
 }
 
-// Aprovadores também vendem — cotação criada por um deles não deve gerar
-// alerta de aprovação (ninguém aprova a própria cotação).
-var APROVADORES_TOKENS_ = [['filipe'], ['gabriel','pinheiro'], ['diego','florido']];
-function vendedorEhAprovador_(vendedorNome){
-  var base = normNomeLogin_(vendedorNome||'');
-  return APROVADORES_TOKENS_.some(function(tokens){ return contemTodosTokens_(base, tokens); });
-}
-
 function iniciarAlertaAprovacaoCotacao(user){
   if(_aprovCotIntervalId){ clearInterval(_aprovCotIntervalId); _aprovCotIntervalId = null; }
   var base = normNomeLogin_((user && user.nome)||'') + ' ' + normNomeLogin_((user && user.login)||'');
@@ -1859,51 +1778,27 @@ function iniciarAlertaAprovacaoCotacao(user){
   _aprovCotIntervalId = setInterval(verificarAprovacaoPendenteCotacao, 45000);
 }
 
-// Converte "dd/MM/yyyy HH:mm" (formato salvo pelo Apps Script da cotação) em Date
-function parseDataHoraCotacao_(s){
-  if(!s) return null;
-  var m = String(s).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-  if(!m) return null;
-  return new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10), parseInt(m[4],10), parseInt(m[5],10));
-}
-
 async function verificarAprovacaoPendenteCotacao(){
-  if(!COTACAO_URL || _aprovCotLimiarMin === null) return;
+  if(_aprovCotLimiarMin === null) return;
   try{
-    var r = await fetch(COTACAO_URL);
-    var j = await r.json();
-    var rows = j && j.rows ? j.rows : [];
-    if(!Array.isArray(rows)) return;
-
-    var agora = new Date();
-    var aguardando = rows.filter(function(row){
-      // Cotações antigas (antes da #336) ficam fora do fluxo de aprovação
-      if(parseInt(row.Numero,10) < 336) return false;
-      // Cotação criada por um dos próprios aprovadores não entra no fluxo
-      if(vendedorEhAprovador_(row.Vendedor)) return false;
-      var st = row.StatusAprovacao || 'Aguardando';
-      if(st !== 'Aguardando') return false;
-      var dataRow = parseDataHoraCotacao_(row.Data);
-      if(!dataRow) return false;
-      var minutosDecorridos = (agora - dataRow) / 60000;
-      return minutosDecorridos >= _aprovCotLimiarMin;
-    });
-    console.log('[alerta-aprov-cotacao] login-chave:', _aprovCotLoginKey, '| limiar(min):', _aprovCotLimiarMin, '| aguardando encontradas:', aguardando.length);
+    var r = await apiFetchShell(API_BASE + '/cotacoes/aguardando-aprovacao?limiarMin=' + _aprovCotLimiarMin);
+    if(!r.ok) return;
+    var aguardando = await r.json();
+    if(!Array.isArray(aguardando)) return;
 
     var chaveVistos = 'cotacao_aprov_vista_' + _aprovCotLoginKey;
     var vistosRaw = localStorage.getItem(chaveVistos);
     var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
-    var chavesAtuais = aguardando.map(function(row){ return String(row.Numero||''); });
+    var chavesAtuais = aguardando.map(function(row){ return String(row.numero||''); });
 
     if(!vistos){
       // Primeira vez rodando neste navegador — só registra a base, sem alertar
       localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
-      console.log('[alerta-aprov-cotacao] primeira checagem neste navegador — registrando base sem alertar');
       return;
     }
 
     var novos = aguardando.filter(function(row){
-      return vistos.indexOf(String(row.Numero||'')) === -1;
+      return vistos.indexOf(String(row.numero||'')) === -1;
     });
 
     localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
@@ -1925,11 +1820,12 @@ function mostrarAlertaAprovacaoCotacao(novos){
   sub.textContent = 'Comercial — Aprovação';
 
   body.innerHTML = novos.map(function(row){
+    var valorFmt = row.valor!=null ? Number(row.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : '';
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
       '<div style="font-size:16px;flex-shrink:0;margin-top:1px">📋</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.Numero||'').padStart(4,'0')+' · '+(row.Cliente||'Sem cliente')+'</div>'+
-        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.Vendedor||'')+(row.Valor?' · '+row.Valor:'')+'</div>'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.numero||'').padStart(4,'0')+' · '+(row.cliente||'Sem cliente')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.vendedor||'')+(valorFmt?' · '+valorFmt:'')+'</div>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -1965,42 +1861,31 @@ function iniciarAlertaAtividadeCotacao(user){
   _ativCotIntervalId = setInterval(verificarAtividadeCotacao, 45000);
 }
 
-function contarNotasObservacao_(texto){
-  if(!texto) return 0;
-  return String(texto).split('\n').filter(Boolean).length;
-}
-
 async function verificarAtividadeCotacao(){
-  if(!COTACAO_URL || !_ativCotLoginKey) return;
+  if(!_ativCotCandidato) return;
   try{
-    var r = await fetch(COTACAO_URL);
-    var j = await r.json();
-    var rows = j && j.rows ? j.rows : [];
-    if(!Array.isArray(rows)) return;
-
-    var minhas = rows.filter(function(row){
-      return normNomeLogin_(row.Vendedor||'').indexOf(_ativCotCandidato) !== -1;
-    });
-    console.log('[alerta-ativ-cotacao] candidato:', _ativCotCandidato, '| cotações do vendedor encontradas:', minhas.length);
+    var r = await apiFetchShell(API_BASE + '/cotacoes/por-vendedor?token=' + encodeURIComponent(_ativCotCandidato));
+    if(!r.ok) return;
+    var minhas = await r.json();
+    if(!Array.isArray(minhas)) return;
 
     var chaveRetrato = 'cotacao_atividade_' + _ativCotLoginKey;
     var retratoRaw = localStorage.getItem(chaveRetrato);
     var retratoAnterior = retratoRaw ? JSON.parse(retratoRaw) : null;
     var retratoAtual = {};
     minhas.forEach(function(row){
-      var numero = String(row.Numero||'');
-      retratoAtual[numero] = contarNotasObservacao_(row.Observacao) + '|' + (row.StatusAprovacao||'Aguardando');
+      var numero = String(row.numero||'');
+      retratoAtual[numero] = row.notas_count + '|' + row.status_aprovacao;
     });
 
     if(!retratoAnterior){
       // Primeira vez rodando neste navegador — só registra a base, sem alertar
       localStorage.setItem(chaveRetrato, JSON.stringify(retratoAtual));
-      console.log('[alerta-ativ-cotacao] primeira checagem neste navegador — registrando base sem alertar');
       return;
     }
 
     var mudou = minhas.filter(function(row){
-      var numero = String(row.Numero||'');
+      var numero = String(row.numero||'');
       return retratoAnterior[numero] !== undefined && retratoAnterior[numero] !== retratoAtual[numero];
     });
     // Cotações novas (ainda sem retrato anterior) não alertam aqui — só
@@ -2025,12 +1910,12 @@ function mostrarAlertaAtividadeCotacao(mudou){
   sub.textContent = 'Comercial — Minhas Cotações';
 
   body.innerHTML = mudou.map(function(row){
-    var st = row.StatusAprovacao || 'Aguardando';
+    var st = row.status_aprovacao || 'Aguardando';
     var corSt = st === 'Aprovada' ? '#2EBD85' : st === 'Recusada' ? '#E24B4A' : '#F5B800';
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+corSt+';margin-bottom:8px">'+
       '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💬</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.Numero||'').padStart(4,'0')+' · '+(row.Cliente||'Sem cliente')+'</div>'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(row.numero||'').padStart(4,'0')+' · '+(row.cliente||'Sem cliente')+'</div>'+
         '<div style="font-size:11px;color:#6B7280;margin-top:2px">Status de aprovação: '+st+'</div>'+
       '</div>'+
     '</div>';
@@ -2060,22 +1945,16 @@ function iniciarAlertaEventoCalendario(user){
 }
 
 async function verificarNovoEventoCalendario(login){
-  if(!CAL_URL) return;
   try{
-    var r = await fetch(CAL_URL + '?action=cal_listar');
-    var j = await r.json();
-    var rows = j.rows || [];
-
-    // Só eventos em que o usuário logado está entre os participantes
-    var meus = rows.filter(function(ev){
-      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
-      return parts.indexOf(login) >= 0;
-    });
+    var r = await apiFetchShell(API_BASE + '/calendario/participando?login=' + encodeURIComponent(login));
+    if(!r.ok) return;
+    var meus = await r.json();
+    if(!Array.isArray(meus)) return;
 
     var chaveVistos = 'calendario_eventos_vistos_' + login;
     var vistosRaw = localStorage.getItem(chaveVistos);
     var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
-    var idsAtuais = meus.map(function(ev){ return String(ev.ID||ev.id||''); });
+    var idsAtuais = meus.map(function(ev){ return String(ev.id||''); });
 
     if(!vistos){
       // Primeira vez rodando neste navegador — só registra a base, sem alertar
@@ -2084,7 +1963,7 @@ async function verificarNovoEventoCalendario(login){
     }
 
     var novos = meus.filter(function(ev){
-      return vistos.indexOf(String(ev.ID||ev.id||'')) === -1;
+      return vistos.indexOf(String(ev.id||'')) === -1;
     });
 
     localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
@@ -2106,17 +1985,17 @@ function mostrarAlertaEventoCalendario(novos){
   sub.textContent = 'Calendário';
 
   body.innerHTML = novos.map(function(ev){
-    var tipo    = ev.Tipo||ev.tipo||'evento';
+    var tipo    = ev.tipo||'evento';
     var color   = TYPE_COLOR[tipo]||'#6B7280';
     var icon    = TYPE_ICON[tipo]||'📌';
-    var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
-    var hora    = normHoraShell(ev.HoraIni||ev.horaIni||'');
+    var dataIni = normDateShell(ev.data_inicio||'');
+    var hora    = normHoraShell(ev.hora_inicio||'');
     var dataFmt = dataIni ? dataIni.split('-').reverse().join('/') : '';
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
       '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
-        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+dataFmt+(hora?' · '+hora:'')+(ev.Local||ev.local?' · '+(ev.Local||ev.local):'')+'</div>'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.titulo||'Sem título')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+dataFmt+(hora?' · '+hora:'')+(ev.local?' · '+ev.local:'')+'</div>'+
       '</div>'+
       '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+(TYPE_LABEL[tipo]||tipo)+'</div>'+
     '</div>';
@@ -2147,23 +2026,14 @@ async function verificarLembreteDiario(login){
   var chave = 'lembrete_diario_mostrado_' + login;
   if(localStorage.getItem(chave) === hojeStr) return; // já mostrado hoje
 
-  if(!CAL_URL) return;
   try{
     var amanha = new Date(agora); amanha.setDate(agora.getDate()+1);
     var amanhaStr = toISOLocal(amanha);
 
-    var r = await fetch(CAL_URL + '?action=cal_listar');
-    var j = await r.json();
-    var rows = j.rows || [];
-
-    var eventos = rows.filter(function(ev){
-      var dataIni = normDateShell(ev.DataIni||ev.dataIni||'');
-      var dataFim = normDateShell(ev.DataFim||ev.dataFim||dataIni);
-      if (amanhaStr < dataIni || amanhaStr > dataFim) return false;
-      var parts = (ev.Participantes||ev.participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
-      var criador = (ev.Criador||ev.criador||'').trim().toLowerCase();
-      return parts.indexOf(login) >= 0 || criador === login;
-    });
+    var r = await apiFetchShell(API_BASE + '/calendario/participando-na-data?login=' + encodeURIComponent(login) + '&data=' + amanhaStr);
+    if(!r.ok) return;
+    var eventos = await r.json();
+    if(!Array.isArray(eventos)) return;
 
     localStorage.setItem(chave, hojeStr); // marca como mostrado hoje, mesmo sem eventos
 
@@ -2187,17 +2057,17 @@ function mostrarLembreteDiario(eventos, amanhaStr){
   sub.textContent = dataFmt;
 
   body.innerHTML = eventos.map(function(ev){
-    var tipo    = ev.Tipo||ev.tipo||'evento';
+    var tipo    = ev.tipo||'evento';
     var color   = TYPE_COLOR[tipo]||'#6B7280';
     var icon    = TYPE_ICON[tipo]||'📌';
-    var hora    = normHoraShell(ev.HoraIni||ev.horaIni||'');
-    var horaFim = normHoraShell(ev.HoraFim||ev.horaFim||'');
+    var hora    = normHoraShell(ev.hora_inicio||'');
+    var horaFim = normHoraShell(ev.hora_fim||'');
     var horaTxt = hora ? hora+(horaFim?' – '+horaFim:'') : 'Dia inteiro';
     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid '+color+';margin-bottom:8px">'+
       '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+icon+'</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.Titulo||ev.titulo||'Sem título')+'</div>'+
-        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+horaTxt+(ev.Local||ev.local?' · '+(ev.Local||ev.local):'')+'</div>'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ev.titulo||'Sem título')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+horaTxt+(ev.local?' · '+ev.local:'')+'</div>'+
       '</div>'+
       '<div style="font-size:10px;font-weight:600;color:'+color+';white-space:nowrap;padding:2px 7px;background:'+color+'22;border-radius:4px;flex-shrink:0">'+(TYPE_LABEL[tipo]||tipo)+'</div>'+
     '</div>';
@@ -2208,6 +2078,129 @@ function mostrarLembreteDiario(eventos, amanhaStr){
 
 function fecharAlertaEvento(){
   document.getElementById('evento-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE COLETA AMANHÃ (17h — só Alex e Macelly) ──
+   Mesmo esqueleto do lembrete diário de calendário (checa a cada minuto
+   se já passou do horário e ainda não mostrou hoje), mas a pergunta aqui
+   é pro backend do Kanban: cards das 4 empresas com Data da Coleta pra
+   amanhã que ainda não têm Ordem de Coleta gerada. ── */
+var _alertaColetaIntervalId = null;
+function iniciarAlertaColetaAmanha(user){
+  if(_alertaColetaIntervalId){ clearInterval(_alertaColetaIntervalId); _alertaColetaIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var permitido = ['alex','macelly'].some(function(t){ return nome.indexOf(t)===0 || login.indexOf(t)===0; });
+  if(!permitido) return;
+  verificarAlertaColetaAmanha(login); // checa já ao carregar, caso já seja depois das 17h
+  _alertaColetaIntervalId = setInterval(function(){ verificarAlertaColetaAmanha(login); }, 60000);
+}
+
+async function verificarAlertaColetaAmanha(login){
+  var agora = new Date();
+  if(agora.getHours() < 17) return; // só dispara a partir das 17h
+
+  var hojeStr = toISOLocal(agora);
+  var chave = 'alerta_coleta_amanha_mostrado_' + login;
+  if(localStorage.getItem(chave) === hojeStr) return; // já mostrado hoje
+
+  try{
+    var r = await apiFetchShell(API_BASE + '/kanban/coleta-amanha');
+    if(!r.ok) return;
+    var cards = await r.json();
+    if(!Array.isArray(cards)) return;
+
+    localStorage.setItem(chave, hojeStr); // marca como mostrado hoje, mesmo sem cards
+
+    if(!cards.length) return; // nada de coleta amanhã sem ordem — não precisa incomodar
+
+    mostrarAlertaColetaAmanha(cards);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaColetaAmanha(cards){
+  var titulo = document.getElementById('coleta-alerta-titulo');
+  titulo.textContent = cards.length === 1
+    ? '1 card com coleta amanhã'
+    : cards.length + ' cards com coleta amanhã';
+
+  document.getElementById('coleta-alerta-body').innerHTML = cards.map(function(c){
+    var pendencias = [];
+    if(c.precisaOrdem) pendencias.push('📦 Criar Ordem de Coleta');
+    if(c.precisaMotorista) pendencias.push('🚚 Cadastrar motorista na Bsoft');
+    return '<div style="padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:13px;font-weight:600;color:#E8EAF0">'+(c.codigo||'—')+' · '+(c.cliente||'Sem cliente')+' <span style="color:#6B7280;font-weight:400">('+(c.empresa||'')+')</span></div>'+
+      pendencias.map(function(p){ return '<div style="font-size:11px;color:#9CA3AF;margin-top:6px">'+p+'</div>'; }).join('')+
+    '</div>';
+  }).join('');
+
+  document.getElementById('coleta-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaColeta(){
+  document.getElementById('coleta-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE VALE PEDÁGIO DO DIA (só Alex e Macelly) ──
+   Mesmo esqueleto do lembrete diário (uma vez por dia, sem repetir), mas
+   sem hora fixa pra disparar — gerar vale pedágio antecipado não serve
+   (o vendedor pode não ter fechado os dados ainda), então só considera
+   cards com Data da Coleta HOJE que ainda estão sem o campo preenchido. */
+var _alertaValePedagioIntervalId = null;
+function iniciarAlertaValePedagioHoje(user){
+  if(_alertaValePedagioIntervalId){ clearInterval(_alertaValePedagioIntervalId); _alertaValePedagioIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var permitido = ['alex','macelly'].some(function(t){ return nome.indexOf(t)===0 || login.indexOf(t)===0; });
+  if(!permitido) return;
+  verificarAlertaValePedagioHoje(login);
+  _alertaValePedagioIntervalId = setInterval(function(){ verificarAlertaValePedagioHoje(login); }, 60000);
+}
+
+async function verificarAlertaValePedagioHoje(login){
+  var hojeStr = toISOLocal(new Date());
+  var chave = 'alerta_vale_pedagio_mostrado_' + login;
+  if(localStorage.getItem(chave) === hojeStr) return; // já mostrado hoje
+
+  try{
+    var r = await apiFetchShell(API_BASE + '/kanban/sem-vale-pedagio-hoje');
+    if(!r.ok) return;
+    var cards = await r.json();
+    if(!Array.isArray(cards)) return;
+
+    localStorage.setItem(chave, hojeStr); // marca como mostrado hoje, mesmo sem cards
+
+    if(!cards.length) return;
+
+    mostrarAlertaValePedagioHoje(cards);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaValePedagioHoje(cards){
+  var titulo = document.getElementById('vale-pedagio-alerta-titulo');
+  titulo.textContent = cards.length === 1
+    ? '1 card com coleta hoje sem Vale Pedágio'
+    : cards.length + ' cards com coleta hoje sem Vale Pedágio';
+
+  document.getElementById('vale-pedagio-alerta-body').innerHTML = cards.map(function(c){
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">🎫</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(c.codigo||'—')+' · '+(c.cliente||'Sem cliente')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(c.empresa||'')+' · Gerar Vale Pedágio</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('vale-pedagio-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaValePedagio(){
+  document.getElementById('vale-pedagio-alerta-overlay').style.display = 'none';
 }
 
 /* ── TEMA CLARO/ESCURO ───────────────────────────────── */

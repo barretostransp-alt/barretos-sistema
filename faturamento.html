@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faturamento — Barreto's</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --gold:#F5B800; --gold-dim:rgba(245,184,0,.12); --gold-border:rgba(245,184,0,.3);
+  --bg:#0E0F12; --surface:#161820; --surface2:#1D1F27; --surface3:#252731;
+  --border:#2A2D38; --border2:#353848;
+  --txt:#E4E6F0; --txt-dim:#7B7F96; --txt-muted:#4A4E63;
+  --red:#E24B4A; --red-dim:rgba(226,75,74,.12); --red-border:rgba(226,75,74,.3);
+  --green:#2EBD85; --green-dim:rgba(46,189,133,.1); --green-border:rgba(46,189,133,.3);
+  --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --orange:#F5832A;
+  --radius:8px; --radius-lg:12px; --sidebar-w:220px;
+  font-family:'Barlow',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;overflow:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:18px 14px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{width:32px;height:32px;background:var(--gold);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-logo-icon i{color:#111;font-size:17px}
+.sidebar-logo-text{font-size:13px;font-weight:800;letter-spacing:.04em;line-height:1.2}
+.sidebar-logo-sub{font-size:9px;color:var(--txt-dim);font-weight:400;letter-spacing:.06em}
+.sidebar-section{padding:14px 14px 4px;font-size:9px;font-weight:700;color:var(--txt-muted);
+  letter-spacing:.1em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 12px;margin:1px 6px;
+  border-radius:7px;cursor:pointer;color:var(--txt-dim);font-size:12px;font-weight:500;
+  transition:all .15s;position:relative;user-select:none}
+.nav-item i{font-size:16px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+.nav-item.active{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
+.nav-item.active i{color:var(--gold)}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;
+  padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nav-badge.warn{background:var(--orange)}
+.nav-badge.ok{background:var(--green)}
+.sidebar-divider{height:1px;background:var(--border);margin:8px 14px}
+.sidebar-footer{margin-top:auto;padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.sidebar-config{background:none;border:1px solid var(--border);border-radius:7px;
+  color:var(--txt-dim);padding:6px 10px;font-size:11px;font-weight:500;cursor:pointer;
+  display:flex;align-items:center;gap:6px;width:100%;transition:all .15s;font-family:inherit}
+.sidebar-config:hover{border-color:var(--gold);color:var(--gold)}
+.mode-switch{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:10px}
+.mode-switch select{background:none;border:none;color:var(--gold);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer}
+.mode-switch select option{background:var(--surface2);color:var(--txt)}
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;height:100vh}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px}
+.topbar-title i{color:var(--gold);font-size:18px}
+.topbar-sub{font-size:11px;color:var(--txt-dim);margin-left:4px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;
+  font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.btn-primary{background:var(--gold);color:#111}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--txt-dim)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn-danger{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red)}
+.btn-green{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green)}
+.btn-sm{padding:5px 10px;font-size:11px}
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+.view{display:none}
+.view.active{display:block}
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold)}
+.kpi-card.red::before{background:var(--red)}
+.kpi-card.green::before{background:var(--green)}
+.kpi-card.blue::before{background:var(--blue)}
+.kpi-card.orange::before{background:var(--orange)}
+.kpi-icon{font-size:20px;margin-bottom:4px}
+.kpi-icon.gold{color:var(--gold)}
+.kpi-icon.red{color:var(--red)}
+.kpi-icon.green{color:var(--green)}
+.kpi-icon.blue{color:var(--blue)}
+.kpi-icon.orange{color:var(--orange)}
+.kpi-val{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.2;white-space:nowrap;overflow:hidden}
+.kpi-lbl{font-size:11px;color:var(--txt-dim);font-weight:500}
+.kpi-delta{font-size:10px;color:var(--txt-muted);margin-top:2px}
+/* ── PANEL ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px}
+.panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.panel-title{font-size:13px;font-weight:700;color:var(--txt);flex:1}
+.panel-body{padding:16px}
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt-dim);border-bottom:2px solid var(--border);
+  white-space:nowrap;background:var(--surface2)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.tbl-empty{text-align:center;padding:32px;color:var(--txt-dim);font-size:13px}
+#tbody-pagar tr,#tbody-receber tr{cursor:pointer}
+.grid-resumo{display:flex;flex-direction:column}
+.grid-resumo .g-linha{display:grid;grid-template-columns:28% 18% 18% 18% 18%;column-gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center;font-size:12px}
+.grid-resumo .g-cabecalho{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);background:var(--surface2);border-bottom:2px solid var(--border)}
+.grid-resumo .g-linha:last-child{border-bottom:none}
+.grid-resumo .g-linha:not(.g-cabecalho):hover{background:rgba(255,255,255,.02)}
+#tbody-pagar tr:hover td,#tbody-receber tr:hover td{background:rgba(245,184,0,.04)!important}
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;
+  font-size:10px;font-weight:700;letter-spacing:.04em}
+.badge-green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+.badge-red{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+.badge-gold{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
+.badge-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(74,143,232,.3)}
+.badge-gray{background:rgba(123,127,150,.1);color:var(--txt-dim);border:1px solid var(--border)}
+.badge-orange{background:rgba(245,131,42,.1);color:var(--orange);border:1px solid rgba(245,131,42,.3)}
+/* ── ANEXOS (Drive) ── */
+.az{border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;margin-top:4px}
+.az:hover,.az.dov{border-color:var(--gold);background:var(--gold-dim)}
+.az p{font-size:11px;color:var(--txt-dim);margin-top:4px}
+.alist{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.aitem{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px}
+.aname{flex:1;font-size:11px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asz{font-size:10px;color:var(--txt-dim);flex-shrink:0}
+.adl,.arm{background:none;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;flex-shrink:0}
+.adl{color:var(--gold)}
+.arm{color:var(--red)}
+/* ── FORMS ── */
+.form-grid{display:grid;gap:12px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-grid-3{grid-template-columns:1fr 1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim)}
+.form-label .req{color:var(--red)}
+.form-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:8px 12px;font-size:13px;color:var(--txt);font-family:inherit;transition:all .15s;width:100%}
+.form-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,184,0,.1)}
+.form-input::placeholder{color:var(--txt-muted)}
+select.form-input option{background:var(--surface2);color:var(--txt)}
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+  padding:20px;max-width:600px;width:100%;max-height:88vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.modal-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.modal-title{font-size:15px;font-weight:700;flex:1}
+.modal-close{background:none;border:none;color:var(--txt-dim);cursor:pointer;
+  font-size:20px;padding:2px;border-radius:5px;transition:all .15s}
+.modal-close:hover{color:var(--txt);background:rgba(255,255,255,.06)}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;
+  border-top:1px solid var(--border)}
+.modal-section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--gold);margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.modal-section-title:first-child{margin-top:0}
+/* ── MISC ── */
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-row{display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:24px;color:var(--txt-dim);font-size:12px}
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}
+.alert-warn{background:rgba(245,131,42,.08);border:1px solid rgba(245,131,42,.25);color:var(--orange)}
+.alert-info{background:var(--blue-dim);border:1px solid rgba(74,143,232,.25);color:var(--blue)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.txt-right{text-align:right}
+.txt-center{text-align:center}
+.txt-mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.txt-green{color:var(--green)}
+.txt-red{color:var(--red)}
+.txt-gold{color:var(--gold)}
+.txt-dim{color:var(--txt-dim)}
+.mb-0{margin-bottom:0}
+/* ── ALERT ITEM ── */
+.alert-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:var(--surface2);border-radius:7px;margin-bottom:6px;font-size:12px;cursor:pointer;transition:background .15s}
+.alert-item:hover{background:var(--surface3)}
+.alert-item i{font-size:16px;flex-shrink:0}
+.alert-item-main{flex:1}
+.alert-item-main strong{display:block;font-weight:600}
+.alert-item-main span{color:var(--txt-dim);font-size:11px}
+.alert-item-val{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px}
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;
+  padding:6px 10px;font-size:12px;color:var(--txt);font-family:inherit;min-width:160px}
+.filter-input:focus{outline:none;border-color:var(--gold)}
+/* ── CÓDIGO CHIP ── */
+.cod-chip{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+  background:var(--surface3);border:1px solid var(--border2);border-radius:4px;
+  padding:2px 7px;letter-spacing:.06em;display:inline-block}
+/* ── SIDE PANEL ── */
+.side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:none}
+.side-panel-overlay.open{display:block}
+.side-panel{position:fixed;top:0;right:0;bottom:0;width:440px;background:var(--surface);
+  border-left:1px solid var(--border2);z-index:91;transform:translateX(100%);
+  transition:transform .25s ease;display:flex;flex-direction:column;overflow:hidden}
+.side-panel.open{transform:translateX(0)}
+.side-panel-header{padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0}
+.side-panel-title{font-size:14px;font-weight:700;flex:1}
+.side-panel-body{flex:1;overflow-y:auto;padding:16px 18px}
+.side-panel-footer{padding:12px 18px;border-top:1px solid var(--border);
+  display:flex;gap:8px;flex-shrink:0}
+.sp-field{margin-bottom:12px}
+.sp-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--txt-dim);margin-bottom:4px}
+.sp-val{font-size:13px;font-weight:500}
+/* ── INLINE STATUS SELECT ── */
+.status-sel{background:none;border:1px solid;border-radius:4px;padding:3px 8px;
+  font-size:10px;font-weight:700;font-family:'Barlow',sans-serif;cursor:pointer;
+  letter-spacing:.04em;transition:all .15s}
+.status-sel option{background:var(--surface2);color:var(--txt)}
+.status-av{color:var(--orange);border-color:rgba(245,131,42,.4);background:rgba(245,131,42,.06)}
+.status-pg{color:var(--green);border-color:var(--green-border);background:var(--green-dim)}
+.status-vd{color:var(--red);border-color:var(--red-border);background:var(--red-dim)}
+/* ── FILA DE PAGAMENTOS (modo simplificado) ── */
+.fila-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.fila-card-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:18px}
+.fila-card-main{flex:1;min-width:0}
+.fila-card-main strong{display:block;font-size:13px;font-weight:700}
+.fila-card-main span{font-size:11px;color:var(--txt-dim)}
+.fila-card-val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;white-space:nowrap}
+.empty-state{text-align:center;padding:48px 20px;color:var(--txt-dim)}
+.empty-state i{font-size:36px;color:var(--txt-muted);margin-bottom:10px;display:block}
+.empty-state strong{display:block;color:var(--txt);font-size:14px;margin-bottom:4px}
+.empty-state span{font-size:12px}
+/* only-gestor visibility controlled via JS body[data-mode] */
+body[data-mode="colaborador"] .only-gestor{display:none!important}
+</style>
+
+<style>
+/* ── TEMA CLARO ─────────────────────────────────────── */
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--surface2:#F1F3F6;--surface3:#E7EAF0;--border:#E2E6ED;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--orange:#EA580C;--red:#DC2626;--gold-dim:rgba(217,119,6,.10);}
+body.tema-claro .topbar{background:#111827!important;border-bottom-color:#1F2937!important;}
+body.tema-claro .topbar *{color:#E5E7EB!important;}
+body.tema-claro .topbar-title i{color:var(--gold)!important;}
+body.tema-claro .alert-item{background:#FFF7ED!important;}
+body.tema-claro .alert-item *{color:#1C1917!important;}
+body.tema-claro table th{background:#F8FAFC!important;color:#374151!important;border-color:#E5E7EB!important;}
+body.tema-claro table td{background:#FFFFFF!important;color:#111827!important;border-color:#F1F5F9!important;}
+body.tema-claro table tr:hover td{background:#F8FAFC!important;}
+body.tema-claro .cod-chip{background:#D9D9D9!important;color:#1E293B!important;border-color:#C0C0C0!important;}
+body.tema-claro .badge-gray{background:#E2E8F0!important;color:#475569!important;}
+body.tema-claro .panel{background:#FFFFFF!important;border-color:#E2E8F0!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important;}
+body.tema-claro .kpi-card{background:#F8FAFC!important;border:1px solid #E2E8F0!important;}
+body.tema-claro .filter-input,body.tema-claro .form-input{background:#F8FAFC!important;border-color:#E2E8F0!important;color:#111827!important;}
+body.tema-claro select.form-input option{background:#FFFFFF!important;color:#111827!important;}
+body.tema-claro .modal{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+body.tema-claro .modal-header,body.tema-claro .modal-footer{background:#F8FAFC!important;border-color:#E2E8F0!important;}
+body.tema-claro .side-panel{background:#FFFFFF!important;}
+body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!important;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon"><i class="ti ti-file-invoice"></i></div>
+    <div>
+      <div class="sidebar-logo-text">Faturamento</div>
+      <div class="sidebar-logo-sub">Barreto's</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">Principal</div>
+  <div class="nav-item active" onclick="showView('dashboard')" data-view="dashboard">
+    <i class="ti ti-layout-dashboard"></i>Dashboard
+  </div>
+  <div class="nav-item" onclick="showView('detalhamento')" data-view="detalhamento">
+    <i class="ti ti-table"></i>Detalhamento
+    <span class="nav-badge" id="badge-total" style="display:none"></span>
+  </div>
+  <div class="nav-item" onclick="showView('fila')" data-view="fila">
+    <i class="ti ti-list-check"></i>Fila de Faturamento
+    <span class="nav-badge" id="badge-fila" style="display:none"></span>
+  </div>
+  <div class="nav-item" onclick="showView('historico')" data-view="historico">
+    <i class="ti ti-history"></i>Histórico
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="mode-switch" id="mode-switch-manual" style="display:none">
+      <span class="txt-dim" style="font-weight:600">PERFIL</span>
+      <select id="mode-select" onchange="setMode(this.value)">
+        <option value="gestor">Gestão Completa</option>
+        <option value="colaborador">Simplificado</option>
+      </select>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN
+════════════════════════════════════════════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">
+      <i class="ti ti-layout-dashboard" id="topbar-icon"></i>
+      <span id="topbar-title">Dashboard</span>
+      <span class="topbar-sub" id="topbar-sub">Resumo do faturamento por empresa</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" onclick="loadAllData()">
+        <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModalRegistro()">
+        <i class="ti ti-plus" style="font-size:13px"></i> Novo Registro
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ─── DASHBOARD ─── -->
+    <div id="view-dashboard" class="view active">
+      <div class="filter-bar">
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap"><i class="ti ti-calendar" style="font-size:13px;vertical-align:-2px"></i> Período</span>
+        <select class="filter-input" id="dash-mes-filtro" onchange="carregarDashboardFat()" style="min-width:200px"></select>
+      </div>
+      <div class="kpi-grid" id="dash-kpis-gerais"></div>
+      <div class="panel">
+        <div class="panel-header">
+          <i class="ti ti-building-bank" style="color:var(--gold)"></i>
+          <span class="panel-title">Faturamento por Empresa</span>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <div class="grid-resumo">
+            <div class="g-linha g-cabecalho">
+              <div>Empresa</div>
+              <div class="txt-center">Faturamento</div>
+              <div class="txt-center">Custo Operacional</div>
+              <div class="txt-center">Lucro Líquido</div>
+              <div class="txt-center">Margem</div>
+            </div>
+            <div id="tbody-resumo-empresas"><div class="tbl-empty">Carregando…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DETALHAMENTO ─── -->
+    <div id="view-detalhamento" class="view">
+      <div class="filter-bar">
+        <input class="filter-input" id="f-texto" placeholder="Buscar cliente, motorista, CT-e…" oninput="renderTabela()" style="min-width:220px">
+        <select class="filter-input" id="f-empresa" onchange="renderTabela()" style="min-width:230px">
+          <option value="">Todas as empresas</option>
+          <option value="Barreto's Transportes e Serviços">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
+        </select>
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">De</span>
+        <input class="filter-input" type="date" id="f-ini" onchange="renderTabela()" style="min-width:135px">
+        <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Até</span>
+        <input class="filter-input" type="date" id="f-fim" onchange="renderTabela()" style="min-width:135px">
+        <button class="btn btn-ghost btn-sm" onclick="setPeriodoMesAtual()" style="white-space:nowrap"><i class="ti ti-calendar-event" style="font-size:13px"></i> Mês Atual</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarExcel()" style="white-space:nowrap"><i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel</button>
+      </div>
+      <div style="font-size:11px;color:var(--txt-dim);margin:-6px 0 10px" id="periodo-label"></div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <thead><tr>
+              <th>Data</th><th>Cliente</th><th>Empresa</th><th>Motorista</th><th>Vendedor</th>
+              <th>Cód.</th><th>CT-e</th><th class="txt-right">Total Frete</th>
+              <th class="txt-right">Lucro Líquido</th><th class="txt-right">%</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-detalhamento"><tr><td colspan="12" class="tbl-empty">Nenhum registro</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILA DE FATURAMENTO -->
+    <div id="view-fila" class="view">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <input class="filter-input" id="fila-f-texto" placeholder="Buscar cliente, cód. do card, solicitante…" oninput="renderFila()" style="flex:1;min-width:220px">
+        <button class="btn btn-ghost btn-sm" onclick="openModalCanhoto()"><i class="ti ti-receipt"></i> Canhoto</button>
+        <button class="btn btn-primary btn-sm" onclick="openModalSolicitacao()"><i class="ti ti-plus"></i> Nova Solicitação</button>
+      </div>
+      <div id="fila-list"></div>
+    </div>
+
+    <!-- HISTÓRICO (pessoal para quem só vê a fila; completo pra visão de gestão) -->
+    <div id="view-historico" class="view">
+      <div class="filter-bar">
+        <input class="filter-input" id="h-texto" placeholder="Buscar cliente, cód. do card…" oninput="renderHistorico()" style="min-width:220px">
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <thead><tr>
+              <th>Data Solicitação</th><th>Cliente</th><th>Cód.</th><th>Solicitante</th>
+              <th>Status</th><th>CT-e</th><th class="txt-right">Total Frete</th>
+            </tr></thead>
+            <tbody id="tbody-historico"><tr><td colspan="7" class="tbl-empty">Nenhum registro</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SIDE PANEL — DETALHES DO REGISTRO
+════════════════════════════════════════════════ -->
+<div id="sp-overlay" class="side-panel-overlay" onclick="closeSidePanel()"></div>
+<div id="side-panel-registro" class="side-panel">
+  <div class="side-panel-header">
+    <i class="ti ti-file-invoice" style="color:var(--gold);font-size:18px"></i>
+    <span class="side-panel-title">Detalhes do Registro</span>
+    <button class="modal-close" onclick="closeSidePanel()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="side-panel-body" id="sp-body"></div>
+  <div class="side-panel-footer" style="display:flex;justify-content:space-between;gap:8px">
+    <button class="btn btn-danger btn-sm" onclick="excluirRegistroAtual()"><i class="ti ti-trash"></i> Excluir Registro</button>
+    <button class="btn btn-primary btn-sm" id="sp-btn-finalizar-canhoto" style="display:none" onclick="finalizarCanhotoAnalisado()"><i class="ti ti-check"></i> Marcar Canhoto como Finalizado</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL — NOVO REGISTRO DE FATURAMENTO
+════════════════════════════════════════════════ -->
+<div id="modal-registro" class="modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <i class="ti ti-file-invoice" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title" id="modal-registro-titulo">Novo Registro de Faturamento</span>
+      <button class="modal-close" onclick="closeModalRegistro()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="r-cte-temp">
+    <input type="hidden" id="r-id">
+    <div id="r-aviso-finalizacao" style="display:none;background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:12px"></div>
+    <div id="r-att-list" class="alist" style="margin-bottom:14px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-file-upload" style="font-size:13px"></i> Anexar CT-e (PDF)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Arquivo PDF</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" type="file" id="r-arquivo" accept="application/pdf" style="padding:6px 8px">
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="lerCtePdf()"><i class="ti ti-scan" style="font-size:13px"></i> Ler PDF</button>
+        </div>
+      </div>
+    </div>
+    <div id="r-status-pdf" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-link" style="font-size:13px"></i> Vincular Card do Kanban</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Empresa / Aba no Kanban</label>
+        <select class="form-input" id="r-aba">
+          <option value="Barreto's Transportes e Serviços" data-aba="BARRETO'S">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura" data-aba="INFRA">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística" data-aba="GONCALVES">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços" data-aba="PINHEIRO">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Código do Card (COD) <span class="req">*</span></label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="r-cod" placeholder="Ex: G25100">
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="buscarCardKanbanFat('r')"><i class="ti ti-download" style="font-size:13px"></i> Buscar</button>
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="visualizarCardFat()"><i class="ti ti-eye" style="font-size:13px"></i> Visualizar Card</button>
+        </div>
+      </div>
+    </div>
+    <div id="r-status-kanban" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-file-description" style="font-size:13px"></i> Dados do Registro</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Cliente <span class="req">*</span></label>
+        <input class="form-input" id="r-cliente" placeholder="Preenchido pela leitura do PDF">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Empresa (emitente) <span class="req">*</span></label>
+        <select class="form-input" id="r-empresa">
+          <option value="">—</option>
+          <option value="Barreto's Transportes e Serviços">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Motorista</label>
+        <input class="form-input" id="r-motorista" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vendedor</label>
+        <input class="form-input" id="r-vendedor" placeholder="Preenchido pelo card do kanban">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Veículo</label>
+        <input class="form-input" id="r-veiculo" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data Faturamento</label>
+        <input class="form-input" type="date" id="r-data-faturamento">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Origem</label>
+        <input class="form-input" id="r-origem" placeholder="Cidade">
+      </div>
+      <div class="form-group">
+        <label class="form-label">UF</label>
+        <input class="form-input" id="r-uf" placeholder="SP" maxlength="2" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Destino</label>
+        <input class="form-input" id="r-destino" placeholder="Cidade">
+      </div>
+      <div class="form-group">
+        <label class="form-label">UF Destino</label>
+        <input class="form-input" id="r-uf2" placeholder="SP" maxlength="2" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">NF-e</label>
+        <input class="form-input" id="r-nfe" placeholder="Nº da nota fiscal">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CT-e <span class="req">*</span></label>
+        <input class="form-input" id="r-cte" placeholder="Nº do CT-e">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">MDF <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-mdf" placeholder="Opcional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CIOT <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-ciot" placeholder="Opcional">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Vale Pedágio <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" id="r-vale-pedagio" placeholder="Opcional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">GNRE (R$) <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(manual)</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-gnre" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Total Frete (R$) <span class="req">*</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-total-frete" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor Freteiro (R$) <span style="font-weight:400;text-transform:none;color:var(--txt-muted)">(Custo Operacional do card)</span></label>
+        <input class="form-input" type="number" step="0.01" id="r-valor-freteiro" placeholder="0,00" oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <input class="form-input" id="r-observacoes" placeholder='Ex: "-" ou "CTE Cancelado"' oninput="atualizarPreviewCalculo()">
+      </div>
+    </div>
+
+    <div class="only-gestor" style="background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:12px 14px;margin-top:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Prévia do Resultado</div>
+      <div class="grid-2" style="gap:10px 20px">
+        <div><span class="txt-dim" style="font-size:11px">Imposto (12%)</span><div class="txt-mono" id="prev-imposto" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Barretos</span><div class="txt-mono" id="prev-barretos" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Custo Operacional</span><div class="txt-mono" id="prev-custo-op" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Lucro Bruto</span><div class="txt-mono" id="prev-lucro-bruto" style="font-weight:700">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Lucro Líquido</span><div class="txt-mono" id="prev-lucro-liquido" style="font-weight:800;color:var(--gold)">R$ 0,00</div></div>
+        <div><span class="txt-dim" style="font-size:11px">Margem (%)</span><div class="txt-mono" id="prev-percentual" style="font-weight:700">—</div></div>
+      </div>
+      <div id="prev-aviso-cancelado" style="display:none;margin-top:8px;font-size:11px;color:var(--red)"><i class="ti ti-alert-triangle" style="font-size:12px"></i> Observação indica CT-e cancelado — só o imposto será contabilizado como prejuízo.</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalRegistro()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="salvarRegistro()"><i class="ti ti-check"></i> <span id="btn-salvar-registro-label">Salvar Registro</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL — NOVA SOLICITAÇÃO DE FATURAMENTO (Fila)
+════════════════════════════════════════════════ -->
+<div id="modal-solicitacao" class="modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <i class="ti ti-send" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title">Nova Solicitação de Faturamento</span>
+      <button class="modal-close" onclick="closeModalSolicitacao()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="modal-section-title"><i class="ti ti-link" style="font-size:13px"></i> Vincular Card do Kanban</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Empresa / Aba no Kanban</label>
+        <select class="form-input" id="sol-aba">
+          <option value="Barreto's Transportes e Serviços" data-aba="BARRETO'S">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura" data-aba="INFRA">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística" data-aba="GONCALVES">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços" data-aba="PINHEIRO">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Código do Card (COD) <span class="req">*</span></label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="sol-cod" placeholder="Ex: G25100">
+          <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="buscarCardKanbanFat('sol')"><i class="ti ti-download" style="font-size:13px"></i> Buscar</button>
+        </div>
+      </div>
+    </div>
+    <div id="sol-status-kanban" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-paperclip" style="font-size:13px"></i> Anexar Nota(s) Fiscal(is)</div>
+    <div class="az" id="sol-att-drop" onclick="document.getElementById('sol-att-inp').click()"
+      ondragover="event.preventDefault();this.classList.add('dov')"
+      ondragleave="this.classList.remove('dov')"
+      ondrop="event.preventDefault();this.classList.remove('dov');handleFilesSol(event.dataTransfer.files)">
+      <i class="ti ti-cloud-upload" style="font-size:22px;color:var(--txt-dim)"></i>
+      <p>Clique ou arraste os arquivos da NF aqui<br><span style="font-size:10px;opacity:.6">PDF, JPG ou PNG · máx 10MB cada</span></p>
+    </div>
+    <input type="file" id="sol-att-inp" multiple accept="application/pdf,image/*" style="display:none" onchange="handleFilesSol(this.files)">
+    <div class="alist" id="sol-att-list"></div>
+
+    <div class="modal-section-title"><i class="ti ti-truck" style="font-size:13px"></i> Dados do Transporte</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Cliente <span class="req">*</span></label>
+        <input class="form-input" id="sol-cliente" placeholder="Preenchido pela busca do card">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Empresa (emitente) <span class="req">*</span></label>
+        <select class="form-input" id="sol-empresa">
+          <option value="">—</option>
+          <option value="Barreto's Transportes e Serviços">Barreto's Transportes e Serviços</option>
+          <option value="Barreto's Transportes Sites e Infraestrutura">Barreto's Transportes Sites e Infraestrutura</option>
+          <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
+          <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Motorista</label>
+        <input class="form-input" id="sol-motorista" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vendedor</label>
+        <input class="form-input" id="sol-vendedor" placeholder="Preenchido pelo card do kanban">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Veículo</label>
+        <input class="form-input" id="sol-veiculo" placeholder="Preenchido pelo card do kanban">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <input class="form-input" id="sol-observacoes">
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Origem</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="sol-origem" style="flex:2">
+          <input class="form-input" id="sol-uf" placeholder="UF" maxlength="2" style="flex:1;text-transform:uppercase">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Destino</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="sol-destino" style="flex:2">
+          <input class="form-input" id="sol-uf2" placeholder="UF" maxlength="2" style="flex:1;text-transform:uppercase">
+        </div>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-top:12px">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Natureza da Operação</label>
+        <input class="form-input" id="sol-natureza-operacao" placeholder="Preenchimento manual">
+      </div>
+    </div>
+
+    <div class="modal-section-title"><i class="ti ti-file-certificate" style="font-size:13px"></i> MDF-e</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Solicita emissão de MDF?</label>
+        <select class="form-input" id="sol-solicita-mdf" onchange="toggleObsRotaMdf()">
+          <option value="Não">Não</option>
+          <option value="Sim">Sim</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid" id="grupo-obs-rota-mdf" style="display:none;margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Rota utilizada (MDF)</label>
+        <textarea class="form-input" id="sol-obs-rota-mdf" rows="2" placeholder="Descreva a rota utilizada para o MDF"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalSolicitacao()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="enviarSolicitacao()"><i class="ti ti-send"></i> Enviar Solicitação</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL — CANHOTO / FINALIZAÇÃO DE MDF
+════════════════════════════════════════════════ -->
+<div id="modal-canhoto" class="modal-overlay">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <i class="ti ti-receipt" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title">Canhoto</span>
+      <button class="modal-close" onclick="closeModalCanhoto()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <input type="hidden" id="can-id">
+
+    <div id="can-busca" class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Código do Card <span class="req">*</span></label>
+        <input class="form-input" id="can-cod" placeholder="Ex: G25100">
+      </div>
+      <div class="form-group">
+        <label class="form-label">&nbsp;</label>
+        <button class="btn btn-ghost btn-sm" style="white-space:nowrap;width:100%;justify-content:center" onclick="buscarCanhotoPorCod()"><i class="ti ti-search" style="font-size:13px"></i> Buscar CT-e</button>
+      </div>
+    </div>
+    <div id="can-status-busca" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+    <div id="can-lista-escolha" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+
+    <div id="can-detalhe" style="display:none;margin-top:6px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:14px">
+        <div class="grid-2" style="gap:10px 20px">
+          <div><span class="txt-dim" style="font-size:11px">Cliente</span><div id="can-v-cliente" style="font-weight:700"></div></div>
+          <div><span class="txt-dim" style="font-size:11px">CT-e</span><div id="can-v-cte" class="txt-mono" style="font-weight:700"></div></div>
+          <div><span class="txt-dim" style="font-size:11px">Empresa</span><div id="can-v-empresa" style="font-size:12px"></div></div>
+          <div><span class="txt-dim" style="font-size:11px">Total Frete</span><div id="can-v-frete" class="txt-mono" style="font-weight:700"></div></div>
+          <div><span class="txt-dim" style="font-size:11px">Motorista</span><div id="can-v-motorista" style="font-size:12px"></div></div>
+          <div><span class="txt-dim" style="font-size:11px">Data Faturamento</span><div id="can-v-data" class="txt-mono" style="font-size:12px"></div></div>
+        </div>
+      </div>
+
+      <div id="can-grupo-mdf" style="display:none">
+        <div class="modal-section-title"><i class="ti ti-file-certificate" style="font-size:13px"></i> Esse CT-e pediu MDF</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Número do MDF <span class="req">*</span></label>
+            <input class="form-input" id="can-mdf" placeholder="Informe o número do MDF">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section-title"><i class="ti ti-paperclip" style="font-size:13px"></i> Anexos (NF, CT-e e canhoto)</div>
+      <div class="az" id="can-att-drop" onclick="document.getElementById('can-att-inp').click()"
+        ondragover="event.preventDefault();this.classList.add('dov')"
+        ondragleave="this.classList.remove('dov')"
+        ondrop="event.preventDefault();this.classList.remove('dov');handleFilesCan(event.dataTransfer.files)">
+        <i class="ti ti-cloud-upload" style="font-size:22px;color:var(--txt-dim)"></i>
+        <p>Clique ou arraste o(s) canhoto(s) aqui<br><span style="font-size:10px;opacity:.6">PDF, JPG ou PNG · máx 10MB cada</span></p>
+      </div>
+      <input type="file" id="can-att-inp" multiple accept="application/pdf,image/*" style="display:none" onchange="handleFilesCan(this.files)">
+      <div class="alist" id="can-att-list"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalCanhoto()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="can-btn-finalizar" style="display:none" onclick="finalizarCanhotoUI()"><i class="ti ti-send"></i> Enviar Canhoto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL — VISUALIZAR CARD DO KANBAN (só leitura)
+════════════════════════════════════════════════ -->
+<div id="modal-ver-card" class="modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <i class="ti ti-eye" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title">Card do Kanban</span>
+      <button class="modal-close" onclick="closeModalVerCard()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="ver-card-body"><div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Carregando…</div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalVerCard()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── AUTENTICAÇÃO ──
+   Este módulo não tem tela de login própria — quem cuida disso é o
+   shell (menu principal). Ele deixa o token de acesso salvo aqui no
+   localStorage antes de carregar este módulo dentro do iframe. */
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+var SUPABASE_URL = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken(){ return localStorage.getItem('barretos_auth_token') || sessionStorage.getItem('barretos_auth_token'); }
+function getRefreshToken(){ return localStorage.getItem('barretos_auth_refresh') || sessionStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken(){
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try{
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  }catch(e){ return false; }
+}
+
+function mostrarTelaSemAcesso(){
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0E0F12;color:#E4E6F0;font-family:Barlow,sans-serif;flex-direction:column;gap:10px;text-align:center;padding:20px">'+
+    '<b style="font-size:16px">Sessão não encontrada</b>'+
+    '<span style="font-size:12px;color:#7B7F96">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</span></div>';
+}
+
+async function apiFetch(url, options){
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) { mostrarTelaSemAcesso(); throw new Error('Sessão expirada'); }
+  }
+  return res;
+}
+
+if (!getAuthToken()) { mostrarTelaSemAcesso(); }
+
+/* ═══════════════════════════════════════════════════════════════
+   FATURAMENTO — Barreto's
+   Dados vêm da API (/api/faturamento), que fala com o Supabase.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── ANEXOS (Nota Fiscal) VIA GOOGLE DRIVE ──
+   Mesmo serviço de anexos já usado pelos quadros Kanban — os dados do
+   registro em si vivem no Supabase, mas os arquivos continuam no Drive
+   (decisão já tomada pra manter o Kanban também). A "chave" que agrupa os
+   anexos combina o código do card com um pedaço do id do registro — dá
+   pra reconhecer de qual card é só olhando no Drive, e continua único
+   mesmo quando o mesmo card tem mais de um registro (rateio). */
+var WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
+var pendAttSol = [], driveAttsSol = [];
+
+function chaveAnexoFat_(cod, id){ return (cod||'SEM-COD') + '_' + String(id||'').slice(0,8); }
+
+function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+async function fetchComTentativas_(url, options, maxTentativas){
+  maxTentativas = maxTentativas || 3;
+  for(var tentativa = 1; tentativa <= maxTentativas; tentativa++){
+    try{
+      var res = await fetch(url, options);
+      var json = await res.json();
+      if(json && json.ocupado && tentativa < maxTentativas){
+        await new Promise(function(r){ setTimeout(r, 2500); });
+        continue;
+      }
+      return json;
+    }catch(e){
+      if(tentativa >= maxTentativas) throw e;
+      await new Promise(function(r){ setTimeout(r, 2500); });
+    }
+  }
+}
+
+function handleFilesSol(files){
+  Array.prototype.forEach.call(files, function(f){
+    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    pendAttSol.push(f);
+  });
+  renderAttListSol();
+}
+function rmAttSol(i){ pendAttSol.splice(i,1); renderAttListSol(); }
+
+function rmAttDriveSol(fileId, i){
+  if(!confirm('Excluir este anexo permanentemente?')) return;
+  fetchComTentativas_(WEBAPP_URL, {method:'POST', body: JSON.stringify({action:'excluir_anexo', fileId: fileId})})
+    .then(function(j){
+      if(j.success){ driveAttsSol.splice(i,1); renderAttListSol(); }
+      else alert('Erro ao excluir: ' + (j.error||'desconhecido'));
+    }).catch(function(err){ alert('Erro ao excluir anexo: ' + err.message); });
+}
+
+function renderAttListSol(){
+  var l = document.getElementById('sol-att-list'); if(!l) return;
+  var out = '';
+  driveAttsSol.forEach(function(a, i){
+    var nm = a.nome || 'arquivo';
+    var sz = a.size > 1048576 ? (a.size/1048576).toFixed(1)+'MB' : a.size > 1024 ? (a.size/1024).toFixed(0)+'KB' : (a.size||0)+'B';
+    var ico = /\.(jpg|jpeg|png|gif|webp)$/i.test(nm) ? 'ti-photo' : /\.pdf$/i.test(nm) ? 'ti-file-type-pdf' : 'ti-file';
+    out += '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span><span class="asz">'+sz+'</span>'+
+      '<a href="https://drive.google.com/file/d/'+a.id+'/view" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
+      '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a>'+
+      '<button class="arm" onclick="rmAttDriveSol(\''+a.id+'\','+i+')" title="Excluir"><i class="ti ti-x"></i></button></div>';
+  });
+  pendAttSol.forEach(function(a, i){
+    var nm = a.name || 'arquivo';
+    var sz = a.size > 1048576 ? (a.size/1048576).toFixed(1)+'MB' : (a.size/1024).toFixed(0)+'KB';
+    var ico = /^image\//i.test(a.type||'') ? 'ti-photo' : a.type==='application/pdf' ? 'ti-file-type-pdf' : 'ti-file';
+    out += '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--orange);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span><span class="asz">'+sz+' <em style="color:var(--orange)">(pendente)</em></span>'+
+      '<button class="arm" onclick="rmAttSol('+i+')" title="Remover"><i class="ti ti-x"></i></button></div>';
+  });
+  l.innerHTML = out || '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Nenhum anexo</div>';
+}
+
+// Envia os anexos pendentes pro Drive, agrupados pela "chave" (id real do
+// registro) — só existe DEPOIS que a solicitação já foi criada no banco.
+async function saveAttSol(chave){
+  if(!pendAttSol.length || !chave) return;
+  for(var i=0; i<pendAttSol.length; i++){
+    var f = pendAttSol[i];
+    try{
+      var base64 = await new Promise(function(resolve, reject){
+        var reader = new FileReader();
+        reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+        reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
+        reader.readAsDataURL(f);
+      });
+      var j = await fetchComTentativas_(WEBAPP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action:'upload_anexo', chave: chave, nome: f.name, data: base64, mimeType: f.type || 'application/octet-stream' })
+      });
+      if(j.success && j.anexo) driveAttsSol.push(j.anexo);
+    }catch(err){ console.error('[saveAttSol] erro:', err); }
+  }
+  pendAttSol = [];
+}
+
+// Mostra (só leitura) os anexos de NF de uma solicitação — usado no modal
+// de Finalizar, pra quem está lançando o CT-e conseguir abrir a NF que o
+// vendedor anexou, sem precisar pedir de novo.
+function renderAttListReadonly_(elId, anexos){
+  var l = document.getElementById(elId); if(!l) return;
+  if(!anexos || !anexos.length){ l.innerHTML = ''; return; }
+  l.innerHTML = anexos.map(function(a){
+    var nm = a.nome || 'arquivo';
+    var ico = /\.(jpg|jpeg|png|gif|webp)$/i.test(nm) ? 'ti-photo' : /\.pdf$/i.test(nm) ? 'ti-file-type-pdf' : 'ti-file';
+    return '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span>'+
+      '<a href="https://drive.google.com/file/d/'+a.id+'/view" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
+      '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a></div>';
+  }).join('');
+}
+function carregarAnexosParaExibir_(elId, chave){
+  if(!chave) return;
+  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
+    .then(function(j){ if(j.success) renderAttListReadonly_(elId, j.anexos || []); })
+    .catch(function(){});
+}
+
+/* ── Anexos do Canhoto — mesmo padrão do 'sol', mas no mesmo grupo (chave)
+   dos anexos que o card já tem, já que é o mesmo CT-e/card ── */
+var pendAttCan = [], driveAttsCan = [];
+
+function handleFilesCan(files){
+  Array.prototype.forEach.call(files, function(f){
+    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    pendAttCan.push(f);
+  });
+  renderAttListCan();
+}
+function rmAttCan(i){ pendAttCan.splice(i,1); renderAttListCan(); }
+
+function rmAttDriveCan(fileId, i){
+  if(!confirm('Excluir este anexo permanentemente?')) return;
+  fetchComTentativas_(WEBAPP_URL, {method:'POST', body: JSON.stringify({action:'excluir_anexo', fileId: fileId})})
+    .then(function(j){
+      if(j.success){ driveAttsCan.splice(i,1); renderAttListCan(); }
+      else alert('Erro ao excluir: ' + (j.error||'desconhecido'));
+    }).catch(function(err){ alert('Erro ao excluir anexo: ' + err.message); });
+}
+
+function renderAttListCan(){
+  var l = document.getElementById('can-att-list'); if(!l) return;
+  var out = '';
+  driveAttsCan.forEach(function(a, i){
+    var nm = a.nome || 'arquivo';
+    var sz = a.size > 1048576 ? (a.size/1048576).toFixed(1)+'MB' : a.size > 1024 ? (a.size/1024).toFixed(0)+'KB' : (a.size||0)+'B';
+    var ico = /\.(jpg|jpeg|png|gif|webp)$/i.test(nm) ? 'ti-photo' : /\.pdf$/i.test(nm) ? 'ti-file-type-pdf' : 'ti-file';
+    out += '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span><span class="asz">'+sz+'</span>'+
+      '<a href="https://drive.google.com/file/d/'+a.id+'/view" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
+      '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a>'+
+      '<button class="arm" onclick="rmAttDriveCan(\''+a.id+'\','+i+')" title="Excluir"><i class="ti ti-x"></i></button></div>';
+  });
+  pendAttCan.forEach(function(a, i){
+    var nm = a.name || 'arquivo';
+    var sz = a.size > 1048576 ? (a.size/1048576).toFixed(1)+'MB' : (a.size/1024).toFixed(0)+'KB';
+    var ico = /^image\//i.test(a.type||'') ? 'ti-photo' : a.type==='application/pdf' ? 'ti-file-type-pdf' : 'ti-file';
+    out += '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--orange);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span><span class="asz">'+sz+' <em style="color:var(--orange)">(pendente)</em></span>'+
+      '<button class="arm" onclick="rmAttCan('+i+')" title="Remover"><i class="ti ti-x"></i></button></div>';
+  });
+  l.innerHTML = out || '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Nenhum canhoto anexado ainda</div>';
+}
+
+async function saveAttCan(chave){
+  if(!pendAttCan.length || !chave) return;
+  for(var i=0; i<pendAttCan.length; i++){
+    var f = pendAttCan[i];
+    try{
+      var base64 = await new Promise(function(resolve, reject){
+        var reader = new FileReader();
+        reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+        reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
+        reader.readAsDataURL(f);
+      });
+      var j = await fetchComTentativas_(WEBAPP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action:'upload_anexo', chave: chave, nome: f.name, data: base64, mimeType: f.type || 'application/octet-stream' })
+      });
+      if(j.success && j.anexo) driveAttsCan.push(j.anexo);
+    }catch(err){ console.error('[saveAttCan] erro:', err); }
+  }
+  pendAttCan = [];
+}
+
+/* ── Modal Canhoto ── */
+function openModalCanhoto(preselectId){
+  document.getElementById('can-id').value = '';
+  document.getElementById('can-cod').value = '';
+  document.getElementById('can-status-busca').innerHTML = '';
+  document.getElementById('can-lista-escolha').innerHTML = '';
+  document.getElementById('can-busca').style.display = 'grid';
+  document.getElementById('can-detalhe').style.display = 'none';
+  document.getElementById('can-btn-finalizar').style.display = 'none';
+  document.getElementById('can-mdf').value = '';
+  pendAttCan = []; driveAttsCan = [];
+  document.getElementById('modal-canhoto').classList.add('open');
+  if(preselectId) selecionarCanhoto(preselectId);
+}
+function closeModalCanhoto(){ document.getElementById('modal-canhoto').classList.remove('open'); }
+
+function buscarCanhotoPorCod(){
+  var cod = document.getElementById('can-cod').value.trim();
+  var statusEl = document.getElementById('can-status-busca');
+  var listaEl = document.getElementById('can-lista-escolha');
+  listaEl.innerHTML = '';
+  if(!cod){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
+  var candidatos = todosRegistrosFat.filter(function(r){
+    return (r.cod||'').trim().toUpperCase()===cod.toUpperCase() && r.status==='Faturado' && r.statusCanhoto==='Em Andamento';
+  });
+  if(!candidatos.length){
+    statusEl.innerHTML = '<span class="txt-red">Nenhum CT-e desse card aguardando canhoto.</span>';
+    return;
+  }
+  if(candidatos.length===1){
+    statusEl.innerHTML = '';
+    selecionarCanhoto(candidatos[0]._id);
+    return;
+  }
+  statusEl.innerHTML = '<span class="txt-green">Esse card tem '+candidatos.length+' CT-e(s) aguardando canhoto — escolha qual:</span>';
+  listaEl.innerHTML = candidatos.map(function(r){
+    return '<div class="fila-card" onclick="selecionarCanhoto(\''+r._id+'\')" style="cursor:pointer">'+
+      '<div class="fila-card-icon" style="background:var(--gold-dim)"><i class="ti ti-file-invoice" style="color:var(--gold)"></i></div>'+
+      '<div class="fila-card-main"><strong>CT-e '+e(r.cte||'—')+' · '+e(r.cliente||'—')+'</strong>'+
+      '<span style="display:block">'+fmtMoeda(r.totalFrete)+' · '+(r.dataFaturamento?fmtData(r.dataFaturamento):'—')+'</span></div></div>';
+  }).join('');
+}
+
+function selecionarCanhoto(id){
+  var r = todosRegistrosFat.find(function(x){ return x._id===id; });
+  if(!r) return;
+  document.getElementById('can-id').value = r._id;
+  document.getElementById('can-busca').style.display = 'none';
+  document.getElementById('can-lista-escolha').innerHTML = '';
+  document.getElementById('can-status-busca').innerHTML = '';
+  document.getElementById('can-detalhe').style.display = 'block';
+  document.getElementById('can-btn-finalizar').style.display = 'inline-flex';
+
+  document.getElementById('can-v-cliente').textContent = r.cliente||'—';
+  document.getElementById('can-v-cte').textContent = r.cte||'—';
+  document.getElementById('can-v-empresa').textContent = r.empresa||'—';
+  document.getElementById('can-v-frete').textContent = fmtMoeda(r.totalFrete);
+  document.getElementById('can-v-motorista').textContent = r.motorista||'—';
+  document.getElementById('can-v-data').textContent = r.dataFaturamento ? fmtData(r.dataFaturamento) : '—';
+
+  var precisaMdf = r.solicitaMdf==='Sim';
+  document.getElementById('can-grupo-mdf').style.display = precisaMdf ? 'block' : 'none';
+  document.getElementById('can-mdf').value = r.mdf||'';
+
+  pendAttCan = []; driveAttsCan = []; renderAttListCan();
+  var chave = chaveAnexoFat_(r.cod, r._id);
+  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
+    .then(function(j){ if(j.success){ driveAttsCan = j.anexos || []; renderAttListCan(); } })
+    .catch(function(){});
+}
+
+async function finalizarCanhotoUI(){
+  var id = document.getElementById('can-id').value;
+  if(!id) return;
+  var r = todosRegistrosFat.find(function(x){ return x._id===id; });
+  if(!r) return;
+  var mdf = document.getElementById('can-mdf').value.trim();
+  if(r.solicitaMdf==='Sim' && !mdf && !r.mdf){
+    alert('Esse CT-e pediu MDF — informe o número do MDF antes de enviar o canhoto.');
+    return;
+  }
+  if(!pendAttCan.length && !driveAttsCan.length){
+    alert('Anexe o arquivo do canhoto antes de enviar.');
+    return;
+  }
+  var btn = document.getElementById('can-btn-finalizar');
+  var textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+
+  if(pendAttCan.length){
+    btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando canhoto…';
+    await saveAttCan(chaveAnexoFat_(r.cod, r._id));
+  }
+
+  btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando pra análise…';
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(id) + '/canhoto', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({mdf: mdf})
+    });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao enviar canhoto: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  }catch(e){ alert('Erro de conexão ao enviar canhoto.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+
+  btn.disabled = false; btn.innerHTML = textoOriginal;
+  closeModalCanhoto();
+  await loadAllData();
+}
+
+// Chamado pelo painel lateral (Detalhes do Registro) — o responsável pelo
+// faturamento já conferiu os anexos que ficam sempre visíveis ali, e
+// confirma que o canhoto está correto.
+async function finalizarCanhotoAnalisado(){
+  if(currentSideId==null) return;
+  if(!confirm('Confirmar que o canhoto foi conferido e está tudo certo?')) return;
+  var btn = document.getElementById('sp-btn-finalizar-canhoto');
+  var textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Finalizando…';
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(currentSideId) + '/canhoto/finalizar', { method: 'POST' });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao finalizar: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  }catch(e){ alert('Erro de conexão ao finalizar.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  closeSidePanel();
+  await loadAllData();
+}
+
+var registros = [];
+var todosRegistrosFat = []; // inclui também as solicitações pendentes (Fila/Histórico)
+var currentSideId = null;
+var filtroEmpresaAtual = "";
+
+/* ── Conversão API (snake_case) → forma que a tela já espera (camelCase) ──
+   imposto/barretos/custoOp/lucroBruto/lucroLiquido/percentual/cancelado
+   não vêm do banco — são sempre recalculados aqui na hora, reaproveitando
+   a mesma calcularResultado() usada na prévia dos modais, pra nunca haver
+   dois lugares com a fórmula (e portanto nunca dessincronizar). ── */
+function fmtDataHoraFat_(isoTimestamp){
+  if(!isoTimestamp) return '';
+  var d = new Date(isoTimestamp);
+  if(isNaN(d.getTime())) return '';
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function mapearRegistroDoApi_(row){
+  var r = {
+    _id: row.id,
+    cliente: row.cliente||'', empresa: row.empresa||'', motorista: row.motorista||'', vendedor: row.vendedor||'',
+    cod: row.cod||'', observacoes: row.observacoes||'', nfe: row.nfe||'', cte: row.cte||'', mdf: row.mdf||'', ciot: row.ciot||'',
+    veiculo: row.veiculo||'', origem: row.origem||'', uf: row.uf||'', destino: row.destino||'', uf2: row.uf2||'',
+    dataFaturamento: row.data_faturamento||'', totalFrete: row.total_frete, valorFreteiro: row.valor_freteiro,
+    valePedagio: row.vale_pedagio||'', gnre: row.gnre, status: row.status, solicitante: row.solicitante||'',
+    dataSolicitacao: fmtDataHoraFat_(row.data_solicitacao), solicitaMdf: row.solicita_mdf||'', obsRotaMdf: row.obs_rota_mdf||'',
+    custoOperacionalTotal: row.custo_operacional_total, statusCanhoto: row.status_canhoto||'',
+  };
+  Object.assign(r, calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento));
+  return r;
+}
+
+/* ── Carregamento / persistência ── */
+async function loadAllData(){
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento');
+    var dados = await res.json();
+    todosRegistrosFat = Array.isArray(dados) ? dados.map(mapearRegistroDoApi_) : [];
+    // Dashboard/Detalhamento continuam mostrando só CT-e's já faturados —
+    // solicitações ainda "Aguardando Faturamento" (sem Total Frete/CT-e
+    // reais ainda) ficam só na Fila/Histórico, pra não poluir os números.
+    registros = todosRegistrosFat.filter(function(r){ return r.status !== 'Aguardando Faturamento'; });
+  }catch(e){
+    console.error('Falha ao buscar os registros de Faturamento.', e);
+  }
+  renderAll();
+  if(document.getElementById('view-fila').classList.contains('active')) renderFila();
+  if(document.getElementById('view-historico').classList.contains('active')) renderHistorico();
+}
+
+function renderAll(){
+  renderTabela();
+  var badge = document.getElementById('badge-total');
+  if(registros.length){ badge.style.display='inline-block'; badge.textContent=registros.length; }
+  else badge.style.display='none';
+  if(document.getElementById('view-dashboard').classList.contains('active')) carregarDashboardFat();
+}
+
+/* ── Fila de Faturamento ── */
+function renderFila(){
+  var filtro = (document.getElementById('fila-f-texto').value||'').toLowerCase();
+  var pendentes = todosRegistrosFat.filter(function(r){ return r.status === 'Aguardando Faturamento'; });
+  var aguardandoAnalise = todosRegistrosFat.filter(function(r){ return r.status === 'Faturado' && r.statusCanhoto === 'Aguardando Análise'; });
+  if(filtro){
+    var passa = function(r){
+      return (r.cliente||'').toLowerCase().includes(filtro) ||
+             (r.cod||'').toLowerCase().includes(filtro) ||
+             (r.solicitante||'').toLowerCase().includes(filtro) ||
+             (r.cte||'').toLowerCase().includes(filtro);
+    };
+    pendentes = pendentes.filter(passa);
+    aguardandoAnalise = aguardandoAnalise.filter(passa);
+  }
+  pendentes.sort(function(a,b){ return (b.dataSolicitacao||'').localeCompare(a.dataSolicitacao||''); });
+  aguardandoAnalise.sort(function(a,b){ return (b.dataFaturamento||'').localeCompare(a.dataFaturamento||''); });
+
+  var totalFila = pendentes.length + aguardandoAnalise.length;
+  var badge = document.getElementById('badge-fila');
+  if(totalFila){ badge.style.display='inline-block'; badge.textContent=totalFila; } else badge.style.display='none';
+
+  var el = document.getElementById('fila-list');
+  if(!totalFila){
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-circle-check"></i><strong>Fila livre por aqui</strong><span>Nenhuma solicitação de faturamento pendente.</span></div>';
+    return;
+  }
+  var ehColaborador = document.body.getAttribute('data-mode')==='colaborador';
+  var htmlSolicitacoes = pendentes.map(function(r){
+    var mdfTxt = r.solicitaMdf==='Sim' ? '<span style="display:block"><i class="ti ti-file-certificate" style="font-size:11px"></i> MDF solicitado</span>' : '';
+    return `<div class="fila-card" ${ehColaborador?'':`onclick="abrirFinalizacao('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
+      <div class="fila-card-icon" style="background:var(--gold-dim)"><i class="ti ti-file-invoice" style="color:var(--gold)"></i></div>
+      <div class="fila-card-main"><strong>${r.cliente||'—'} · Cód. ${r.cod||'—'}</strong>
+        <span style="display:block">Solicitado por ${r.solicitante||'—'} em ${r.dataSolicitacao||'—'}</span>
+        ${mdfTxt}
+      </div>
+      ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirFinalizacao(\''+r._id+'\')"><i class="ti ti-check"></i> Faturado</button>'}
+    </div>`;
+  }).join('');
+  var htmlAnalise = aguardandoAnalise.map(function(r){
+    return `<div class="fila-card" onclick="openSidePanel('${r._id}')" style="cursor:pointer">
+      <div class="fila-card-icon" style="background:var(--blue-dim)"><i class="ti ti-receipt" style="color:var(--blue)"></i></div>
+      <div class="fila-card-main"><strong>${r.cliente||'—'} · CT-e ${r.cte||'—'}</strong>
+        <span style="display:block">Canhoto enviado, aguardando análise · Cód. ${r.cod||'—'}</span>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openSidePanel('${r._id}')"><i class="ti ti-eye"></i> Analisar</button>
+    </div>`;
+  }).join('');
+  var titulo = function(txt){ return '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);margin:14px 0 8px 2px">'+txt+'</div>'; };
+  el.innerHTML =
+    (htmlSolicitacoes ? (aguardandoAnalise.length?titulo('Aguardando faturamento'):'') + htmlSolicitacoes : '') +
+    (htmlAnalise ? titulo('Canhoto aguardando análise') + htmlAnalise : '');
+}
+
+/* ── Histórico — pessoal (só leitura) pra quem só vê a Fila; completo pra
+   quem tem visão de gestão (igual ao padrão do financeiro.html) ── */
+function renderHistorico(){
+  var filtro = (document.getElementById('h-texto').value||'').toLowerCase();
+  var ehColaborador = document.body.getAttribute('data-mode')==='colaborador';
+  var base = todosRegistrosFat.filter(function(r){ return r.dataSolicitacao; }); // só o que passou pela fila
+  if(ehColaborador){
+    var nome = usuarioAtualNomeFat().toLowerCase();
+    base = base.filter(function(r){ return (r.solicitante||'').toLowerCase().indexOf(nome)===0 || nome.indexOf((r.solicitante||'').toLowerCase())===0; });
+  }
+  if(filtro){
+    base = base.filter(function(r){ return (r.cliente||'').toLowerCase().includes(filtro) || (r.cod||'').toLowerCase().includes(filtro); });
+  }
+  base.sort(function(a,b){ return (b.dataSolicitacao||'').localeCompare(a.dataSolicitacao||''); });
+
+  var tbody = document.getElementById('tbody-historico');
+  if(!base.length){ tbody.innerHTML = '<tr><td colspan="7" class="tbl-empty">Nenhum registro</td></tr>'; return; }
+  tbody.innerHTML = base.map(function(r){
+    var statusBadge = r.status==='Faturado'
+      ? '<span class="status-pill status-pg">Faturado</span>'
+      : '<span class="status-pill status-av">Aguardando</span>';
+    return `<tr>
+      <td>${r.dataSolicitacao||'—'}</td>
+      <td>${r.cliente||'—'}</td>
+      <td>${r.cod||'—'}</td>
+      <td>${r.solicitante||'—'}</td>
+      <td>${statusBadge}</td>
+      <td>${(r.cte||'').indexOf('PENDENTE-')===0 ? '—' : (r.cte||'—')}</td>
+      <td class="txt-right">${r.totalFrete ? fmtMoeda(r.totalFrete) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Usuário logado / modo de visão (vendedor = simplificado) ──
+   Mesma sessão real do sistema (sessionStorage.barretos_user), mesmo
+   padrão de detecção tolerante a acento/maiúsculas usado no resto do
+   sistema (cotação, shell). ── */
+function normNomeLoginFat_(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function contemTodosTokensFat_(base, tokens){ return tokens.every(function(t){ return base.indexOf(t)!==-1; }); }
+
+function usuarioLogadoAtualFat(){
+  try{
+    var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function usuarioAtualNomeFat(){
+  var u = usuarioLogadoAtualFat();
+  return (u && (u.nome||u.login)) || 'Desconhecido';
+}
+function ehVendedorFat(user){
+  if(!user) return false;
+  var base = normNomeLoginFat_(user.nome||'') + ' ' + normNomeLoginFat_(user.login||'');
+  return contemTodosTokensFat_(base, ['sabrina']) || contemTodosTokensFat_(base, ['leonardo']);
+}
+
+function aplicarModoPorSessaoFat(){
+  var user = usuarioLogadoAtualFat();
+  if(!user){
+    // Sem sessão real (uso standalone/testes fora do shell) — mantém o
+    // seletor manual de perfil, igual ao padrão do financeiro.html
+    document.getElementById('mode-switch-manual').style.display = 'flex';
+    setMode('gestor');
+    return;
+  }
+  var vendedor = ehVendedorFat(user);
+  setMode(vendedor ? 'colaborador' : 'gestor');
+  if(vendedor){
+    // Visão simplificada: só Fila (pra solicitar) e Histórico (só leitura
+    // das próprias solicitações) — igual ao padrão do financeiro.html
+    var navDash = document.querySelector('.nav-item[data-view="dashboard"]');
+    var navDet = document.querySelector('.nav-item[data-view="detalhamento"]');
+    if(navDash) navDash.style.display = 'none';
+    if(navDet) navDet.style.display = 'none';
+    showView('fila');
+  }
+}
+
+/* ── Filtro de período do Dashboard: mês vigente por padrão, com opção
+   de ver mês a mês ou "Todos os Meses" (ano inteiro/geral) ── */
+/* ── Cálculo do resultado (mesma lógica do Apps Script) — usado só na
+   prévia dos modais e no painel lateral; o Dashboard em si vem pronto do
+   backend (faturamentoAnaliseService.js), pra não somar o histórico
+   inteiro no navegador toda hora. ── */
+function mesmoMesDoFaturamento(dataFaturamentoISO){
+  if(!dataFaturamentoISO) return true; // sem data pra comparar, assume mesmo mês (mais conservador: zera o imposto)
+  var iso = dataPlanilhaParaISO_(dataFaturamentoISO) || dataFaturamentoISO;
+  var dataEmissao = new Date(iso+'T00:00:00');
+  if(isNaN(dataEmissao.getTime())) return true;
+  var hoje = new Date();
+  return hoje.getFullYear()===dataEmissao.getFullYear() && hoje.getMonth()===dataEmissao.getMonth();
+}
+function calcularResultado(totalFrete, valorFreteiro, gnre, observacoes, dataFaturamento){
+  totalFrete = Number(totalFrete); if(!isFinite(totalFrete)) totalFrete = 0;
+  valorFreteiro = Number(valorFreteiro); if(!isFinite(valorFreteiro)) valorFreteiro = 0;
+  gnre = Number(gnre); if(!isFinite(gnre)) gnre = 0;
+  var cancelado = /cancelad/i.test(String(observacoes||''));
+  var imposto = totalFrete * 0.12;
+  var barretos, custoOp, lucroBruto, lucroLiquido, percentual;
+  if(cancelado){
+    var mesmoMes = mesmoMesDoFaturamento(dataFaturamento);
+    barretos = 0; custoOp = 0; lucroBruto = 0;
+    if(mesmoMes){ imposto = 0; lucroLiquido = 0; }
+    else { lucroLiquido = -imposto; }
+    percentual = null;
+  } else {
+    barretos = totalFrete;
+    custoOp = valorFreteiro + gnre;
+    lucroBruto = barretos - custoOp;
+    lucroLiquido = lucroBruto - imposto;
+    percentual = barretos !== 0 ? (custoOp/barretos) : null;
+  }
+  return {imposto, barretos, custoOp, lucroBruto, lucroLiquido, percentual, cancelado};
+}
+
+/* ── Helpers de formatação ── */
+function fmtMoeda(v){ return "R$\u00A0" + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(v){ return (v===null||v===undefined||v==='') ? '—' : (Number(v)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
+function fmtData(iso){ if(!iso) return "—"; var p=String(iso).split("-"); return p.length===3 ? (p[2]+"/"+p[1]+"/"+p[0]) : iso; }
+function dataPlanilhaParaISO_(data){
+  if(!data) return '';
+  var s = String(data);
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10); // já está em ISO (registro recém-criado, antes do 1º reload)
+  var p = s.split('/');
+  return p.length===3 ? (p[2]+'-'+p[1]+'-'+p[0]) : '';
+}
+
+/* ── Dashboard: resumo por empresa (equivalente à aba RESULTADO) ── */
+var EMPRESAS_GRUPO = ["Barreto's Transportes e Serviços","Barreto's Transportes Sites e Infraestrutura","Gonçalves Soluções em Logística","Pinheiro Transportes e Serviços"];
+
+/* ── Dashboard: resumo por empresa e KPIs vêm prontos do backend
+   (faturamentoAnaliseService.js) — o navegador não soma o histórico
+   inteiro toda vez que a aba abre ou o mês do filtro muda. ── */
+async function carregarDashboardFat(){
+  var sel = document.getElementById('dash-mes-filtro');
+  var mesAtual = new Date().toISOString().slice(0,7);
+  // Mantém a seleção do usuário se já tiver escolhido algo antes; senão
+  // (primeira carga), cai no mês vigente — regra padrão do sistema.
+  var mesSelecionado = sel.options.length ? sel.value : mesAtual;
+
+  var dados;
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/dashboard' + (mesSelecionado ? ('?mes='+encodeURIComponent(mesSelecionado)) : ''));
+    dados = await res.json();
+    if(!res.ok) throw new Error(dados.error||'Erro ao carregar o dashboard');
+  }catch(e){
+    document.getElementById('tbody-resumo-empresas').innerHTML = '<div class="tbl-empty">Erro ao carregar o dashboard.</div>';
+    return;
+  }
+
+  var mesesArr = dados.mesesDisponiveis.slice();
+  if(mesesArr.indexOf(mesAtual)===-1) mesesArr.push(mesAtual); // garante que o mês vigente sempre apareça, mesmo sem registros ainda
+  mesesArr.sort().reverse();
+  sel.innerHTML = '<option value="">Todos os Meses</option>' + mesesArr.map(function(m){
+    var partes = m.split('-');
+    var nomeMes = new Date(Number(partes[0]), Number(partes[1])-1, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    nomeMes = nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+    return `<option value="${m}">${nomeMes}${m===mesAtual?' (atual)':''}</option>`;
+  }).join('');
+  sel.value = mesSelecionado || '';
+
+  var tbody = document.getElementById('tbody-resumo-empresas');
+  if(!dados.totalRegistros){
+    tbody.innerHTML = '<div class="tbl-empty">Nenhum registro no período selecionado</div>';
+  } else {
+    tbody.innerHTML = dados.porEmpresa.map(function(l){
+      var margem = l.faturamento!==0 ? (l.custoOp/l.faturamento) : null;
+      return `<div class="g-linha">
+        <div>${l.empresa}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(l.faturamento)}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(l.custoOp)}</div>
+        <div class="txt-center txt-mono" style="color:${l.lucroLiquido<0?'var(--red)':'var(--green)'}">${fmtMoeda(l.lucroLiquido)}</div>
+        <div class="txt-center txt-mono">${fmtPct(margem)}</div>
+      </div>`;
+    }).join('') + `<div class="g-linha" style="font-weight:700;background:var(--surface2)">
+        <div>Total Geral</div>
+        <div class="txt-center txt-mono">${fmtMoeda(dados.totais.faturamento)}</div>
+        <div class="txt-center txt-mono">${fmtMoeda(dados.totais.custoOp)}</div>
+        <div class="txt-center txt-mono" style="color:${dados.totais.lucroLiquido<0?'var(--red)':'var(--green)'}">${fmtMoeda(dados.totais.lucroLiquido)}</div>
+        <div class="txt-center txt-mono">${fmtPct(dados.totais.faturamento!==0?dados.totais.custoOp/dados.totais.faturamento:null)}</div>
+      </div>`;
+  }
+
+  document.getElementById('dash-kpis-gerais').innerHTML = `
+    <div class="kpi-card gold"><i class="ti ti-report-money kpi-icon gold"></i>
+      <div class="kpi-val">${fmtMoeda(dados.totais.faturamento)}</div><div class="kpi-lbl">Faturamento Total</div></div>
+    <div class="kpi-card blue"><i class="ti ti-clock-dollar kpi-icon blue"></i>
+      <div class="kpi-val">${fmtMoeda(dados.totais.aFaturar)}</div><div class="kpi-lbl">A Faturar</div></div>
+    <div class="kpi-card orange"><i class="ti ti-receipt-2 kpi-icon orange"></i>
+      <div class="kpi-val">${fmtMoeda(dados.totais.custoOp)}</div><div class="kpi-lbl">Custo Operacional Total</div></div>
+    <div class="kpi-card ${dados.totais.lucroLiquido<0?'red':'green'}"><i class="ti ti-trending-up kpi-icon ${dados.totais.lucroLiquido<0?'red':'green'}"></i>
+      <div class="kpi-val">${fmtMoeda(dados.totais.lucroLiquido)}</div><div class="kpi-lbl">Lucro Líquido Total</div></div>
+    <div class="kpi-card blue"><i class="ti ti-file-invoice kpi-icon blue"></i>
+      <div class="kpi-val">${dados.totalRegistros}</div><div class="kpi-lbl">Registros no Total</div></div>
+    <div class="kpi-card red"><i class="ti ti-file-off kpi-icon red"></i>
+      <div class="kpi-val">${dados.qtdCancelados}</div><div class="kpi-lbl">CT-e's Cancelados</div></div>
+  `;
+}
+
+/* ── Detalhamento (tabela) ── */
+function getLinhasFiltradas(){
+  var rows = registros.slice();
+  var texto = (document.getElementById('f-texto').value||'').toLowerCase();
+  var empresa = document.getElementById('f-empresa').value;
+  var ini = document.getElementById('f-ini').value;
+  var fim = document.getElementById('f-fim').value;
+  if(texto) rows = rows.filter(r=>[r.cliente,r.motorista,r.cte,r.cod].join(' ').toLowerCase().includes(texto));
+  if(empresa) rows = rows.filter(r=>r.empresa===empresa);
+  if(ini) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) >= ini);
+  if(fim) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) <= fim);
+  rows.sort((a,b)=>dataPlanilhaParaISO_(b.dataFaturamento).localeCompare(dataPlanilhaParaISO_(a.dataFaturamento)));
+  return rows;
+}
+function renderTabela(){
+  atualizarLabelPeriodo();
+  var rows = getLinhasFiltradas();
+  var tbody = document.getElementById('tbody-detalhamento');
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="12" class="tbl-empty">Nenhum registro encontrado</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r){
+    var cancelado = /cancelad/i.test(r.observacoes||'');
+    var statusBadge = r.statusCanhoto==='Finalizado'
+      ? '<span class="badge badge-green">Finalizado</span>'
+      : r.statusCanhoto==='Aguardando Análise'
+      ? '<span class="badge badge-blue">Aguardando Análise</span>'
+      : '<span class="badge badge-orange">Em Andamento</span>';
+    return `<tr onclick="openSidePanel('${r._id}')">
+      <td class="txt-mono">${fmtData(dataPlanilhaParaISO_(r.dataFaturamento))}</td>
+      <td>${r.cliente||'—'}</td>
+      <td><span class="badge badge-gray">${r.empresa||'—'}</span></td>
+      <td class="txt-dim">${r.motorista||'—'}</td>
+      <td class="txt-dim">${r.vendedor||'—'}</td>
+      <td><span class="cod-chip">${r.cod||'—'}</span></td>
+      <td class="txt-mono">${r.cte||'—'}</td>
+      <td class="txt-right txt-mono">${fmtMoeda(r.totalFrete)}</td>
+      <td class="txt-right txt-mono" style="color:${Number(r.lucroLiquido)<0?'var(--red)':'var(--green)'}">${fmtMoeda(r.lucroLiquido)}${cancelado?' <span class="badge badge-red" style="margin-left:4px">CANC.</span>':''}</td>
+      <td class="txt-right txt-mono">${fmtPct(r.percentual)}</td>
+      <td>${statusBadge}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openSidePanel('${r._id}')"><i class="ti ti-eye" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+function setPeriodoMesAtual(){
+  var hoje = new Date();
+  var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  var fim = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+  document.getElementById('f-ini').value = ini.toISOString().slice(0,10);
+  document.getElementById('f-fim').value = fim.toISOString().slice(0,10);
+  renderTabela();
+}
+function atualizarLabelPeriodo(){
+  var ini = document.getElementById('f-ini').value, fim = document.getElementById('f-fim').value;
+  var lbl = document.getElementById('periodo-label');
+  lbl.textContent = (ini && fim) ? ('Exibindo período: '+fmtData(ini)+' até '+fmtData(fim)) : 'Exibindo todos os períodos';
+}
+
+/* ── Navegação entre views ── */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  var navEl = document.querySelector('.nav-item[data-view="'+name+'"]');
+  if(navEl) navEl.classList.add('active');
+  var titles = {
+    dashboard: ['ti-layout-dashboard','Dashboard','Resumo do faturamento por empresa'],
+    detalhamento: ['ti-table','Detalhamento','Todos os registros de faturamento'],
+    fila: ['ti-list-check','Fila de Faturamento','Solicitações aguardando emissão do CT-e'],
+    historico: ['ti-history','Histórico', document.body.getAttribute('data-mode')==='colaborador' ? 'Suas solicitações (somente leitura)' : 'Todas as solicitações']
+  };
+  var t = titles[name];
+  document.getElementById('topbar-icon').className = 'ti '+t[0];
+  document.getElementById('topbar-title').textContent = t[1];
+  document.getElementById('topbar-sub').textContent = t[2];
+  if(name==='fila') renderFila();
+  if(name==='historico') renderHistorico();
+  if(name==='dashboard') carregarDashboardFat();
+}
+function setMode(mode){ document.body.setAttribute('data-mode', mode); }
+
+/* ── Side Panel ── */
+function openSidePanel(id){
+  var r = registros.find(x=>x._id===id);
+  if(!r) return;
+  currentSideId = id;
+  var calc = calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento);
+
+  function campoTexto(label, field, valor, mono){
+    var v = (valor===undefined||valor===null?'':valor).toString().replace(/"/g,'&quot;');
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input${mono?' txt-mono':''}" value="${v}" onchange="atualizarCampoRegistro('${id}','${field}',this.value)"></div>`;
+  }
+  function campoNumero(label, field, valor){
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input txt-mono" type="number" step="0.01" value="${Number(valor)||0}" onchange="atualizarCampoRegistro('${id}','${field}',parseFloat(this.value)||0)"></div>`;
+  }
+  function campoData(label, field, valorBR){
+    var iso = dataPlanilhaParaISO_(valorBR);
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <input class="form-input" type="date" value="${iso}" onchange="atualizarCampoRegistro('${id}','${field}',this.value)"></div>`;
+  }
+  function campoEmpresa(label, field, valor){
+    return `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
+      <select class="form-input" onchange="atualizarCampoRegistro('${id}','${field}',this.value)">
+        <option value="">—</option>
+        ${EMPRESAS_GRUPO.map(function(e){ return `<option ${e===valor?'selected':''}>${e}</option>`; }).join('')}
+      </select></div>`;
+  }
+  function campoSomenteLeitura(label, valor, cor){
+    return `<div class="sp-field"><div class="sp-label">${label}</div><div class="sp-val txt-mono" style="${cor?'font-weight:800;color:'+cor:''}">${valor}</div></div>`;
+  }
+
+  document.getElementById('sp-body').innerHTML = `
+    ${campoTexto('Cliente','cliente',r.cliente)}
+    <div class="grid-2">
+      ${campoEmpresa('Empresa','empresa',r.empresa)}
+      ${campoData('Data Faturamento','dataFaturamento',r.dataFaturamento)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Motorista','motorista',r.motorista)}
+      ${campoTexto('Vendedor','vendedor',r.vendedor)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Código do Card','cod',r.cod,true)}
+      ${campoTexto('Veículo','veiculo',r.veiculo)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Origem','origem',r.origem)}
+      ${campoTexto('UF','uf',r.uf,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Destino','destino',r.destino)}
+      ${campoTexto('UF Destino','uf2',r.uf2,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('NF-e','nfe',r.nfe,true)}
+      ${campoTexto('CT-e','cte',r.cte,true)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('MDF','mdf',r.mdf,true)}
+      ${campoTexto('CIOT','ciot',r.ciot,true)}
+    </div>
+    ${campoTexto('Observações','observacoes',r.observacoes)}
+    <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-calculator" style="font-size:12px"></i> Resultado</div>
+    <div class="grid-2">
+      ${campoNumero('Total Frete','totalFrete',r.totalFrete)}
+      ${campoNumero('Valor Freteiro','valorFreteiro',r.valorFreteiro)}
+    </div>
+    <div class="grid-2">
+      ${campoTexto('Vale Pedágio','valePedagio',r.valePedagio,true)}
+      ${campoNumero('GNRE','gnre',r.gnre)}
+    </div>
+    <div class="grid-2" style="margin-top:4px">
+      ${campoSomenteLeitura('Imposto (12%)', fmtMoeda(calc.imposto))}
+      ${campoSomenteLeitura('Barretos', fmtMoeda(calc.barretos))}
+    </div>
+    <div class="grid-2">
+      ${campoSomenteLeitura('Custo Operacional', fmtMoeda(calc.custoOp))}
+      ${campoSomenteLeitura('Lucro Bruto', fmtMoeda(calc.lucroBruto))}
+    </div>
+    <div class="grid-2">
+      ${campoSomenteLeitura('Lucro Líquido', fmtMoeda(calc.lucroLiquido), calc.lucroLiquido<0?'var(--red)':'var(--green)')}
+      ${campoSomenteLeitura('Margem', fmtPct(calc.percentual))}
+    </div>
+    ${calc.cancelado?'<p class="txt-red" style="font-size:11px;margin-top:8px"><i class="ti ti-alert-triangle" style="font-size:12px"></i> CT-e cancelado — só o imposto foi contabilizado.</p>':''}
+    <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-flag" style="font-size:12px"></i> Status do Canhoto</div>
+    ${campoSomenteLeitura('Status', r.statusCanhoto || 'Em Andamento')}
+    <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-paperclip" style="font-size:12px"></i> Anexos (NF, CT-e e canhoto)</div>
+    <div class="alist" id="sp-att-list"><div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Carregando…</div></div>
+  `;
+  document.getElementById('side-panel-registro').classList.add('open');
+  document.getElementById('sp-overlay').classList.add('open');
+
+  var btnFinalizar = document.getElementById('sp-btn-finalizar-canhoto');
+  btnFinalizar.style.display = r.statusCanhoto === 'Aguardando Análise' ? 'inline-flex' : 'none';
+
+  carregarAnexosParaExibir_('sp-att-list', chaveAnexoFat_(r.cod, r._id));
+}
+function closeSidePanel(){
+  document.getElementById('side-panel-registro').classList.remove('open');
+  document.getElementById('sp-overlay').classList.remove('open');
+  currentSideId = null;
+}
+async function atualizarCampoRegistro(id, field, value){
+  var r = registros.find(x=>x._id===id);
+  if(!r) return;
+
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(id) + '/campo', {
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({campo: field, valor: value})
+    });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao editar campo: ' + (j.error||'desconhecido')); return; }
+  }catch(e){ alert('Erro de conexão ao editar campo.'); return; }
+
+  await loadAllData();
+  openSidePanel(id);
+}
+
+async function excluirRegistroAtual(){
+  if(currentSideId==null) return;
+  var r = registros.find(x=>x._id===currentSideId);
+  if(!r) return;
+  if(!confirm('Excluir este registro de faturamento?')) return;
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(currentSideId), { method: 'DELETE' });
+    if(!res.ok && res.status !== 204){ var j = await res.json(); alert('Erro ao excluir: ' + (j.error||'desconhecido')); return; }
+  }catch(e){ alert('Erro de conexão ao excluir.'); return; }
+  closeSidePanel();
+  await loadAllData();
+}
+
+/* ── Modal Novo Registro ── */
+var custoOperacionalCardAtualFat = null;
+
+function openModalRegistro(){
+  ['r-cliente','r-motorista','r-vendedor','r-veiculo','r-origem','r-uf','r-destino','r-uf2',
+   'r-nfe','r-cte','r-mdf','r-ciot','r-vale-pedagio','r-gnre','r-total-frete','r-valor-freteiro','r-observacoes','r-cod'
+  ].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('r-empresa').value = '';
+  document.getElementById('r-data-faturamento').value = new Date().toISOString().slice(0,10);
+  document.getElementById('r-status-pdf').innerHTML = '';
+  document.getElementById('r-status-kanban').innerHTML = '';
+  document.getElementById('r-cte-temp').value = '';
+  document.getElementById('r-id').value = '';
+  document.getElementById('r-aviso-finalizacao').style.display = 'none';
+  document.getElementById('r-att-list').innerHTML = '';
+  document.getElementById('modal-registro-titulo').textContent = 'Novo Registro de Faturamento';
+  document.getElementById('btn-salvar-registro-label').textContent = 'Salvar Registro';
+  custoOperacionalCardAtualFat = null;
+  atualizarPreviewCalculo();
+  document.getElementById('modal-registro').classList.add('open');
+}
+function closeModalRegistro(){ document.getElementById('modal-registro').classList.remove('open'); }
+
+// Abre o modal de Registro já preenchido com o que a solicitação trouxe,
+// em "modo Finalizar" — a mesma tela de sempre, só que gravando pela ação
+// 'finalizarFaturamento' (mesma linha, troca o CT-e temporário pelo real
+// e marca Faturado) em vez de criar um registro novo do zero.
+function abrirFinalizacao(regId){
+  var r = todosRegistrosFat.find(x=>x._id===regId);
+  if(!r) return;
+  openModalRegistro();
+  document.getElementById('r-id').value = r._id;
+  document.getElementById('r-cliente').value = r.cliente||'';
+  document.getElementById('r-empresa').value = r.empresa||'';
+  if(r.empresa) document.getElementById('r-aba').value = r.empresa; // pra "Buscar"/"Visualizar Card" já procurarem na aba certa
+  document.getElementById('r-motorista').value = r.motorista||'';
+  document.getElementById('r-vendedor').value = r.vendedor||'';
+  document.getElementById('r-cod').value = r.cod||'';
+  document.getElementById('r-observacoes').value = r.observacoes||'';
+  document.getElementById('r-nfe').value = r.nfe||'';
+  document.getElementById('r-veiculo').value = r.veiculo||'';
+  document.getElementById('r-origem').value = r.origem||'';
+  document.getElementById('r-uf').value = r.uf||'';
+  document.getElementById('r-destino').value = r.destino||'';
+  document.getElementById('r-uf2').value = r.uf2||'';
+  document.getElementById('r-cte-temp').value = r.cte||''; // placeholder PENDENTE-...
+  document.getElementById('r-cte').value = ''; // número real do CT-e é preenchido agora
+  document.getElementById('modal-registro-titulo').textContent = 'Finalizar Faturamento';
+  document.getElementById('btn-salvar-registro-label').textContent = 'Marcar como Faturado';
+  var avisoEl = document.getElementById('r-aviso-finalizacao');
+  avisoEl.innerHTML = '<i class="ti ti-info-circle" style="font-size:12px"></i> Solicitado por <strong>'+(r.solicitante||'—')+'</strong> em '+(r.dataSolicitacao||'—')+
+    (r.solicitaMdf==='Sim' ? '<br><i class="ti ti-file-certificate" style="font-size:12px"></i> Solicitou MDF — Rota informada: <strong>'+(r.obsRotaMdf||'—')+'</strong>' : '');
+  avisoEl.style.display = 'block';
+  carregarAnexosParaExibir_('r-att-list', chaveAnexoFat_(r.cod, r._id));
+  atualizarPreviewCalculo();
+}
+
+function closeModalSolicitacao(){ document.getElementById('modal-solicitacao').classList.remove('open'); }
+
+var custoOperacionalCardSolicitacaoFat = null;
+
+function openModalSolicitacao(){
+  ['sol-cliente','sol-motorista','sol-vendedor','sol-veiculo','sol-origem','sol-uf','sol-destino','sol-uf2',
+   'sol-observacoes','sol-cod','sol-natureza-operacao'
+  ].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sol-empresa').value = '';
+  document.getElementById('sol-solicita-mdf').value = 'Não';
+  document.getElementById('sol-obs-rota-mdf').value = '';
+  document.getElementById('grupo-obs-rota-mdf').style.display = 'none';
+  document.getElementById('sol-status-kanban').innerHTML = '';
+  custoOperacionalCardSolicitacaoFat = null;
+  pendAttSol = []; driveAttsSol = []; renderAttListSol();
+  document.getElementById('modal-solicitacao').classList.add('open');
+}
+
+function toggleObsRotaMdf(){
+  var sim = document.getElementById('sol-solicita-mdf').value === 'Sim';
+  document.getElementById('grupo-obs-rota-mdf').style.display = sim ? 'block' : 'none';
+}
+
+async function enviarSolicitacao(){
+  var cliente = document.getElementById('sol-cliente').value.trim();
+  var empresa = document.getElementById('sol-empresa').value;
+  var cod = document.getElementById('sol-cod').value.trim();
+  if(!cliente || !empresa || !cod){
+    alert('Preencha ao menos Cliente, Empresa e Código do Card.');
+    return;
+  }
+  var payload = {
+    cliente: cliente,
+    empresa: empresa,
+    motorista: document.getElementById('sol-motorista').value.trim(),
+    vendedor: document.getElementById('sol-vendedor').value.trim(),
+    cod: cod,
+    veiculo: document.getElementById('sol-veiculo').value.trim(),
+    origem: document.getElementById('sol-origem').value.trim(),
+    uf: document.getElementById('sol-uf').value.trim().toUpperCase(),
+    destino: document.getElementById('sol-destino').value.trim(),
+    uf2: document.getElementById('sol-uf2').value.trim().toUpperCase(),
+    observacoes: document.getElementById('sol-observacoes').value.trim(),
+    naturezaOperacao: document.getElementById('sol-natureza-operacao').value.trim(),
+    solicitante: usuarioAtualNomeFat(),
+    solicitaMdf: document.getElementById('sol-solicita-mdf').value,
+    obsRotaMdf: document.getElementById('sol-obs-rota-mdf').value.trim()
+  };
+  if(custoOperacionalCardSolicitacaoFat !== null) payload.custoOperacionalTotal = custoOperacionalCardSolicitacaoFat;
+
+  var btn = document.querySelector('#modal-solicitacao .btn-primary');
+  var textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando…';
+
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/solicitar', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao enviar solicitação: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+    if(pendAttSol.length){
+      btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando anexo(s)…';
+      var criado = await res.json();
+      await saveAttSol(chaveAnexoFat_(criado.cod, criado.id));
+    }
+  }catch(e){ alert('Erro de conexão ao enviar solicitação.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  await loadAllData();
+
+  btn.disabled = false;
+  btn.innerHTML = textoOriginal;
+  closeModalSolicitacao();
+  showView('fila');
+}
+
+function atualizarPreviewCalculo(){
+  var totalFrete = parseFloat(document.getElementById('r-total-frete').value)||0;
+  var valorFreteiro = parseFloat(document.getElementById('r-valor-freteiro').value)||0;
+  var gnre = parseFloat(document.getElementById('r-gnre').value)||0;
+  var obs = document.getElementById('r-observacoes').value;
+  var dataFat = document.getElementById('r-data-faturamento').value;
+  var calc = calcularResultado(totalFrete, valorFreteiro, gnre, obs, dataFat);
+  document.getElementById('prev-imposto').textContent = fmtMoeda(calc.imposto);
+  document.getElementById('prev-barretos').textContent = fmtMoeda(calc.barretos);
+  document.getElementById('prev-custo-op').textContent = fmtMoeda(calc.custoOp);
+  document.getElementById('prev-lucro-bruto').textContent = fmtMoeda(calc.lucroBruto);
+  document.getElementById('prev-lucro-liquido').textContent = fmtMoeda(calc.lucroLiquido);
+  document.getElementById('prev-lucro-liquido').style.color = calc.lucroLiquido<0 ? 'var(--red)' : 'var(--gold)';
+  document.getElementById('prev-percentual').textContent = fmtPct(calc.percentual);
+  document.getElementById('prev-aviso-cancelado').style.display = calc.cancelado ? 'block' : 'none';
+}
+
+async function salvarRegistro(){
+  var cteTemp = document.getElementById('r-cte-temp').value.trim();
+  var cliente = document.getElementById('r-cliente').value.trim();
+  var empresa = document.getElementById('r-empresa').value;
+  var cte = document.getElementById('r-cte').value.trim();
+  var cod = document.getElementById('r-cod').value.trim();
+  var totalFrete = parseFloat(document.getElementById('r-total-frete').value);
+  if(!cliente || !empresa || !cte || !cod || !totalFrete){
+    alert('Preencha ao menos Cliente, Empresa, CT-e, Código do Card e Total Frete.');
+    return;
+  }
+  var registro = {
+    cliente: cliente,
+    empresa: empresa,
+    motorista: document.getElementById('r-motorista').value.trim(),
+    vendedor: document.getElementById('r-vendedor').value.trim(),
+    cod: cod,
+    observacoes: document.getElementById('r-observacoes').value.trim(),
+    nfe: document.getElementById('r-nfe').value.trim(),
+    cte: cte,
+    mdf: document.getElementById('r-mdf').value.trim(),
+    ciot: document.getElementById('r-ciot').value.trim(),
+    veiculo: document.getElementById('r-veiculo').value.trim(),
+    origem: document.getElementById('r-origem').value.trim(),
+    uf: document.getElementById('r-uf').value.trim().toUpperCase(),
+    destino: document.getElementById('r-destino').value.trim(),
+    uf2: document.getElementById('r-uf2').value.trim().toUpperCase(),
+    dataFaturamento: document.getElementById('r-data-faturamento').value,
+    totalFrete: totalFrete,
+    valorFreteiro: parseFloat(document.getElementById('r-valor-freteiro').value)||0,
+    valePedagio: document.getElementById('r-vale-pedagio').value.trim(),
+    gnre: parseFloat(document.getElementById('r-gnre').value)||0
+  };
+
+  var btnSalvar = document.querySelector('#modal-registro .btn-primary');
+  var textoOriginal = btnSalvar.innerHTML;
+  btnSalvar.disabled = true;
+  btnSalvar.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Salvando…';
+
+  // Se o card foi vinculado ao kanban (Custo Operacional Total conhecido),
+  // manda o valor CRU pro servidor ratear entre todos os registros desse
+  // mesmo código — o servidor é quem decide o Valor Freteiro final de cada um.
+  if(custoOperacionalCardAtualFat !== null) registro.custoOperacionalTotal = custoOperacionalCardAtualFat;
+
+  var url, method;
+  if(cteTemp){
+    // Modo Finalizar: mesma linha da solicitação, troca CT-e temporário
+    // pelo real e marca Faturado — nunca cria linha nova.
+    var id = document.getElementById('r-id').value;
+    url = API_BASE + '/faturamento/' + encodeURIComponent(id) + '/finalizar';
+  } else {
+    url = API_BASE + '/faturamento';
+  }
+  try{
+    var res = await apiFetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(registro) });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao salvar registro: ' + (j.error||'desconhecido')); btnSalvar.disabled=false; btnSalvar.innerHTML=textoOriginal; return; }
+  }catch(e){ alert('Erro de conexão ao salvar registro.'); btnSalvar.disabled=false; btnSalvar.innerHTML=textoOriginal; return; }
+
+  // Busca de novo em vez de só empurrar localmente — assim já vem com o
+  // rateio aplicado (inclusive em registros que já existiam antes desse,
+  // do mesmo código de card).
+  await loadAllData();
+
+  btnSalvar.disabled = false;
+  btnSalvar.innerHTML = textoOriginal;
+  closeModalRegistro();
+}
+
+/* ── Busca do card no Kanban ──
+   Aceita um prefixo pra poder ser reaproveitada tanto no modal de
+   Registro (prefixo 'r') quanto no de Nova Solicitação (prefixo 'sol') ── */
+async function buscarCardsAbaFat_(aba){
+  var res = await apiFetch(API_BASE + '/kanban?empresa=' + encodeURIComponent(aba));
+  var data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function buscarCardKanbanFat(prefixo){
+  prefixo = prefixo || 'r';
+  var codigo = document.getElementById(prefixo+'-cod').value.trim();
+  var abaSelect = document.getElementById(prefixo+'-aba');
+  var aba = abaSelect.options[abaSelect.selectedIndex].getAttribute('data-aba');
+  var statusEl = document.getElementById(prefixo+'-status-kanban');
+  if(!codigo){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando no kanban…';
+  try{
+    var cards = await buscarCardsAbaFat_(aba);
+    var card = (cards||[]).find(c => String(c.codigo||"").trim().toUpperCase() === codigo.toUpperCase());
+    if(!card){
+      statusEl.innerHTML = '<span class="txt-red">Card não encontrado nessa aba. Confira o código/empresa.</span>';
+      return;
+    }
+    document.getElementById(prefixo+'-motorista').value = card.motorista||"";
+    document.getElementById(prefixo+'-vendedor').value = card.vendedor||"";
+    document.getElementById(prefixo+'-veiculo').value = card.tipo_veiculo||"";
+    if(document.getElementById(prefixo+'-cliente') && !document.getElementById(prefixo+'-cliente').value) document.getElementById(prefixo+'-cliente').value = card.cliente||"";
+    if(document.getElementById(prefixo+'-origem')) document.getElementById(prefixo+'-origem').value = card.cidade_origem||"";
+    if(document.getElementById(prefixo+'-uf')) document.getElementById(prefixo+'-uf').value = card.uf_origem||"";
+    if(document.getElementById(prefixo+'-destino')) document.getElementById(prefixo+'-destino').value = card.cidade_destino||"";
+    if(document.getElementById(prefixo+'-uf2')) document.getElementById(prefixo+'-uf2').value = card.uf_destino||"";
+    if(document.getElementById(prefixo+'-empresa') && !document.getElementById(prefixo+'-empresa').value) document.getElementById(prefixo+'-empresa').value = abaSelect.value;
+
+    var custoOperRaw = card.custo_operacional_total;
+    if(custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!==''){
+      var custoOperAtual = parseFloat(String(custoOperRaw).replace(',','.'));
+      if(prefixo==='r'){
+        custoOperacionalCardAtualFat = custoOperAtual;
+        var qtdExistentes = registros.filter(function(x){ return (x.cod||'').trim().toUpperCase()===codigo.toUpperCase(); }).length;
+        var qtdTotal = qtdExistentes + 1;
+        var valorRateadoPreview = custoOperAtual / qtdTotal;
+        document.getElementById('r-valor-freteiro').value = valorRateadoPreview;
+        atualizarPreviewCalculo();
+        var textoRateio = qtdTotal > 1
+          ? ` Como esse código já tem ${qtdExistentes} registro(s), o Custo Operacional Total (${fmtMoeda(custoOperAtual)}) foi dividido por ${qtdTotal}: ${fmtMoeda(valorRateadoPreview)} cada.`
+          : ` Valor Freteiro preenchido com o Custo Operacional Total (${fmtMoeda(custoOperAtual)}).`;
+        statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.'+textoRateio+'</span>';
+      } else {
+        custoOperacionalCardSolicitacaoFat = custoOperAtual;
+        statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.</span>';
+      }
+    } else {
+      if(prefixo==='r') custoOperacionalCardAtualFat = null; else custoOperacionalCardSolicitacaoFat = null;
+      statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.</span> <span style="color:var(--orange)">(⚠ Custo Operacional Total não encontrado nesse card.)</span>';
+    }
+  }catch(e){
+    statusEl.innerHTML = '<span class="txt-red">Não foi possível buscar agora ('+(e.message||'erro de conexão')+').</span>';
+  }
+}
+
+/* ── Visualizar Card do Kanban (só leitura) ──
+   Pra quem está finalizando o CT-e não precisar sair da tela e ir na aba
+   do quadro Kanban só pra conferir alguma informação do card ou ver os
+   anexos que já estão lá — mostra tudo aqui mesmo. Os anexos do CARD (fotos,
+   PDFs subidos direto no Kanban) são um grupo diferente dos anexos do
+   FATURAMENTO (NF/canhoto) — ficam guardados no Drive pelo código do card
+   puro, sem o pedaço do id que a chaveAnexoFat_ usa. */
+function closeModalVerCard(){ document.getElementById('modal-ver-card').classList.remove('open'); }
+
+async function visualizarCardFat(){
+  var codigo = document.getElementById('r-cod').value.trim();
+  var abaSelect = document.getElementById('r-aba');
+  var aba = abaSelect.options[abaSelect.selectedIndex].getAttribute('data-aba');
+  if(!codigo){ alert('Informe o código do card primeiro.'); return; }
+
+  document.getElementById('ver-card-body').innerHTML = '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0"><span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando card…</div>';
+  document.getElementById('modal-ver-card').classList.add('open');
+
+  try{
+    var cards = await buscarCardsAbaFat_(aba);
+    var card = (cards||[]).find(function(c){ return String(c.codigo||'').trim().toUpperCase()===codigo.toUpperCase(); });
+    if(!card){
+      document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Card não encontrado nessa aba. Confira o código/empresa.</div>';
+      return;
+    }
+    function campo(label, valor){
+      if(valor===undefined||valor===null||valor==='') return '';
+      return '<div class="sp-field"><div class="sp-label">'+e(label)+'</div><div class="sp-val">'+e(valor)+'</div></div>';
+    }
+    document.getElementById('ver-card-body').innerHTML = `
+      <div class="modal-section-title"><i class="ti ti-id" style="font-size:12px"></i> Identificação</div>
+      <div class="grid-2">
+        ${campo('Código', card.codigo)}${campo('Título', card.titulo)}
+        ${campo('Status', card.status)}${campo('Acompanhamento', card.acompanhamento)}
+        ${campo('Cliente', card.cliente)}${campo('Contato Cliente', card.contato_cliente)}
+        ${campo('CNPJ Tomador', card.cnpj_tomador)}${campo('Vendedor', card.vendedor)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-route" style="font-size:12px"></i> Rota</div>
+      <div class="grid-2">
+        ${campo('Origem', [card.cidade_origem,card.uf_origem].filter(Boolean).join('/'))}
+        ${campo('Destino', [card.cidade_destino,card.uf_destino].filter(Boolean).join('/'))}
+        ${campo('Data Coleta', card.data_coleta)}${campo('Previsão Entrega', card.previsao_entrega)}
+        ${campo('Data Entrega', card.data_entrega)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-truck" style="font-size:12px"></i> Veículo / Motorista</div>
+      <div class="grid-2">
+        ${campo('Tipo de Veículo', card.tipo_veiculo)}${campo('Motorista', card.motorista)}
+        ${campo('Telefone Motorista', card.telefone_motorista)}${campo('Gerenciamento', card.gerenciamento)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-cash" style="font-size:12px"></i> Financeiro</div>
+      <div class="grid-2">
+        ${campo('Frete Cobrado', card.frete_cobrado?fmtMoeda(card.frete_cobrado):'')}${campo('Frete Pago', card.frete_pago?fmtMoeda(card.frete_pago):'')}
+        ${campo('Custo Operacional Total', card.custo_operacional_total?fmtMoeda(card.custo_operacional_total):'')}${campo('Adiantamento', card.adiantamento)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-building-bank" style="font-size:12px"></i> Dados Bancários</div>
+      <div class="grid-2">
+        ${campo('Titular da Conta', card.titular_conta)}${campo('Banco', card.banco)}
+        ${campo('Tipo de Chave PIX', card.tipo_chave_pix)}${campo('Chave PIX', card.chave_pix)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-file-description" style="font-size:12px"></i> Documentos</div>
+      <div class="grid-2">
+        ${campo('CT-e', card.cte)}${campo('NF', card.nf)}
+        ${campo('Cotação vinculada', card.cotacao_numero?('#'+String(card.cotacao_numero).padStart(4,'0')):'')}
+      </div>
+      ${card.observacao?('<div class="modal-section-title" style="margin-top:14px"><i class="ti ti-note" style="font-size:12px"></i> Observação</div><p style="font-size:12px">'+e(card.observacao)+'</p>'):''}
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-paperclip" style="font-size:12px"></i> Anexos do card</div>
+      <div class="alist" id="ver-card-att-list"></div>
+    `;
+    carregarAnexosParaExibir_('ver-card-att-list', card.codigo);
+  }catch(e){
+    document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Não foi possível buscar agora ('+(e.message||'erro de conexão')+').</div>';
+  }
+}
+
+/* ── Leitura UNIFICADA de documento fiscal (PDF) — detecta sozinho se é
+   uma NF-e (DANFE) ou um CT-e (DACTE) e aplica os campos certos pra cada
+   caso. Usada tanto no modal de Nova Solicitação (lê a NF) quanto no
+   modal de Registro/Finalização (lê o CT-e) — mesmo motor pros dois. ── */
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function reconstruirTextoVisualFat_(items){
+  var pontos = items
+    .map(function(it){ return { x: it.transform[4], y: it.transform[5], str: it.str }; })
+    .filter(function(p){ return p.str && p.str.trim() !== ''; });
+  pontos.sort(function(a,b){ return b.y - a.y; });
+  var linhas = [];
+  var tolerancia = 3;
+  pontos.forEach(function(p){
+    var linha = linhas.find(function(l){ return Math.abs(l.y - p.y) <= tolerancia; });
+    if(!linha){ linha = {y:p.y, itens:[]}; linhas.push(linha); }
+    linha.itens.push(p);
+  });
+  return linhas.map(function(l){
+    return l.itens.sort(function(a,b){ return a.x-b.x; }).map(function(i){ return i.str; }).join(' ');
+  }).join('\n');
+}
+
+// Empresas do grupo por CNPJ do emitente (confirmados via CT-e reais) — fallback por nome
+var CNPJ_EMPRESAS_FAT = {
+  '34.973.374/0001-05': "Barreto's Transportes e Serviços",
+  '49.765.171/0001-09': "Barreto's Transportes Sites e Infraestrutura",
+  '35.303.041/0001-31': "Gonçalves Soluções em Logística"
+};
+
+function detectarTipoDocumentoFiscal_(texto){
+  if(/DACTE|CONHECIMENTO DE TRANSPORTE ELETR[ÔO]NICO/i.test(texto)) return 'cte';
+  if(/DANFE|NOTA FISCAL ELETR[ÔO]NICA/i.test(texto)) return 'nfe';
+  return 'desconhecido';
+}
+
+async function lerDocumentoFiscalPdf(prefixo){
+  var input = document.getElementById(prefixo+'-arquivo');
+  var statusEl = document.getElementById(prefixo+'-status-pdf');
+  var arquivo = input.files && input.files[0];
+  if(!arquivo){ statusEl.innerHTML = '<span class="txt-red">Selecione um arquivo PDF primeiro.</span>'; return; }
+  if(typeof pdfjsLib === 'undefined'){ statusEl.innerHTML = '<span class="txt-red">Biblioteca de leitura de PDF não carregou.</span>'; return; }
+
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Lendo PDF…';
+  try{
+    var buffer = await arquivo.arrayBuffer();
+    var doc = await pdfjsLib.getDocument({data: buffer}).promise;
+    var textoCompleto = '';
+    for(var p=1; p<=doc.numPages; p++){
+      var page = await doc.getPage(p);
+      var content = await page.getTextContent();
+      textoCompleto += reconstruirTextoVisualFat_(content.items) + '\n';
+    }
+    if(textoCompleto.trim().length < 40){
+      statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span>';
+      return;
+    }
+    var tipo = detectarTipoDocumentoFiscal_(textoCompleto);
+    if(tipo === 'nfe'){
+      statusEl.innerHTML = '<span class="txt-red">Isso parece ser uma Nota Fiscal, não um CT-e — anexe a NF na tela de Nova Solicitação (Fila de Faturamento) em vez de ler aqui.</span>';
+      return;
+    }
+    var campos = parseCteTexto(textoCompleto);
+    aplicarCamposCte_(prefixo, campos);
+    var reconhecidos = Object.keys(campos).filter(k=>campos[k]).length;
+    statusEl.innerHTML = reconhecidos
+      ? '<span class="txt-green">✓ '+reconhecidos+' campo(s) preenchido(s) automaticamente pela leitura do CT-e. Confira antes de salvar.</span>'
+      : '<span class="txt-red">Não consegui reconhecer os campos deste CT-e. Preencha manualmente.</span>';
+  }catch(e){
+    statusEl.innerHTML = '<span class="txt-red">Erro ao ler o PDF ('+(e.message||'falha desconhecida')+').</span>';
+  }
+}
+
+// Mantido por compatibilidade — o botão do modal de Registro chamava
+// lerCtePdf() diretamente; agora só delega pro leitor unificado.
+async function lerCtePdf(){ return lerDocumentoFiscalPdf('r'); }
+
+function parseCteTexto(texto){
+  var linhas = texto.split('\n').map(function(l){ return l.replace(/\s+/g,' ').trim(); }).filter(Boolean);
+  var t = linhas.join(' ');
+  var campos = {};
+
+  // CNPJ do emitente (aparece logo no cabeçalho, rótulo "CNPJ:" isolado)
+  var mCnpj = t.match(/CNPJ:\s*([\d.\/-]+)/);
+  var cnpjEmitente = mCnpj ? mCnpj[1] : '';
+  if(cnpjEmitente && CNPJ_EMPRESAS_FAT[cnpjEmitente]) campos.empresa = CNPJ_EMPRESAS_FAT[cnpjEmitente];
+  else if(/SITES E INFRAESTRUTURA/i.test(t)) campos.empresa = "Barreto's Transportes Sites e Infraestrutura";
+  else if(/GON[ÇC]ALVES/i.test(t)) campos.empresa = "Gonçalves Soluções em Logística";
+  else if(/PINHEIRO/i.test(t)) campos.empresa = "Pinheiro Transportes e Serviços";
+  else if(/BARRETO/i.test(t)) campos.empresa = "Barreto's Transportes e Serviços";
+
+  // Cliente (Tomador do Serviço) — "TOMADOR DO SERVIÇO" aparece 2x no CT-e:
+  // uma vez como rótulo de coluna da tabelinha do topo (sem dois-pontos) e
+  // outra como o campo de verdade, com dois-pontos, seguido do nome da
+  // empresa — por isso exigimos o dois-pontos aqui, senão pega o rótulo
+  // errado (da tabelinha).
+  var idxTomador = linhas.findIndex(function(l){ return /TOMADOR DO SERVI[ÇC]O\s*:/i.test(l); });
+  if(idxTomador>=0){
+    var mesmaLinha = linhas[idxTomador].match(/TOMADOR DO SERVI[ÇC]O\s*:\s*(.+)/i);
+    var candidato = mesmaLinha && mesmaLinha[1].trim();
+    if(!candidato){
+      for(var i=idxTomador+1;i<Math.min(idxTomador+3, linhas.length);i++){
+        if(linhas[i]){ candidato = linhas[i]; break; }
+      }
+    }
+    if(candidato){
+      // Corta no primeiro rótulo seguinte (às vezes a reconstrução junta o
+      // nome da empresa com o início do endereço na mesma linha, ex:
+      // "ACTECH - ALUMINA CH TEC LTDA MUNICÍPIO: Ouro Preto - MG CEP: ...")
+      var mCorte = candidato.match(/^(.*?)\s+(?:MUNIC[ÍI]PIO|ENDERE[ÇC]O|CNPJ|CEP|FONE|PA[ÍI]S|INSC)\b/i);
+      if(mCorte) candidato = mCorte[1].trim();
+      campos.cliente = candidato;
+    }
+  }
+
+  // CT-e: padrão ###.###.### no cabeçalho (número do documento)
+  var mCte = t.match(/\b(\d{3}\.\d{3}\.\d{3})\b/);
+  if(mCte) campos.cte = String(parseInt(mCte[1].replace(/\./g,''), 10));
+
+  // NF-e (Documentos Originários) — pode ter mais de uma; junta todas com "/"
+  var nfeMatches = Array.from(t.matchAll(/NF-e\s+(\d+)/gi));
+  if(nfeMatches.length){
+    var nfes = nfeMatches.map(function(m){ return String(parseInt(m[1],10)); });
+    nfes = nfes.filter(function(v,i){ return nfes.indexOf(v)===i; }); // remove duplicatas
+    campos.nfe = nfes.join('/');
+  }
+
+  // Data/hora de emissão (data seguida de hora, formato único no documento)
+  var mData = t.match(/(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}:\d{2}/);
+  if(mData) campos.dataFaturamento = dataPlanilhaParaISO_(mData[1]);
+
+  // Origem / Destino: linha com "CIDADE - UF - CÓDIGO CIDADE - UF - CÓDIGO".
+  // Removemos antes os próprios rótulos "ORIGEM DA PRESTAÇÃO"/"DESTINO DA
+  // PRESTAÇÃO" do texto — sem isso, como não há traço nessas palavras, a
+  // regex "comia" o rótulo inteiro junto com o nome da cidade (não tinha
+  // onde parar antes do primeiro "-" de verdade).
+  var tSemRotulos = t
+    .replace(/ORIGEM DA PRESTA[ÇC][ÃA]O/gi, ' ')
+    .replace(/DESTINO DA PRESTA[ÇC][ÃA]O/gi, ' ');
+  var mRotas = tSemRotulos.match(/([A-ZÀ-Úa-zà-ú][A-ZÀ-Úa-zà-ú\s]*?)\s*-\s*([A-Z]{2})\s*-\s*\d{6,7}\s+([A-ZÀ-Úa-zà-ú][A-ZÀ-Úa-zà-ú\s]*?)\s*-\s*([A-Z]{2})\s*-\s*\d{6,7}/);
+  if(mRotas){
+    campos.origem = mRotas[1].trim();
+    campos.uf = mRotas[2];
+    campos.destino = mRotas[3].trim();
+    campos.uf2 = mRotas[4];
+  }
+
+  // Valor Total do Serviço (Total Frete)
+  var mValor = t.match(/VALOR TOTAL DO SERVI[ÇC]O[\s\S]{0,60}?([\d.,]+)/i);
+  if(mValor) campos.totalFrete = mValor[1].replace(/\./g,'').replace(',','.');
+
+  return campos;
+}
+function aplicarCamposCte_(prefixo, c){
+  var set = function(id, val){ var el = document.getElementById(prefixo+'-'+id); if(el && val) el.value = val; };
+  if(c.empresa) set('empresa', c.empresa);
+  if(c.cliente) set('cliente', c.cliente);
+  if(c.cte) set('cte', c.cte);
+  if(c.nfe) set('nfe', c.nfe);
+  if(c.dataFaturamento) set('data-faturamento', c.dataFaturamento);
+  if(c.origem) set('origem', c.origem);
+  if(c.uf) set('uf', c.uf);
+  if(c.destino) set('destino', c.destino);
+  if(c.uf2) set('uf2', c.uf2);
+  if(c.totalFrete){ set('total-frete', c.totalFrete); if(prefixo==='r') atualizarPreviewCalculo(); }
+}
+
+
+/* ── Exportar Excel (mesmas 24 colunas da planilha real) ── */
+function exportarExcel(){
+  var rows = getLinhasFiltradas();
+  if(!rows.length){ alert('Nenhum registro para exportar.'); return; }
+  var header = ['CLIENTE','EMPRESA','MOTORISTA','VENDEDOR','COD','OBSERVAÇÕES','NFE','CTE','MDF','CIOT','VALE PEDÁGIO','VEÍCULO',
+    'ORIGEM','UF','DESTINO','UF2','DATA FATURAMENTO','TOTAL FRETE','VALOR FRETEIRO','GNRE',
+    'IMPOSTO','BARRETOS','CUSTO OP.','LUCRO BRUTO','LUCRO LÍQUIDO','PERCENTUAL','STATUS'];
+  function num(v){ v=Number(v); return isFinite(v)?v.toFixed(2):'0.00'; }
+  var linhas = rows.map(function(r){
+    return [r.cliente,r.empresa,r.motorista,r.vendedor,r.cod,r.observacoes,r.nfe,r.cte,r.mdf,r.ciot,r.valePedagio,r.veiculo,
+      r.origem,r.uf,r.destino,r.uf2,fmtData(dataPlanilhaParaISO_(r.dataFaturamento)),
+      num(r.totalFrete),num(r.valorFreteiro),num(r.gnre),num(r.imposto),num(r.barretos),
+      num(r.custoOp),num(r.lucroBruto),num(r.lucroLiquido),(r.percentual!=null?(Number(r.percentual)*100).toFixed(2)+'%':''),
+      r.statusCanhoto||''
+    ].map(function(v){ return (v===undefined||v===null)?'':String(v).replace(/;/g,','); });
+  });
+  var texto = [header.join(';')].concat(linhas.map(l=>l.join(';'))).join('\n');
+  var blob = new Blob(['\uFEFF'+texto], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'faturamento.csv';
+  a.click();
+}
+
+/* ── Tema claro/escuro (mesmo padrão do resto do sistema) ── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t = localStorage.getItem('barretos_tema') || 'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message', function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+
+/* ── Sincronização entre navegadores ──
+   Em vez de baixar a lista inteira de registros toda hora (o que pesaria
+   conforme o histórico cresce), confere com frequência só um timestamp
+   leve (obterUltimaAtualizacao, calculado no backend) — só busca a lista
+   completa de novo quando esse valor realmente muda, então uma ação feita
+   num navegador aparece pros outros em poucos segundos sem sobrecarregar
+   nada. */
+var ultimaAtualizacaoConhecidaFat = null;
+
+async function verificarAtualizacaoFat(){
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/ultima-atualizacao');
+    var j = await res.json();
+    if(j.atualizadoEm === ultimaAtualizacaoConhecidaFat) return;
+    ultimaAtualizacaoConhecidaFat = j.atualizadoEm;
+    var side = document.getElementById('side-panel-registro');
+    var algumModalAberto = document.querySelector('.modal-overlay.open');
+    if((side && side.classList.contains('open')) || algumModalAberto) return; // não atualiza se tiver algo aberto, pra não perder o que o usuário está digitando
+    await loadAllData();
+  }catch(e){}
+}
+
+/* ── Init ── */
+aplicarModoPorSessaoFat();
+setPeriodoMesAtual();
+loadAllData().then(verificarAtualizacaoFat); // fixa o timestamp inicial só depois da 1ª carga
+
+setInterval(verificarAtualizacaoFat, 5000);
+</script>
+</body>
+</html>

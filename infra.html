@@ -49,6 +49,24 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 .col-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:7px;min-height:60px;}
 .col-body::-webkit-scrollbar{width:3px;}
 .col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.resumo-col{flex:1;min-width:260px;align-self:flex-start;display:flex;flex-direction:column;gap:12px;}
+.resumo{background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;}
+.resumo-ttl{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim);}
+.resumo-hero{background:var(--gold-dim);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.resumo-hero .n{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums;font-size:28px;font-weight:700;color:var(--txt);line-height:1.15;}
+.resumo-hero .lbl{font-size:11px;color:var(--txt-dim);margin-top:4px;}
+.resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.resumo-kpi{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border);
+  border-radius:8px;padding:10px 12px;}
+.resumo-kpi.warn{border-left-color:var(--gold);}
+.resumo-kpi .n{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;color:var(--txt);}
+.resumo-chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.resumo-chart-tip{display:none;position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);
+  border-radius:6px;padding:5px 9px;font-size:11px;color:var(--txt);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:2;}
+.resumo-chart-tip b{font-variant-numeric:tabular-nums;}
+.resumo-kpi.warn .n{color:var(--gold);}
+.resumo-kpi .lbl{font-size:10.5px;color:var(--txt-mid);margin-top:2px;}
 .kcard{background:var(--card);border:1px solid var(--border);border-radius:8px;
   padding:10px 12px;cursor:grab;transition:all .15s;border-left:3px solid transparent;user-select:none;}
 .kcard:hover{border-color:rgba(245,184,0,.3);border-left-color:var(--gold);transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.4);}
@@ -214,6 +232,9 @@ body.tema-claro .kcard-foot .ktag[style*="22C55E"]{
         <button class="bdng" id="btn-del" onclick="deleteCard()" style="display:none">
           <i class="ti ti-trash" style="font-size:12px"></i> Excluir
         </button>
+        <button class="bgh" id="btn-baixar-tudo" onclick="baixarTodosAnexos()" style="display:none">
+          <i class="ti ti-download" style="font-size:12px"></i> Baixar Todos
+        </button>
         <span class="mmsg" id="mmsg"></span>
       </div>
       <div style="display:flex;gap:8px;">
@@ -230,8 +251,8 @@ body.tema-claro .kcard-foot .ktag[style*="22C55E"]{
 
 <script>
 var ABA="INFRA", PFX="S", SK="jira_url_INFRA", ATK="att_INF_", EXTK="extra_INF_";
-var STATUS_LIST=["OPERACIONAL","COLETA","AGUARDANDO MANIFESTO","FATURADO","MANIFESTOS","FINALIZADO"];
-var SC={"OPERACIONAL":"#3B82F6","COLETA":"#F59E0B","AGUARDANDO MANIFESTO":"#8B5CF6","FATURADO":"#F5B800","MANIFESTOS":"#EC4899","FINALIZADO":"#22C55E"};
+var STATUS_LIST=["OPERACIONAL","COLETA","FATURADO","FINALIZADO"];
+var SC={"OPERACIONAL":"#3B82F6","COLETA":"#F59E0B","FATURADO":"#F5B800","FINALIZADO":"#22C55E"};
 var AO=["","EM ROTA DE COLETA","AGUARDANDO CARREGAMENTO","CARREGANDO","EM ROTA DE ENTREGA","DESCARREGANDO","CONCLUIDO","NECESSARIO TRANSBORDO","RETOMAR CONTRATAÇÃO","SEM CONTATO"];
 
 // Field map: chave do dado → id do elemento HTML
@@ -261,6 +282,7 @@ var FM={
   // ── Campos extras do form que precisam de colunas na planilha
   "CNPJ TOMADOR":       "fi_cnpj_tom",
   "CTE":                "fi_cte",
+  "MDF":                "fi_mdf",
   "NF":                 "fi_nf",
   "CIDADE ORIGEM":      "fi_cid_orig",
   "CIDADE DESTINO":     "fi_cid_dest",
@@ -272,7 +294,8 @@ var FM={
   "BANCO":              "fi_banco",
   "TELEFONE MOTORISTA": "fi_tel_mot",
   "TITULO":             "fi_titulo",
-  "OBSERVACAO":         "fi_obs"
+  "OBSERVACAO":         "fi_obs",
+  "VALE PEDAGIO":     "fi_vale_pedagio"
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
@@ -296,7 +319,124 @@ function fromDateInp(s){
   return s;
 }
 
+// WEBAPP_URL agora só é usado pros anexos (upload/lista/exclusão no Google
+// Drive) — os dados do card em si vêm do Supabase, via API_BASE abaixo.
 var WEBAPP_URL="https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
+
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Toda chamada à API (do card, não dos anexos) passa por aqui em vez de
+// fetch() direto, pra sempre ir com o token de login e tentar renovar
+// sozinho se ele já tiver expirado.
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+// Converte um card do formato interno (datas em dd/MM/yyyy, igual a
+// planilha antiga devolvia) pro formato da API (snake_case, datas ISO).
+function mapearParaApi_(dados){
+  var camposData = {"DATA DA COLETA":1,"PREVISÃO DE ENTREGA":1,"DATA DA ENTREGA":1};
+  var mapa = {
+    "DT CODIGO":"codigo","Resumo":"resumo","TITULO":"titulo","Status":"status","ACOMPANHAMENTO":"acompanhamento",
+    "CLIENTE":"cliente","CONTATO CLIENTE":"contato_cliente","CNPJ TOMADOR":"cnpj_tomador","VENDEDOR":"vendedor",
+    "DATA DA COLETA":"data_coleta","PREVISÃO DE ENTREGA":"previsao_entrega","MODALIDADE":"modalidade","TIPO DE MATERIAL":"tipo_material",
+    "CTE":"cte","MDF":"mdf","NF":"nf","DATA DA ENTREGA":"data_entrega",
+    "CIDADE ORIGEM":"cidade_origem","UF ORIGEM":"uf_origem","CIDADE DESTINO":"cidade_destino","UF DESTINO":"uf_destino",
+    "FRETE COBRADO":"frete_cobrado","FRETE PAGO":"frete_pago","CUSTO OPERACIONAL TOTAL":"custo_operacional_total","ADIANTAMENTO":"adiantamento",
+    "TIPO DE VEICULO":"tipo_veiculo","MOTORISTA":"motorista","TELEFONE MOTORISTA":"telefone_motorista","GERENCIAMENTO":"gerenciamento",
+    "TITULAR DA CONTA":"titular_conta","TIPO CHAVE PIX":"tipo_chave_pix","CHAVE PIX":"chave_pix","BANCO":"banco",
+    "OBSERVACAO":"observacao","COTAÇÃO":"cotacao_numero","VALE PEDAGIO":"vale_pedagio"
+  };
+  var out = {};
+  Object.keys(mapa).forEach(function(k){
+    if(dados[k]===undefined) return;
+    out[mapa[k]] = camposData[k] ? toBR_inv(dados[k]) : dados[k];
+  });
+  return out;
+}
+// Converte uma linha da API (snake_case, datas ISO) de volta pro formato
+// interno (chaves da planilha, datas dd/MM/yyyy) — usado só na leitura,
+// pra todo o resto do código (que já existia) continuar igual.
+function mapearDoApi_(row){
+  var mapaInverso = {
+    codigo:"DT CODIGO", resumo:"Resumo", titulo:"TITULO", status:"Status", acompanhamento:"ACOMPANHAMENTO",
+    cliente:"CLIENTE", contato_cliente:"CONTATO CLIENTE", cnpj_tomador:"CNPJ TOMADOR", vendedor:"VENDEDOR",
+    data_coleta:"DATA DA COLETA", previsao_entrega:"PREVISÃO DE ENTREGA", modalidade:"MODALIDADE", tipo_material:"TIPO DE MATERIAL",
+    cte:"CTE", mdf:"MDF", nf:"NF", data_entrega:"DATA DA ENTREGA",
+    cidade_origem:"CIDADE ORIGEM", uf_origem:"UF ORIGEM", cidade_destino:"CIDADE DESTINO", uf_destino:"UF DESTINO",
+    frete_cobrado:"FRETE COBRADO", frete_pago:"FRETE PAGO", custo_operacional_total:"CUSTO OPERACIONAL TOTAL", adiantamento:"ADIANTAMENTO",
+    tipo_veiculo:"TIPO DE VEICULO", motorista:"MOTORISTA", telefone_motorista:"TELEFONE MOTORISTA", gerenciamento:"GERENCIAMENTO",
+    titular_conta:"TITULAR DA CONTA", tipo_chave_pix:"TIPO CHAVE PIX", chave_pix:"CHAVE PIX", banco:"BANCO",
+    observacao:"OBSERVACAO", cotacao_numero:"COTAÇÃO", vale_pedagio:"VALE PEDAGIO"
+  };
+  var camposData = {data_coleta:1, previsao_entrega:1, data_entrega:1};
+  var out = {};
+  Object.keys(mapaInverso).forEach(function(campo){
+    var chave = mapaInverso[campo];
+    var v = row[campo];
+    out[chave] = camposData[campo] ? fromDateInp(v||'') : (v||'');
+  });
+  out["Chave"] = out["DT CODIGO"];
+  return out;
+}
 
 /* ── Nova tentativa automática quando o backend está ocupado ──
    O Kanban é o módulo com mais gente mexendo ao mesmo tempo — o Apps
@@ -333,31 +473,18 @@ function saveExtra(key, dados) {
 
 
 document.addEventListener("DOMContentLoaded",function(){
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   loadData();
 });
-
-
-
-// Por padrão, o board só carrega cards com "Data da Coleta" dos últimos 2
-// meses — reduz o tamanho do que precisa ser transferido/processado a
-// cada carregamento. "Ver mais antigos" busca de novo sem esse filtro,
-// trazendo o histórico completo pra consulta.
-var verTodosCards = false;
-function dataLimiteISO_(){
-  var d = new Date();
-  d.setMonth(d.getMonth() - 2);
-  return d.toISOString().slice(0,10);
-}
 
 async function loadData(){
   var btn=document.getElementById("btn-ref");
   btn.innerHTML="<span class=\"spinner\"></span>";
   try{
-    var url = WEBAPP_URL+"?aba="+encodeURIComponent(ABA);
-    if(!verTodosCards) url += "&desde="+dataLimiteISO_();
-    var j=await fetchComTentativas_(url);
-    if(!j.success)throw new Error(j.error);
-    allCards=j.rows;
+    var r = await apiFetch(API_BASE+"/kanban?empresa="+encodeURIComponent(ABA));
+    var rows = await r.json();
+    if(!r.ok) throw new Error(rows.error||"Erro ao carregar");
+    allCards=(rows||[]).map(mapearDoApi_);
     // rebuild vendedores list
     var vs={};
     allCards.forEach(function(c){if(c["VENDEDOR"])vs[c["VENDEDOR"]]=1;});
@@ -368,7 +495,7 @@ async function loadData(){
       vendedores.map(function(v){return "<option value=\""+e(v)+"\""+(v===cur?" selected":"")+">"+v+"</option>";}).join("");
     renderBoard();
   }catch(ex){
-    
+
     document.getElementById("board").innerHTML="<div style=\"padding:40px;color:var(--red);font-size:13px;margin:auto;text-align:center\">"+
       "<i class=\"ti ti-plug-off\" style=\"font-size:32px;display:block;margin-bottom:12px\"></i>"+
       "Erro: "+ex.message+"</div>";
@@ -376,8 +503,10 @@ async function loadData(){
   btn.innerHTML="<i class=\"ti ti-refresh\" style=\"font-size:12px\"></i> Atualizar";
 }
 
+// Mantido só pelo botão já existente na tela — a API sempre devolve tudo
+// de uma vez agora, não tem mais paginação por "últimos 2 meses" como a
+// planilha tinha, então só recarrega.
 async function carregarTodosCards(){
-  verTodosCards = true;
   var btnAntigos = document.getElementById("btn-antigos");
   btnAntigos.innerHTML = "<span class=\"spinner\"></span>";
   await loadData();
@@ -398,6 +527,135 @@ function doFilter(){
   });
 }
 
+// Resumo do quadro — preenche o espaço que sobrou desde que as colunas
+// "Aguardando Manifesto"/"Manifestos" saíram (ver automação Faturamento →
+// Kanban). Em vez de virar mais uma coluna manual, mostra informação que
+// já existia espalhada (valor em aberto, pendências) direto no quadro.
+function parseValorBR_(s){
+  if(s===null||s===undefined||s==="")return 0;
+  var v=String(s).replace(/R\$\s*/g,"").trim();
+  if(v.indexOf(",")!==-1)v=v.replace(/\./g,"").replace(",",".");
+  var n=parseFloat(v);
+  return isFinite(n)?n:0;
+}
+function fmtMoeda_(v){
+  return (v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+function dataAmanhaBR_(){
+  var d=new Date();d.setDate(d.getDate()+1);
+  return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+}
+function montarResumo_(cards){
+  var abertos=cards.filter(function(c){return c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO";});
+  var valorAberto=abertos.reduce(function(s,c){return s+parseValorBR_(c["FRETE COBRADO"]);},0);
+  var semValePedagio=cards.filter(function(c){return c["DATA DA COLETA"]&&!c["VALE PEDAGIO"];}).length;
+  var semDataColeta=cards.filter(function(c){return !c["DATA DA COLETA"];}).length;
+  var coletaAmanha=cards.filter(function(c){return c["DATA DA COLETA"]===dataAmanhaBR_();}).length;
+
+  return "<div class=\"resumo\">"+
+    "<div class=\"resumo-ttl\">Resumo do Quadro</div>"+
+    "<div class=\"resumo-hero\"><div class=\"n\">"+fmtMoeda_(valorAberto)+"</div><div class=\"lbl\">Em aberto (não faturado)</div></div>"+
+    "<div class=\"resumo-grid\">"+
+    "<div class=\"resumo-kpi"+(semValePedagio?" warn":"")+"\"><div class=\"n\">"+semValePedagio+"</div><div class=\"lbl\">Sem Vale Pedágio</div></div>"+
+    "<div class=\"resumo-kpi"+(semDataColeta?" warn":"")+"\"><div class=\"n\">"+semDataColeta+"</div><div class=\"lbl\">Sem Data de Coleta</div></div>"+
+    "<div class=\"resumo-kpi\" style=\"grid-column:1/-1\"><div class=\"n\">"+coletaAmanha+"</div><div class=\"lbl\">Coleta amanhã</div></div>"+
+    "</div></div>";
+}
+var MESES_=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+function fmtMoedaCompacta_(v){
+  if(v>=1000)return "R$ "+(v/1000).toFixed(1).replace(".",",")+" mil";
+  return fmtMoeda_(v);
+}
+// Gráfico de faturamento por dia da coleta, só do mês vigente — pedido do
+// Alex pra enxergar em quais dias se concentra mais faturamento. Considera
+// "faturado" os cards que já passaram por FATURADO ou FINALIZADO (o valor
+// em aberto do card acima é o oposto disso, de propósito).
+var _resumoChartW=320,_resumoChartH=150;
+function montarGraficoResumo_(cards){
+  var hoje=new Date(),ano=hoje.getFullYear(),mes=hoje.getMonth();
+  var diasNoMes=new Date(ano,mes+1,0).getDate();
+  var porDia=new Array(diasNoMes).fill(0);
+
+  cards.forEach(function(c){
+    if(c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO")return;
+    var dc=c["DATA DA COLETA"];if(!dc)return;
+    var p=String(dc).split("/");if(p.length!==3)return;
+    var d=parseInt(p[0],10),m=parseInt(p[1],10)-1,y=parseInt(p[2],10);
+    if(y!==ano||m!==mes||!d||d<1||d>diasNoMes)return;
+    porDia[d-1]+=parseValorBR_(c["FRETE COBRADO"]);
+  });
+
+  var maxV=Math.max.apply(null,porDia.concat([0]));
+  var padL=8,padR=8,padT=16,padB=20,W=_resumoChartW,H=_resumoChartH;
+  var plotW=W-padL-padR,plotH=H-padT-padB;
+
+  window._resumoChartPts=porDia.map(function(v,i){
+    var x=padL+(diasNoMes>1?(i/(diasNoMes-1))*plotW:0);
+    var y=padT+plotH-(maxV>0?(v/maxV)*plotH:0);
+    return {dia:i+1,valor:v,x:x,y:y};
+  });
+
+  var linePath="M"+window._resumoChartPts.map(function(p){return p.x.toFixed(1)+","+p.y.toFixed(1);}).join(" L");
+  var base=(padT+plotH).toFixed(1);
+  var first=window._resumoChartPts[0],last=window._resumoChartPts[window._resumoChartPts.length-1];
+  var areaPath=linePath+" L"+last.x.toFixed(1)+","+base+" L"+first.x.toFixed(1)+","+base+" Z";
+
+  var diasEixo=[1,5,10,15,20,25,diasNoMes].filter(function(d,i,arr){return d<=diasNoMes&&arr.indexOf(d)===i;});
+  var labelsX=diasEixo.map(function(d){
+    var x=padL+(diasNoMes>1?((d-1)/(diasNoMes-1))*plotW:0);
+    return "<text x=\""+x.toFixed(1)+"\" y=\""+(H-6)+"\" text-anchor=\"middle\" style=\"font-size:8px;fill:var(--txt-mid);font-family:'DM Sans',sans-serif\">"+d+"</text>";
+  }).join("");
+
+  return "<div class=\"resumo-chart\">"+
+    "<div class=\"resumo-ttl\">Faturamento por dia da coleta <span style=\"font-weight:400;text-transform:none;letter-spacing:0\">— "+MESES_[mes]+"/"+ano+"</span></div>"+
+    "<div style=\"position:relative;margin-top:10px\">"+
+    "<svg viewBox=\"0 0 "+W+" "+H+"\" style=\"width:100%;height:150px;display:block\" onmousemove=\"hoverResumoChart_(event,this)\" onmouseleave=\"hideResumoChartTip_()\">"+
+      "<line x1=\""+padL+"\" y1=\""+padT+"\" x2=\""+(W-padR)+"\" y2=\""+padT+"\" style=\"stroke:var(--border);stroke-width:1\"/>"+
+      "<line x1=\""+padL+"\" y1=\""+base+"\" x2=\""+(W-padR)+"\" y2=\""+base+"\" style=\"stroke:var(--border);stroke-width:1\"/>"+
+      (maxV>0?"<text x=\""+padL+"\" y=\""+(padT-4)+"\" style=\"font-size:8px;fill:var(--txt-mid);font-family:'DM Sans',sans-serif\">"+fmtMoedaCompacta_(maxV)+"</text>":"")+
+      "<path d=\""+areaPath+"\" style=\"fill:var(--gold-dim);stroke:none\"/>"+
+      "<path d=\""+linePath+"\" style=\"fill:none;stroke:var(--gold);stroke-width:2;stroke-linejoin:round;stroke-linecap:round\"/>"+
+      "<circle cx=\""+last.x.toFixed(1)+"\" cy=\""+last.y.toFixed(1)+"\" r=\"4\" style=\"fill:var(--gold);stroke:var(--surface);stroke-width:2\"/>"+
+      "<line id=\"resumo-chart-crosshair\" x1=\"0\" y1=\""+padT+"\" x2=\"0\" y2=\""+base+"\" style=\"stroke:var(--txt-mid);stroke-width:1;opacity:0\"/>"+
+      "<circle id=\"resumo-chart-hoverdot\" r=\"4\" style=\"fill:var(--gold);stroke:var(--surface);stroke-width:2;opacity:0\"/>"+
+      labelsX+
+    "</svg>"+
+    "<div class=\"resumo-chart-tip\" id=\"resumo-chart-tip\"></div>"+
+    "</div></div>";
+}
+function hoverResumoChart_(ev,svg){
+  var pts=window._resumoChartPts;
+  if(!pts||!pts.length)return;
+  var rect=svg.getBoundingClientRect();
+  var mx=(ev.clientX-rect.left)*(_resumoChartW/rect.width);
+  var nearest=pts[0],best=Infinity;
+  pts.forEach(function(p){var d=Math.abs(p.x-mx);if(d<best){best=d;nearest=p;}});
+
+  var cross=document.getElementById("resumo-chart-crosshair");
+  var dot=document.getElementById("resumo-chart-hoverdot");
+  var tip=document.getElementById("resumo-chart-tip");
+  if(!cross||!dot||!tip)return;
+
+  cross.setAttribute("x1",nearest.x);cross.setAttribute("x2",nearest.x);cross.style.opacity=1;
+  dot.setAttribute("cx",nearest.x);dot.setAttribute("cy",nearest.y);dot.style.opacity=1;
+
+  tip.style.display="block";
+  tip.textContent="";
+  var b=document.createElement("b");b.textContent=fmtMoeda_(nearest.valor);
+  tip.appendChild(b);
+  tip.appendChild(document.createTextNode(" · dia "+nearest.dia));
+  var leftPx=(nearest.x/_resumoChartW)*rect.width;
+  tip.style.left=Math.min(Math.max(leftPx-45,0),rect.width-100)+"px";
+  tip.style.top="2px";
+}
+function hideResumoChartTip_(){
+  var cross=document.getElementById("resumo-chart-crosshair");
+  var dot=document.getElementById("resumo-chart-hoverdot");
+  var tip=document.getElementById("resumo-chart-tip");
+  if(cross)cross.style.opacity=0;
+  if(dot)dot.style.opacity=0;
+  if(tip)tip.style.display="none";
+}
 function renderBoard(){
   var h="";
   STATUS_LIST.forEach(function(st){
@@ -411,6 +669,7 @@ function renderBoard(){
       (cc.length?cc.map(rCard).join(""):"<div class=\"empty-col\">Sem cards</div>")+
       "</div></div>";
   });
+  h+="<div class=\"resumo-col\">"+montarResumo_(allCards)+montarGraficoResumo_(allCards)+"</div>";
   document.getElementById("board").innerHTML=h;
 }
 function onColClick(ev){
@@ -429,13 +688,15 @@ function rCard(c){
   var _rota=_parts.find(function(p){return p.toUpperCase().indexOf(" X ")!==-1;})||"";
   var titulo=_extra["TITULO"]||_rota||"";
   var att=getAtt(key);
-  var srch=[key,titulo,cli,vend,c["MOTORISTA"]||"",ro,fret,c["NF"]||"",c["CTE"]||""].join(" ").toLowerCase();
+  var cot=c["COTAÇÃO"]||"";
+  var srch=[key,titulo,cli,vend,c["MOTORISTA"]||"",ro,fret,c["NF"]||"",c["CTE"]||"",cot?"cotacao "+cot:""].join(" ").toLowerCase();
   return "<div class=\"kcard\" draggable=\"true\""
-    +" data-key=\""+e(key)+"\" data-s=\""+srch+"\" data-v=\""+e(vend)+"\""+
+    +" data-key=\""+e(key)+"\" data-s=\""+e(srch)+"\" data-v=\""+e(vend)+"\""+
     " ondragstart=\"dstart(event,event.currentTarget)\" ondragend=\"dend(event)\">"+
-    "<div class=\"kcard-top\"><span class=\"kcard-code\">"+key+(c["CTE"]?" · CTE "+e(c["CTE"])+"":"")+"</span>"+
-    (acomp?"<span class=\"kcard-acomp\">"+acomp+"</span>":"")+
+    "<div class=\"kcard-top\"><span class=\"kcard-code\">"+e(key)+(c["CTE"]?" · CTE "+e(c["CTE"])+"":"")+"</span>"+
+    (acomp?"<span class=\"kcard-acomp\">"+e(acomp)+"</span>":"")+
     "</div>"+
+    (cot?"<div style=\"margin-bottom:5px\"><span class=\"ktag\" style=\"background:rgba(245,197,24,.1);color:var(--gold,#F5C518);border:1px solid rgba(245,197,24,.3)\"><i class=\"ti ti-file-invoice\" style=\"font-size:9px\"></i> Cotação #"+String(cot).padStart(4,"0")+"</span></div>":"")+
     "<div class=\"kcard-cli\">"+e(titulo||"(sem título)")+"</div>"+
     (cli?"<div style=\"margin-bottom:5px\"><span class=\"ktag tb\" style=\"font-size:10px\">"+e(cli)+"</span></div>":"")+
     "<div class=\"kcard-foot\">"+
@@ -545,14 +806,20 @@ function buildForm(data,isNew){
     "<div class=\"fg\"><label>Contato Cliente</label>"+inp("CONTATO CLIENTE","Nome / Telefone")+"</div>"+
     "<div class=\"fg\"><label>Data da Coleta</label>"+dateinp("DATA DA COLETA")+"</div>"+
     "<div class=\"fg\"><label>Previs\u00e3o de Entrega</label>"+dateinp("PREVIS\u00c3O DE ENTREGA")+"</div>"+
+    "<div class=\"fg\"><label>Modalidade</label>"+sel("MODALIDADE",["","Dedicado","Fracionado"],"")+"</div>"+
+    "<div class=\"fg\"><label>Tipo de Material</label>"+inp("TIPO DE MATERIAL","Ex: pe\u00e7as automotivas, eletr\u00f4nicos...")+"</div>"+
   "</div></div>"+
 
   // ── FISCAL
   "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-file-invoice\" style=\"font-size:12px\"></i> Fiscal</div>"+
-  "<div class=\"fg-grid g4\">"+
+  "<div class=\"fg-grid g3\">"+
     "<div class=\"fg\"><label>CTE</label>"+inp("CTE","Número CTE")+"</div>"+
+    "<div class=\"fg\"><label>MDF</label>"+inp("MDF","Número MDF")+"</div>"+
     "<div class=\"fg\"><label>NF</label>"+inp("NF","Número NF")+"</div>"+
+  "</div>"+
+  "<div class=\"fg-grid\">"+
     "<div class=\"fg\"><label>Data da Entrega</label>"+dateinp("DATA DA ENTREGA")+"</div>"+
+    "<div class=\"fg\"><label>Vale Pedágio</label>"+inp("VALE PEDAGIO","Texto livre")+"</div>"+
   "</div></div>"+
 
   // ── ROTA
@@ -671,11 +938,18 @@ async function saveCard(){
 
   btn.disabled=true;btn.innerHTML="<span class=\"spinner\"></span> Salvando…";msg.textContent="";
   try{
-    var pl=editKey
-      ?{action:"update",aba:ABA,chave:editKey,dados:dados}
-      :{action:"create",aba:ABA,dados:dados};
-    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify(pl)});
-    if(!j.success)throw new Error(j.error);
+    var payload=mapearParaApi_(dados);
+    var r;
+    if(editKey){
+      r=await apiFetch(API_BASE+"/kanban/"+encodeURIComponent(ABA)+"/"+encodeURIComponent(editKey),
+        {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    }else{
+      payload.empresa=ABA;
+      r=await apiFetch(API_BASE+"/kanban",
+        {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    }
+    var resp=await r.json();
+    if(!r.ok)throw new Error(resp.error||"Erro ao salvar");
     var ck=editKey||dados["DT CODIGO"];
     saveExtra(ck,dados);
     await saveAtt(ck);
@@ -692,8 +966,19 @@ async function deleteCard(){
   if(!confirm("Excluir card "+editKey+"?"))return;
   var msg=document.getElementById("mmsg");
   try{
-    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"delete",aba:ABA,chave:editKey})});if(!j.success)throw new Error(j.error);
-    // anexos limpos automaticamente ao excluir card via Drive
+    var r=await apiFetch(API_BASE+"/kanban/"+encodeURIComponent(ABA)+"/"+encodeURIComponent(editKey),{method:"DELETE"});
+    if(!r.ok){var j=await r.json();throw new Error(j.error||"Erro ao excluir");}
+    // Anexos não são apagados sozinhos mais (antes isso acontecia junto da
+    // exclusão da linha na planilha, via Apps Script) — remove cada um do
+    // Drive manualmente, igual o botão de excluir anexo individual já fazia.
+    for(var i=0;i<driveAtts.length;i++){
+      try{ await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"excluir_anexo",fileId:driveAtts[i].id})}); }catch(e){}
+    }
+    // Limpa os dados extras guardados no navegador pra esse código — sem
+    // isso, se esse mesmo código for reaproveitado por um card novo (a
+    // numeração automática não sabe que esse código já foi usado e
+    // excluído), os dados antigos apareceriam sozinhos no card novo.
+    try{ localStorage.removeItem(EXTK+editKey); localStorage.removeItem("attcnt_"+editKey); }catch(e){}
     await loadData();closeModal();
   }catch(ex){msg.textContent="Erro: "+ex.message;msg.className="mmsg err";}
 }
@@ -747,6 +1032,8 @@ function renderAttList() {
   }
   if (!out) out = "<div style=\"color:var(--text-muted);font-size:12px;padding:8px 0\">Nenhum anexo</div>";
   l.innerHTML = out;
+  var btnBaixarTudo = document.getElementById("btn-baixar-tudo");
+  if (btnBaixarTudo) btnBaixarTudo.style.display = driveAtts.length ? "" : "none";
   // Bind clicks via addEventListener — resolve problemas com onclick inline em innerHTML
   var btns = l.querySelectorAll(".arm");
   btns.forEach(function(btn, n) {
@@ -762,6 +1049,50 @@ function renderAttList() {
       }
     });
   });
+}
+
+// Baixa todos os anexos do card de uma vez, num zip só. Tentativas
+// anteriores (clicar em vários <a download> ou abrir várias abas) esbarram
+// em duas limitações do navegador: o atributo "download" é ignorado em
+// link de outro domínio (caso do Drive), e window.open() em sequência é
+// bloqueado como pop-up a partir do segundo. A saída é o servidor buscar
+// os arquivos e devolver um zip único — o navegador baixa isso numa blob:
+// url, que é sempre "mesma origem", sem bloqueio nenhum.
+async function baixarTodosAnexos() {
+  if (!driveAtts.length) return;
+  var btn = document.getElementById("btn-baixar-tudo");
+  var orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "<span class=\"spinner\"></span> Baixando...";
+  try {
+    var res = await apiFetch(API_BASE + "/kanban/anexos-zip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        empresa: ABA,
+        arquivos: driveAtts.map(function(a) { return { id: a.id, nome: a.nome }; }),
+      }),
+    });
+    if (!res.ok) {
+      var j = await res.json().catch(function() { return {}; });
+      alert("Erro ao gerar o zip. " + (j.error || ""));
+      return;
+    }
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "anexos_" + (editKey || "card") + ".zip";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert("Erro de conexão ao gerar o zip.");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
 }
 
 function getAtt(key) {
@@ -879,8 +1210,10 @@ async function ddrop(ev,status){
   card["Status"]=status;
   renderBoard(); // feedback visual imediato, otimista
   try{
-    var j=await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"update",aba:ABA,chave:key,dados:card})});
-    if(!j||!j.success){
+    var r=await apiFetch(API_BASE+"/kanban/"+encodeURIComponent(ABA)+"/"+encodeURIComponent(key),
+      {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(mapearParaApi_(card))});
+    var j=await r.json();
+    if(!r.ok){
       card["Status"]=statusAnterior; // desfaz o movimento visual — não salvou de verdade
       renderBoard();
       alert("Não foi possível mover o card agora ("+(j&&j.error?j.error:"tente novamente")+"). O card voltou pra coluna original.");

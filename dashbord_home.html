@@ -193,8 +193,70 @@ body.tema-claro .section-line{background:#E2E6ED!important;}
 /* ════════════════════════════════════
    STATE
 ════════════════════════════════════ */
-var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx0b9geJN-50h8vQPMyAw5rAD5h4ghOFJrngeCgs29t3sqpaCGGC_b2ih99eYYnZdSDfg/exec';
-console.log('[Dashboard] WEBAPP_URL at load:', WEBAPP_URL || '(VAZIO)');
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
 let rawData = [];
 let filtered = [];
 
@@ -209,7 +271,7 @@ function getPerfil(){
 function getEmpresasPermitidas(){
   var perfil=getPerfil();
   if(perfil==='gestor') return null; // null = todas
-  var cached=sessionStorage.getItem('barretos_perms_'+(localStorage.getItem('barretos_login')||''));
+  var cached=localStorage.getItem('barretos_permissoes');
   var ferr=[];
   try{ ferr=cached?JSON.parse(cached):[]; }catch(e){}
   var MAP={'kanban_inf':'INFRA','kanban_bar':"BARRETO'S",'kanban_gon':'GONCALVES','kanban_pin':'PINHEIRO'};
@@ -220,6 +282,7 @@ function getEmpresasPermitidas(){
 function isGestor(){ return getPerfil()==='gestor'; }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   if (!isGestor()) document.body.classList.add('hide-margem');
   setConn(true);
   loadData();
@@ -239,42 +302,47 @@ function setConn(on) {
    DATA
 ════════════════════════════════════ */
 async function loadData() {
-  if (!WEBAPP_URL) return;
   const btn = document.getElementById('refresh-btn');
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
   try {
-    console.log('[Dashboard] Fetching:', WEBAPP_URL);
-    const r = await fetch(WEBAPP_URL);
+    const r = await apiFetch(API_BASE + '/relatorio-vendedor');
     const j = await r.json();
-    console.log('[Dashboard] Response:', JSON.stringify(j).slice(0,200));
-    if (j.success && j.data) {
-      rawData = j.data;
+    if (r.ok) {
+      rawData = j || [];
       populateMes();
       applyFilter();
       setConn(true);
-    } else if (!j.success) {
-      // Wrong URL (probably kanbans URL) — show clear message
+    } else {
       document.getElementById('content').innerHTML =
         '<div class="empty-msg" style="flex-direction:column;gap:10px">'
         +'<i class="ti ti-alert-circle" style="font-size:32px;color:#EF4444"></i>'
-        +'<b>URL incorreta para o Dashboard</b>'
-        +'<span style="font-size:11px;color:#EF4444;word-break:break-all">URL atual: '+WEBAPP_URL+'</span>'
-        +'<span style="font-size:12px;color:var(--txt-dim)">Configure em <b style="color:var(--gold)">Conexões → Relatório de Vendedor</b></span>'
-        
+        +'<b>Erro ao carregar o Dashboard</b>'
+        +'<span style="font-size:11px;color:#EF4444;word-break:break-all">'+(j.error||'')+'</span>'
         +'</div>';
     }
   } catch(e) {
     document.getElementById('content').innerHTML =
-      '<div class="empty-msg"><i class="ti ti-wifi-off" style="font-size:24px;display:block;margin-bottom:8px"></i>Erro de conexão. Verifique a URL.</div>';
+      '<div class="empty-msg"><i class="ti ti-wifi-off" style="font-size:24px;display:block;margin-bottom:8px"></i>Erro de conexão.</div>';
   }
   btn.innerHTML = '<i class="ti ti-refresh" style="font-size:12px"></i> Atualizar';
   btn.disabled = false;
 }
 
-// Ordem canônica dos meses para sort correto
-const MESES_ORD = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-function mesSortIdx(m){ return MESES_ORD.indexOf(String(m||'').toLowerCase()); }
+// "Mes" vem no formato MM/YYYY (ver relatorioVendedorService.js no backend).
+// Chave numérica pra ordenar corretamente mesmo virando o ano.
+const NOMES_MES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function mesSortIdx(m) {
+  const p = String(m||'').split('/');
+  if (p.length!==2) return -1;
+  return parseInt(p[1],10)*100 + parseInt(p[0],10);
+}
+function mesLabelBonito(m) {
+  const p = String(m||'').split('/');
+  if (p.length!==2) return m||'';
+  const idx = parseInt(p[0],10)-1;
+  return (NOMES_MES_PT[idx]||p[0]) + '/' + p[1];
+}
 
 function getMesVigente() {
   // Último mês com dados (ordem cronológica)
@@ -284,10 +352,12 @@ function getMesVigente() {
 }
 
 function getMesAnterior(mes) {
-  const idx = mesSortIdx(mes);
-  if (idx <= 0) return '';
-  const alvo = MESES_ORD[idx - 1];
-  const exists = rawData.some(r => (r['Mes']||'').toLowerCase() === alvo);
+  const p = String(mes||'').split('/');
+  if (p.length!==2) return '';
+  let m = parseInt(p[0],10), a = parseInt(p[1],10);
+  m -= 1; if (m===0) { m=12; a -= 1; }
+  const alvo = String(m).padStart(2,'0')+'/'+a;
+  const exists = rawData.some(r => (r['Mes']||'') === alvo);
   return exists ? alvo : '';
 }
 
@@ -297,7 +367,7 @@ function populateMes() {
   const sel = document.getElementById('f-mes');
   const cur = sel.value;
   sel.innerHTML = '<option value="">Todos os meses</option>' +
-    meses.map(m => `<option value="${m}"${m===cur?' selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('');
+    meses.map(m => `<option value="${m}"${m===cur?' selected':''}>${mesLabelBonito(m)}</option>`).join('');
   // Auto-select mes vigente (último com dados)
   if (!cur && meses.length) sel.value = meses[meses.length - 1];
   // Show mes vigente badge
@@ -320,7 +390,7 @@ function applyFilter() {
     : rawData;
   const mes = document.getElementById('f-mes').value;
   filtered = mes ? _source.filter(r => (r['Mes']||'').toLowerCase() === mes.toLowerCase()) : _source;
-  const mesLabel = mes ? (mes.charAt(0).toUpperCase()+mes.slice(1)) : 'todos os meses';
+  const mesLabel = mes ? mesLabelBonito(mes) : 'todos os meses';
   document.getElementById('tb-sub').textContent = filtered.length + ' fretes · ' + mesLabel;
 
   // Update badge highlight
@@ -407,11 +477,11 @@ function renderDashboard(rows, prevRows, prev2Rows, mes) {
   const prev  = prevRows  && prevRows.length  ? aggData(prevRows)  : null;
   const prev2 = prev2Rows && prev2Rows.length ? aggData(prev2Rows) : null;
   const hasPrev = !!prev;
-  const mesLabel = mes ? (mes.charAt(0).toUpperCase()+mes.slice(1)) : 'período';
+  const mesLabel = mes ? mesLabelBonito(mes) : 'período';
   const prevMes   = hasPrev ? getMesAnterior(mes) : '';
-  const prevLabel = prevMes ? (prevMes.charAt(0).toUpperCase()+prevMes.slice(1)) : '';
+  const prevLabel = prevMes ? mesLabelBonito(prevMes) : '';
   const prev2Mes  = prevMes ? getMesAnterior(prevMes) : '';
-  const prev2Label= prev2Mes ? (prev2Mes.charAt(0).toUpperCase()+prev2Mes.slice(1)) : '';
+  const prev2Label= prev2Mes ? mesLabelBonito(prev2Mes) : '';
 
   const margPct = cur.totFat ? (cur.totMarg/cur.totFat*100) : 0;
   const prevMargPct = (hasPrev && prev.totFat) ? (prev.totMarg/prev.totFat*100) : 0;

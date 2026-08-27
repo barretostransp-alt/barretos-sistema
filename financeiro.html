@@ -371,10 +371,10 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
       <button class="btn btn-ghost btn-sm" onclick="loadAllData()">
         <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="openModalPix()">
+      <button class="btn btn-primary btn-sm" onclick="openModalPix()">
         <i class="ti ti-qrcode" style="font-size:13px"></i> Solicitação Pix
       </button>
-      <button class="btn btn-primary btn-sm" onclick="openModalLancamento()">
+      <button class="btn btn-ghost btn-sm" onclick="openModalLancamento()">
         <i class="ti ti-plus" style="font-size:13px"></i> Novo Lançamento
       </button>
     </div>
@@ -912,26 +912,80 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
 <script>
 /* ═══════════════════════════════════════════════════════════════
    FINANCEIRO — Barreto's
-   Módulo standalone. Persistência local (localStorage) até a
-   integração com o Apps Script/Google Sheets do sistema unificado.
-   Estrutura de dados já pensada para bater com as colunas que a
-   planilha "Financeiro" deverá ter:
-   ID, Tipo, Data Lançamento, Vencimento, Favorecido, CNPJ/CPF,
-   Categoria, Descrição, Valor, Forma Pagamento, Titular, Banco,
-   Tipo Chave Pix, Chave Pix, Status, Data Pagamento, Responsável, Observação
+   Contas a Pagar e a Receber, salvas na tabela financeiro_lancamentos
+   (Supabase) via /api/financeiro.
    ═══════════════════════════════════════════════════════════════ */
 
-var WEBAPP_URL = ""; // TODO: preencher quando integrar o restante do financeiro (Contas a Pagar/Receber genéricas) ao Apps Script unificado
-// URL real do Apps Script da planilha "Solicitações" (Pix) — já implantado.
-// Usado para gravar/atualizar/marcar pago/excluir as Solicitações Pix na planilha real.
-// OBS: essa planilha não tem coluna de Vencimento/Categoria/Observação — esses campos
-// continuam vivendo só no localStorage deste navegador, então a sincronização é
-// de mão única (app → planilha) para os campos que ela de fato acompanha.
-var WEBAPP_URL_PIX = "https://script.google.com/macros/s/AKfycbx2WTA0VrEk339HfK3gHxyoSo0L8ufFgJJZ1fwRmMELLaKc3IMMr1S8-cPxv1FohyDXYQ/exec";
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Toda chamada à API passa por aqui em vez de fetch() direto, pra sempre
+// ir com o token de login e tentar renovar sozinho se ele já tiver expirado.
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
 // URL real do Apps Script dos Kanbans (mesma base para os 4 quadros — cada um usa um parâmetro "aba" diferente).
-// Usado só para a importação da Solicitação Pix.
+// Usado só pra importação de dados de um card do Kanban dentro do formulário de Solicitação Pix
+// (o Kanban em si ainda não foi migrado pro Supabase).
 var KANBAN_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
-var STORAGE_KEY = "financeiro_lancamentos";
 var lancamentos = [];
 var currentSideId = null;
 var currentTipoView = null; // 'pagar' | 'receber' — usado nos filtros
@@ -939,16 +993,6 @@ var filtroEmpresa = ""; // "" = Todos os CNPJs
 var alertasDashData = []; // cache dos alertas calculados no último renderDashboard(), pros botões de filtro re-renderizarem sem recalcular
 var filtroAlertaDashAtual = "todos"; // "todos" | "vencidos" | "avencer"
 
-/* ── Carregamento / persistência ──
-   Agora busca de verdade as duas abas reais (Contas a Pagar e Contas a
-   Receber) via WEBAPP_URL_PIX sempre que a página carrega — isso resolve
-   o problema de dados gravados na planilha não aparecerem numa sessão/
-   navegador diferente (ex: dentro do shell do sistema).
-   Contas a Receber é 1:1 com a planilha (todo campo já vive lá).
-   Contas a Pagar é reconstruída a partir da planilha, mas como ela NÃO
-   guarda Vencimento/Categoria/Descrição/Observação, esses campos são
-   completados a partir do cache local (localStorage) quando existir um
-   lançamento correspondente; senão ficam com um valor padrão razoável. */
 /* ── Nova tentativa automática quando o backend está ocupado ──
    O Apps Script agora devolve {ok:false, ocupado:true, erro:'...'} em vez
    de ficar pendurado até travar (planilha ocupada por outra operação
@@ -972,38 +1016,23 @@ async function fetchComTentativas_(url, options, maxTentativas){
   }
 }
 
-// Por padrão, a planilha só devolve o que ainda está pendente + o que foi
-// resolvido (pago/recebido) nos últimos 30 dias — "Ver Histórico Completo"
-// busca de novo sem esse filtro, trazendo tudo que já foi resolvido há
-// mais tempo também.
-var verHistoricoCompleto = false;
-
 async function loadAllData(){
-  var carregouDaPlanilha = false;
-  if(WEBAPP_URL_PIX){
-    try{
-      var cacheLocal = lerLocalStorage();
-      var sufixoPagar = verHistoricoCompleto ? '?tudo=1' : '';
-      var sufixoReceber = verHistoricoCompleto ? '&tudo=1' : '';
-      var dadosPagar = await fetchComTentativas_(WEBAPP_URL_PIX + sufixoPagar);
-      var dadosReceber = await fetchComTentativas_(WEBAPP_URL_PIX + '?aba=receber' + sufixoReceber);
-      var pagarReconstruido = Array.isArray(dadosPagar) ? reconstruirPagarDaPlanilha_(dadosPagar, cacheLocal) : [];
-      var receberReconstruido = Array.isArray(dadosReceber) ? reconstruirReceberDaPlanilha_(dadosReceber, cacheLocal) : [];
-      lancamentos = pagarReconstruido.concat(receberReconstruido);
-      carregouDaPlanilha = true;
-    }catch(e){
-      console.error('Falha ao buscar da planilha, usando cache local.', e);
-    }
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+  try{
+    var r = await apiFetch(API_BASE + '/financeiro');
+    var rows = await r.json();
+    lancamentos = (rows||[]).map(mapearDoApi_);
+  }catch(e){
+    console.error('Falha ao buscar lançamentos.', e);
+    lancamentos = [];
   }
-  if(!carregouDaPlanilha){
-    lancamentos = lerLocalStorage();
-  }
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(lancamentos)); }catch(e){}
   renderAll();
 }
 
+// Mantido só pelo botão já existente na tela — agora a API sempre devolve
+// tudo de uma vez, não tem mais paginação por "últimos 30 dias" como a
+// planilha tinha, então só recarrega.
 async function carregarHistoricoCompleto(){
-  verHistoricoCompleto = true;
   var btn = document.getElementById('btn-historico-completo');
   if(btn){ btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Carregando...'; }
   await loadAllData();
@@ -1012,167 +1041,90 @@ async function carregarHistoricoCompleto(){
     btn.disabled = true;
   }
 }
-function lerLocalStorage(){
-  try{ var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
-  catch(e){ return []; }
-}
-// Formata "dd/MM/yyyy" (como a planilha devolve) para "yyyy-mm-dd" (como o app usa)
-function dataPlanilhaParaISO_(dataBR){
-  if(!dataBR) return '';
-  var p = String(dataBR).split('/');
-  return p.length===3 ? (p[2]+'-'+p[1]+'-'+p[0]) : '';
-}
-// Reconstrói o Histórico de Cobrança (texto multi-linha "dd/mm/aaaa — texto")
-// de volta para a lista [{data, texto}] usada no side panel
-function parseHistoricoCobranca_(texto){
-  if(!texto) return [];
-  return String(texto).split('\n').filter(Boolean).map(function(linha){
-    var m = linha.match(/^(\d{2}\/\d{2}\/\d{4})\s*—\s*(.*)$/);
-    if(m) return {data: dataPlanilhaParaISO_(m[1]), texto: m[2]};
-    return {data: '', texto: linha};
-  });
-}
-// Encontra no cache local um lançamento com o mesmo cardCodigo(ou GERAL-id)
-// + favorecido, pra recuperar os campos que a planilha de Contas a Pagar
-// não guarda (vencimento, categoria, descrição, observação, ids visuais)
-function acharNoCacheLocalPagar_(cache, codigo, favorecido){
-  var codigoNorm = (codigo||'').trim().toUpperCase();
-  var favNorm = (favorecido||'').trim().toUpperCase();
-  return cache.find(function(l){
-    if(l.tipo!=='Pagar') return false;
-    var codigoL = (l.cardCodigo && l.cardCodigo.trim()) ? l.cardCodigo.trim() : ('GERAL-'+l.id);
-    var favL = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
-    return codigoL.trim().toUpperCase()===codigoNorm && (favL||'').trim().toUpperCase()===favNorm;
-  });
-}
-function reconstruirPagarDaPlanilha_(rows, cache){
-  var out = [];
-  rows.forEach(function(row, i){
-    var codigo = String(row.codigo||'');
-    var favorecido = row.favorecido || '';
-    var valorTotal = Number(row.valorTotal)||0;
-    var acrescimo = Number(row.acrescimo)||0;
-    var temAdiantamento = row.adiantamento !== '' && row.adiantamento !== undefined && row.adiantamento !== null;
-    var temSaldo = row.saldo !== '' && row.saldo !== undefined && row.saldo !== null;
-    var pagoAdiant = row.pagoAdiant === 'OK';
-    var pagoSaldo = row.pagoSaldo === 'OK';
-    var pagoAcrescimo = row.pagoAcrescimo === 'OK';
-    var cartaoLocal = acharNoCacheLocalPagar_(cache, codigo, favorecido);
-    var ehGeral = codigo.indexOf('GERAL-') === 0;
 
-    function baseComum(tipoValor, valorParcela, pago){
-      var camposLocais = cartaoLocal || {};
-      return {
-        id: Date.now() + Math.random()*1000 + i,
-        origem: ehGeral ? 'lancamento' : 'pix',
-        tipo: 'Pagar',
-        dataLanc: dataPlanilhaParaISO_(row.data) || camposLocais.dataLanc || new Date().toISOString().slice(0,10),
-        vencimento: camposLocais.vencimento || dataPlanilhaParaISO_(row.data) || new Date().toISOString().slice(0,10),
-        favorecido: favorecido,
-        doc: camposLocais.doc || '',
-        categoria: camposLocais.categoria || 'Outros',
-        descricao: camposLocais.descricao || ('Importado da planilha — card ' + codigo),
-        valor: valorParcela,
-        tipoValor: ehGeral ? undefined : tipoValor,
-        adiantamento: valorTotal>0 ? (Number(row.adiantamento)/valorTotal*100) : 0,
-        forma: row.efetuar || '',
-        cardCodigo: ehGeral ? '' : codigo,
-        empresaCnpj: row.empresa || '',
-        bancoOrigem: '',
-        solicitante: row.solicitante || '',
-        vendedor: row.vendedor || '',
-        acrescimo: acrescimo,
-        titular: favorecido,
-        banco: row.banco || '',
-        tipoPix: '',
-        chavePix: row.pix || '',
-        status: pago ? 'Pago' : 'A Pagar',
-        dataPagamento: '',
-        responsavel: '',
-        obs: camposLocais.obs || ''
-      };
-    }
-
-    if(!temAdiantamento && !temSaldo){
-      // Total — pago de uma vez só
-      out.push(baseComum('Total', valorTotal, pagoAdiant));
-    } else {
-      if(temAdiantamento) out.push(baseComum('Adiantamento', valorTotal, pagoAdiant));
-      if(temSaldo) out.push(baseComum('Saldo', valorTotal, pagoSaldo));
-    }
-
-    // Acréscimo — reconstrói como um lançamento próprio a partir da coluna
-    // ACRÉSCIMO, usando a coluna PAGO ACRÉSCIMO da própria planilha pro
-    // status (funciona igual em qualquer navegador/dispositivo).
-    if(acrescimo > 0){
-      var camposLocais = cartaoLocal || {};
-      out.push({
-        id: Date.now() + Math.random()*1000 + i + 0.5,
-        origem: ehGeral ? 'lancamento' : 'pix',
-        tipo: 'Pagar',
-        dataLanc: dataPlanilhaParaISO_(row.data) || new Date().toISOString().slice(0,10),
-        vencimento: camposLocais.vencimento || dataPlanilhaParaISO_(row.data) || new Date().toISOString().slice(0,10),
-        favorecido: favorecido,
-        doc: camposLocais.doc || '',
-        categoria: camposLocais.categoria || 'Outros',
-        descricao: camposLocais.descricao || ('Acréscimo — card ' + codigo),
-        valor: acrescimo,
-        tipoValor: ehGeral ? undefined : 'Acréscimo',
-        adiantamento: 0,
-        forma: row.efetuar || '',
-        cardCodigo: ehGeral ? '' : codigo,
-        empresaCnpj: row.empresa || '',
-        bancoOrigem: '',
-        solicitante: row.solicitante || '',
-        vendedor: row.vendedor || '',
-        acrescimo: 0,
-        titular: favorecido,
-        banco: row.banco || '',
-        tipoPix: '',
-        chavePix: row.pix || '',
-        status: pagoAcrescimo ? 'Pago' : 'A Pagar',
-        dataPagamento: '',
-        responsavel: '',
-        obs: camposLocais.obs || ''
-      });
-    }
-  });
-  return out;
+// Converte uma linha vinda da tabela financeiro_lancamentos (snake_case)
+// pro formato usado no resto desta tela (camelCase, igual sempre foi).
+// origem ('pix'|'lancamento') não existe mais como coluna — é deduzida de
+// ter ou não tipo_valor preenchido (só a Solicitação Pix preenche isso).
+function mapearDoApi_(row){
+  return {
+    id: row.id,
+    origem: row.tipo_valor ? 'pix' : 'lancamento',
+    tipo: row.tipo,
+    dataLanc: row.data_lancamento || '',
+    vencimento: row.vencimento || '',
+    favorecido: row.favorecido || '',
+    doc: row.documento || '',
+    categoria: row.categoria || '',
+    descricao: row.descricao || '',
+    valor: Number(row.valor)||0,
+    tipoValor: row.tipo_valor || undefined,
+    adiantamento: row.adiantamento_pct!=null ? Number(row.adiantamento_pct) : 0,
+    acrescimo: row.acrescimo!=null ? Number(row.acrescimo) : 0,
+    forma: row.forma_pagamento || '',
+    cardCodigo: row.tipo==='Pagar' ? (row.codigo_externo||'') : '',
+    numeroFatura: row.tipo==='Receber' ? (row.codigo_externo||'') : '',
+    empresaCnpj: row.empresa_cnpj || '',
+    bancoOrigem: row.banco_origem || '',
+    solicitante: row.solicitante || '',
+    vendedor: row.vendedor || '',
+    titular: row.titular || '',
+    banco: row.banco || '',
+    tipoPix: row.tipo_pix || '',
+    chavePix: row.chave_pix || '',
+    status: row.status,
+    dataPagamento: row.data_pagamento || '',
+    dataCobranca: row.data_cobranca || '',
+    responsavel: row.responsavel || '',
+    obs: row.observacao || '',
+    historico: Array.isArray(row.historico_cobranca) ? row.historico_cobranca : []
+  };
 }
-function reconstruirReceberDaPlanilha_(rows, cache){
-  return rows.map(function(row, i){
-    return {
-      id: Date.now() + Math.random()*1000 + i,
-      origem: 'lancamento',
-      tipo: 'Receber',
-      dataLanc: dataPlanilhaParaISO_(row.dataEmissao) || new Date().toISOString().slice(0,10),
-      vencimento: dataPlanilhaParaISO_(row.vencimento),
-      favorecido: row.cliente || '',
-      doc: row.docCliente || '',
-      numeroFatura: String(row.codigo||'').indexOf('GERAL-')===0 ? '' : String(row.codigo||''),
-      categoria: row.categoria || 'Cliente',
-      descricao: row.descricao || '',
-      valor: Number(row.valor)||0,
-      forma: '',
-      empresaCnpj: row.empresa || '',
-      bancoOrigem: '',
-      titular: '', banco: '', tipoPix: '', chavePix: '',
-      status: row.status === 'RECEBIDO' ? 'Recebido' : 'A Receber',
-      dataPagamento: dataPlanilhaParaISO_(row.dataRecebimento),
-      responsavel: '',
-      dataCobranca: dataPlanilhaParaISO_(row.dataCobranca),
-      obs: row.observacao || '',
-      historico: parseHistoricoCobranca_(row.historico)
-    };
-  });
+
+// Converte um lançamento do formato local (camelCase) pro corpo aceito
+// pela API (snake_case) — usado ao criar/editar.
+function mapearParaApi_(l){
+  return {
+    tipo: l.tipo,
+    data_lancamento: l.dataLanc || undefined,
+    vencimento: l.vencimento || undefined,
+    favorecido: l.favorecido,
+    documento: l.doc || '',
+    categoria: l.categoria || '',
+    descricao: l.descricao || '',
+    valor: Number(l.valor)||0,
+    tipo_valor: l.tipoValor || null,
+    adiantamento_pct: l.adiantamento!=null ? Number(l.adiantamento) : null,
+    acrescimo: l.acrescimo!=null ? Number(l.acrescimo) : null,
+    forma_pagamento: l.forma || '',
+    codigo_externo: l.tipo==='Pagar' ? (l.cardCodigo||'') : (l.numeroFatura||''),
+    empresa_cnpj: l.empresaCnpj || '',
+    banco_origem: l.bancoOrigem || '',
+    solicitante: l.solicitante || '',
+    vendedor: l.vendedor || '',
+    titular: l.titular || '',
+    banco: l.banco || '',
+    tipo_pix: l.tipoPix || '',
+    chave_pix: l.chavePix || '',
+    status: l.status,
+    data_pagamento: l.dataPagamento || null,
+    data_cobranca: l.dataCobranca || null,
+    responsavel: l.responsavel || '',
+    observacao: l.obs || ''
+  };
 }
-function persist(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(lancamentos)); }catch(e){}
-  if(WEBAPP_URL){
-    // Grava a lista completa; quando o Apps Script "Financeiro" estiver pronto,
-    // isso deve ser trocado por chamadas action=create/update/delete por item.
-    fetch(WEBAPP_URL, {method:'POST', body: JSON.stringify({action:'sync', dados: lancamentos})}).catch(e=>console.error('Falha ao gravar no Apps Script.', e));
-  }
+
+async function apiPost_(url, body){
+  var r = await apiFetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  var j = await r.json();
+  if(!r.ok) throw new Error(j.error || 'Erro ao salvar');
+  return j;
+}
+async function apiPut_(url, body){
+  var r = await apiFetch(url, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  var j = await r.json();
+  if(!r.ok) throw new Error(j.error || 'Erro ao salvar');
+  return j;
 }
 
 function renderAll(){
@@ -1217,17 +1169,7 @@ function atualizarAvisoDuplicidade(){
   el.innerHTML = conflito ? `<span class="txt-red"><i class="ti ti-alert-triangle" style="font-size:11px"></i> ${conflito}</span>` : '';
 }
 
-/* ── Sincronização com a planilha real (Apps Script único, duas abas) ──
-   Mão única (app → planilha): grava/atualiza/marca pago (ou recebido)/
-   exclui de fato no Google Sheets sempre que um lançamento muda por aqui
-   — tanto Contas a Pagar (Solicitação Pix ou Lançamento Geral) quanto
-   Contas a Receber (Nova Fatura), cada um na sua aba. */
-function postSheetPix_(payload){
-  if(!WEBAPP_URL_PIX) return;
-  fetchComTentativas_(WEBAPP_URL_PIX, {method:'POST', body: JSON.stringify(payload)})
-    .catch(e=>console.error('Falha ao sincronizar com a planilha (mesmo após novas tentativas).', e));
-}
-// Código usado como chave na planilha: o do card do kanban quando existe,
+// Código usado como identificador do card do kanban quando existe,
 // ou um identificador sintético (GERAL-<id>) para lançamentos manuais.
 // Acumula instituições bancárias diferentes na mesma célula (ex: "Sicoob/Sicredi")
 // em vez de sobrescrever — mesma lógica usada no Apps Script.
@@ -1256,95 +1198,33 @@ function tipoValorCalculo_(l){
 function formaPagamentoSheet_(l){
   return l.origem==='pix' ? 'Pix' : (l.forma||'');
 }
-function sincronizarCriar_(l){
-  if(!l || l.tipo!=='Pagar') return; // só Contas a Pagar sincroniza por enquanto
-  var ehPix = formaPagamentoSheet_(l)==='Pix';
-  postSheetPix_({
-    action: 'criar',
-    codigo: codigoSheet_(l),
-    empresa: l.empresaCnpj || '',
-    bancoOrigem: l.bancoOrigem || '',
-    vendedor: l.vendedor || '',
-    solicitante: l.solicitante || '',
-    favorecido: favorecidoSheet_(l),
-    docFavorecido: l.doc || '',
-    pix: ehPix ? (l.chavePix || '') : '',
-    banco: ehPix ? (l.banco || '') : '',
-    forma: formaPagamentoSheet_(l),
-    tipoValor: tipoValorCalculo_(l),
-    valorTotal: Number(l.valor)||0,
-    acrescimo: Number(l.acrescimo)||0,
-    adiantamentoPct: Number(l.adiantamento)||0
-  });
+// Cria o lançamento de verdade no Supabase e atualiza l.id com o id real
+// devolvido pelo banco (até aqui l.id era só um Date.now() provisório).
+async function sincronizarCriar_(l){
+  var criado = await apiPost_(API_BASE + '/financeiro', mapearParaApi_(l));
+  l.id = criado.id;
+  return criado;
 }
-function sincronizarPago_(l, pago){
-  if(!l || l.tipo!=='Pagar') return;
-  var tipoValor = tipoValorCalculo_(l);
-  var parcela = tipoValor==='Adiantamento' ? 'adiantamento' : tipoValor==='Saldo' ? 'saldo' : tipoValor==='Acréscimo' ? 'acrescimo' : 'total';
-  postSheetPix_({
-    action: 'marcarPago',
-    codigo: codigoSheet_(l),
-    favorecido: favorecidoSheet_(l),
-    parcela: parcela,
-    pago: !!pago
-  });
+async function sincronizarPago_(l, pago){
+  await apiPost_(API_BASE + '/financeiro/' + l.id + '/status', { status: pago ? 'Pago' : 'A Pagar' });
 }
-function sincronizarExcluir_(l){
-  if(!l || l.tipo!=='Pagar') return;
-  postSheetPix_({
-    action: 'excluir',
-    codigo: codigoSheet_(l),
-    favorecido: favorecidoSheet_(l)
-  });
+async function sincronizarExcluir_(l){
+  var r = await apiFetch(API_BASE + '/financeiro/' + l.id, { method:'DELETE' });
+  if(!r.ok){ var j = await r.json(); throw new Error(j.error||'Erro ao excluir'); }
 }
 
-/* ── Contas a Receber: mesma URL, ações próprias, aba própria na planilha ── */
-function codigoSheetReceber_(l){
-  return (l.numeroFatura && l.numeroFatura.trim()) ? l.numeroFatura.trim() : ('GERAL-'+l.id);
+/* ── Contas a Receber: mesmos endpoints, o "tipo" já vem no lançamento ── */
+async function sincronizarCriarReceber_(l){
+  return sincronizarCriar_(l);
 }
-function sincronizarCriarReceber_(l){
-  if(!l || l.tipo!=='Receber') return;
-  postSheetPix_({
-    action: 'criarReceber',
-    codigo: codigoSheetReceber_(l),
-    empresa: l.empresaCnpj || '',
-    cliente: l.favorecido || '',
-    docCliente: l.doc || '',
-    categoria: l.categoria || '',
-    descricao: l.descricao || '',
-    valor: Number(l.valor)||0,
-    dataEmissao: l.dataLanc || '',
-    vencimento: l.vencimento || '',
-    dataCobranca: l.dataCobranca || '',
-    observacao: l.obs || ''
-  });
+async function sincronizarRecebido_(l, recebido){
+  await apiPost_(API_BASE + '/financeiro/' + l.id + '/status', { status: recebido ? 'Recebido' : 'A Receber' });
 }
-function sincronizarRecebido_(l, recebido){
-  if(!l || l.tipo!=='Receber') return;
-  postSheetPix_({
-    action: 'marcarRecebido',
-    codigo: codigoSheetReceber_(l),
-    cliente: l.favorecido || '',
-    recebido: !!recebido
-  });
+async function sincronizarExcluirReceber_(l){
+  await sincronizarExcluir_(l);
 }
-function sincronizarExcluirReceber_(l){
-  if(!l || l.tipo!=='Receber') return;
-  postSheetPix_({
-    action: 'excluirReceber',
-    codigo: codigoSheetReceber_(l),
-    cliente: l.favorecido || ''
-  });
-}
-function sincronizarNotaCobranca_(l, data, texto){
-  if(!l || l.tipo!=='Receber') return;
-  postSheetPix_({
-    action: 'adicionarNotaCobranca',
-    codigo: codigoSheetReceber_(l),
-    cliente: l.favorecido || '',
-    data: fmtData(data),
-    texto: texto
-  });
+async function sincronizarNotaCobranca_(l, data, texto){
+  await apiPost_(API_BASE + '/financeiro/' + l.id + '/notas-cobranca', { texto: texto });
 }
 
 /* ── Cálculo do Valor a Pagar (Total / Adiantamento / Saldo) ──
@@ -1409,56 +1289,47 @@ function popularFiltroMesDashboard(){
   sel.value = valorSelecionado || '';
 }
 
-function renderDashboard(){
+// KPIs, alertas e fila são calculados no backend (não em cima da lista
+// inteira baixada no navegador) — mesma otimização já feita na Gestão da
+// Frota, importante pra continuar rápido conforme mais lançamentos entram.
+function querystringAnalise_(extra){
+  var params = (extra||[]).slice();
+  if(filtroEmpresa) params.push('empresa='+encodeURIComponent(filtroEmpresa));
+  return params.length ? '?'+params.join('&') : '';
+}
+
+async function renderDashboard(){
   popularFiltroMesDashboard();
   var mesSel = document.getElementById('dash-mes-filtro').value; // '' = Todos os Meses
-  var base = getBase();
-  var baseVenc = mesSel ? base.filter(l=>(l.vencimento||'').slice(0,7)===mesSel) : base;
+  var qsDash = querystringAnalise_(mesSel ? ['mes='+encodeURIComponent(mesSel)] : []);
 
-  var aPagar = baseVenc.filter(l=>l.tipo==='Pagar'&&l.status==='A Pagar');
-  var aReceber = baseVenc.filter(l=>l.tipo==='Receber'&&l.status==='A Receber');
-  var vencidos = baseVenc.filter(l=>(l.status==='A Pagar'||l.status==='A Receber')&&diffDias(l.vencimento)<0);
-  var totalPagar = aPagar.reduce((s,l)=>s+calcValorEnfase(l.valor,l.tipoValor,l.adiantamento),0);
-  var totalReceber = aReceber.reduce((s,l)=>s+calcValorEnfase(l.valor,l.tipoValor,l.adiantamento),0);
-
-  // Valor Recebido: usa a data de recebimento (com fallback pro vencimento,
-  // pra registros antigos que não tinham essa data) pra filtrar pelo período.
-  var recebidos = base.filter(function(l){
-    if(l.tipo!=='Receber' || l.status!=='Recebido') return false;
-    if(!mesSel) return true;
-    var dataRef = (l.dataPagamento || l.vencimento || '').slice(0,7);
-    return dataRef === mesSel;
-  });
-  var totalRecebido = recebidos.reduce((s,l)=>s+calcValorEnfase(l.valor,l.tipoValor,l.adiantamento),0);
-
-  document.getElementById('dash-kpis').innerHTML = `
-    <div class="kpi-card red"><i class="ti ti-arrow-up-circle kpi-icon red"></i>
-      <div class="kpi-val">${fmtMoeda(totalPagar)}</div><div class="kpi-lbl">Total a Pagar</div></div>
-    <div class="kpi-card green"><i class="ti ti-arrow-down-circle kpi-icon green"></i>
-      <div class="kpi-val">${fmtMoeda(totalReceber)}</div><div class="kpi-lbl">Total a Receber</div></div>
-    <div class="kpi-card blue"><i class="ti ti-cash-banknote kpi-icon blue"></i>
-      <div class="kpi-val">${fmtMoeda(totalRecebido)}</div><div class="kpi-lbl">Valor Recebido</div></div>
-    <div class="kpi-card orange"><i class="ti ti-alert-triangle kpi-icon orange"></i>
-      <div class="kpi-val">${vencidos.length}</div><div class="kpi-lbl">Lançamentos Vencidos</div></div>
-    <div class="kpi-card blue"><i class="ti ti-clock kpi-icon blue"></i>
-      <div class="kpi-val">${aPagar.length+aReceber.length}</div><div class="kpi-lbl">Pendentes no Total</div></div>
-  `;
+  try{
+    var r = await apiFetch(API_BASE + '/financeiro/dashboard' + qsDash);
+    var kpis = await r.json();
+    document.getElementById('dash-kpis').innerHTML = `
+      <div class="kpi-card red"><i class="ti ti-arrow-up-circle kpi-icon red"></i>
+        <div class="kpi-val">${fmtMoeda(kpis.totalPagar)}</div><div class="kpi-lbl">Total a Pagar</div></div>
+      <div class="kpi-card green"><i class="ti ti-arrow-down-circle kpi-icon green"></i>
+        <div class="kpi-val">${fmtMoeda(kpis.totalReceber)}</div><div class="kpi-lbl">Total a Receber</div></div>
+      <div class="kpi-card blue"><i class="ti ti-cash-banknote kpi-icon blue"></i>
+        <div class="kpi-val">${fmtMoeda(kpis.totalRecebido)}</div><div class="kpi-lbl">Valor Recebido</div></div>
+      <div class="kpi-card orange"><i class="ti ti-alert-triangle kpi-icon orange"></i>
+        <div class="kpi-val">${kpis.vencidos}</div><div class="kpi-lbl">Lançamentos Vencidos</div></div>
+      <div class="kpi-card blue"><i class="ti ti-clock kpi-icon blue"></i>
+        <div class="kpi-val">${kpis.pendentes}</div><div class="kpi-lbl">Pendentes no Total</div></div>
+    `;
+  }catch(e){ console.error('Falha ao carregar dashboard.', e); }
 
   // Alertas do Dashboard: só Contas a Receber — Contas a Pagar já tem a
-  // própria Fila do Dia dedicada, não precisa duplicar aqui. Olha pra tudo,
-  // sem o filtro de período (é sobre o que está vencendo/vencido AGORA).
-  var hojeRef = new Date(); hojeRef.setHours(0,0,0,0);
-  alertasDashData = base
-    .filter(l=>l.tipo==='Receber' && l.status==='A Receber')
-    .map(l=>({l:l, diff:diffDias(l.vencimento)}))
-    .filter(o=>{
-      if(o.diff<0) return true; // vencido: sempre alerta
-      // a vencer: alerta se o vencimento cai dentro do mês vigente
-      var venc = new Date(o.l.vencimento+'T00:00:00');
-      return venc.getFullYear()===hojeRef.getFullYear() && venc.getMonth()===hojeRef.getMonth();
-    })
-    .sort((a,b)=>a.diff-b.diff);
-
+  // própria Fila do Dia dedicada, não precisa duplicar aqui.
+  try{
+    var rAlertas = await apiFetch(API_BASE + '/financeiro/alertas' + querystringAnalise_());
+    var alertasRaw = await rAlertas.json();
+    alertasDashData = (alertasRaw||[]).map(function(row){ return { l: mapearDoApi_(row), diff: row.diff_dias }; });
+  }catch(e){
+    console.error('Falha ao carregar alertas.', e);
+    alertasDashData = [];
+  }
   renderAlertasDash();
 }
 
@@ -1487,7 +1358,7 @@ function renderAlertasDash(){
     var txt = diff<0 ? `Venceu há ${Math.abs(diff)} dia(s)` : diff===0 ? 'Vence hoje' : `Vence em ${diff} dia(s)`;
     var nomeExibido = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
-    return `<div class="alert-item" onclick="openSidePanel(${l.id})">
+    return `<div class="alert-item" onclick="openSidePanel('${l.id}')">
       <i class="ti ti-arrow-down-circle" style="color:${col}"></i>
       <div class="alert-item-main"><strong>${nomeExibido}</strong><span>${l.descricao} · ${txt}</span></div>
       <div class="alert-item-val" style="color:${col}">${fmtMoeda(valorPagar)}</div>
@@ -1496,12 +1367,14 @@ function renderAlertasDash(){
 }
 
 /* ── Fila de Pagamentos do Dia (modo simplificado + dashboard) ── */
-function renderFila(filtro){
+async function renderFila(filtro){
   filtro = (filtro||'').toLowerCase();
-  var hoje = new Date().toISOString().slice(0,10);
-  var itens = getBase().filter(l=>l.tipo==='Pagar' && l.status==='A Pagar' && (l.vencimento===hoje || diffDias(l.vencimento)<0));
-  if(filtro) itens = itens.filter(l=>l.favorecido.toLowerCase().includes(filtro)||l.descricao.toLowerCase().includes(filtro));
-  itens.sort((a,b)=>diffDias(a.vencimento)-diffDias(b.vencimento));
+  var params = filtro ? ['filtro='+encodeURIComponent(filtro)] : [];
+  var itens;
+  try{
+    var r = await apiFetch(API_BASE + '/financeiro/fila' + querystringAnalise_(params));
+    itens = (await r.json()||[]).map(mapearDoApi_);
+  }catch(e){ console.error('Falha ao carregar a fila.', e); itens = []; }
 
   var el = document.getElementById('fila-list');
   if(!itens.length){
@@ -1517,7 +1390,7 @@ function renderFila(filtro){
     var sub = atrasado ? `Venceu há ${Math.abs(diff)} dia(s)` : 'Vence hoje';
     var titulo = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
-    return `<div class="fila-card" ${ehColaborador ? '' : `onclick="openSidePanel(${l.id})"`} style="cursor:${ehColaborador?'default':'pointer'}">
+    return `<div class="fila-card" ${ehColaborador ? '' : `onclick="openSidePanel('${l.id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:${l.tipo==='Pagar'?'var(--red-dim)':'var(--green-dim)'}">
         <i class="ti ${icon}" style="color:${iconCol}"></i></div>
       <div class="fila-card-main"><strong>${titulo}</strong>
@@ -1628,17 +1501,17 @@ function renderTabela(tipo){
     var statusOptions = tipo==='pagar' ? ['A Pagar','Pago'] : ['A Receber','Recebido'];
     var nomeExibido = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
-    return `<tr onclick="openSidePanel(${l.id})">
+    return `<tr onclick="openSidePanel('${l.id}')">
       ${tipo==='receber' ? `<td class="txt-mono">${fmtData(l.dataCobranca)}</td>` : ''}
       <td class="txt-mono" style="color:${vencCol}">${fmtData(l.vencimento)}</td>
       <td>${nomeExibido}</td>
       <td class="txt-dim">${l.descricao}</td>
       <td><span class="badge badge-gray">${l.categoria}</span></td>
       <td class="txt-right txt-mono" style="white-space:nowrap">${fmtMoeda(valorPagar)}</td>
-      <td><select class="status-sel ${statusClass(l.status)}" onclick="event.stopPropagation()" onchange="quickSetStatus(${l.id}, this.value)">
+      <td><select class="status-sel ${statusClass(l.status)}" onclick="event.stopPropagation()" onchange="quickSetStatus('${l.id}', this.value)">
         ${statusOptions.map(s=>`<option value="${s}" ${s===l.status?'selected':''}>${s}</option>`).join('')}
       </select></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openSidePanel(${l.id})"><i class="ti ti-eye" style="font-size:13px"></i></button></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openSidePanel('${l.id}')"><i class="ti ti-eye" style="font-size:13px"></i></button></td>
     </tr>`;
   }).join('');
 }
@@ -1671,16 +1544,16 @@ function popularFiltroMes(tipo){
 }
 
 
-function quickSetStatus(id, novoStatus){
+async function quickSetStatus(id, novoStatus){
   var l = lancamentos.find(x=>x.id===id);
   if(!l) return;
-  l.status = novoStatus;
   var pago = novoStatus==='Pago'||novoStatus==='Recebido';
-  if(pago) l.dataPagamento = new Date().toISOString().slice(0,10);
-  else l.dataPagamento = "";
-  persist();
-  if(l.tipo==='Receber') sincronizarRecebido_(l, pago);
-  else sincronizarPago_(l, pago);
+  try{
+    if(l.tipo==='Receber') await sincronizarRecebido_(l, pago);
+    else await sincronizarPago_(l, pago);
+  }catch(e){ alert('Erro ao atualizar status: '+e.message); return; }
+  l.status = novoStatus;
+  l.dataPagamento = pago ? new Date().toISOString().slice(0,10) : "";
   renderAll();
 }
 
@@ -1716,25 +1589,25 @@ function openSidePanel(id){
   function campoTexto(label, field, val){
     return isGestor
       ? `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
-          <input class="form-input" value="${(val||'').toString().replace(/"/g,'&quot;')}" onchange="updateCampo(${l.id},'${field}',this.value)"></div>`
+          <input class="form-input" value="${(val||'').toString().replace(/"/g,'&quot;')}" onchange="updateCampo('${l.id}','${field}',this.value)"></div>`
       : `<div class="sp-field"><div class="sp-label">${label}</div><div class="sp-val">${val||'—'}</div></div>`;
   }
   function campoNumero(label, field, val){
     return isGestor
       ? `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
-          <input class="form-input" type="number" step="0.01" value="${val||0}" onchange="updateCampo(${l.id},'${field}',parseFloat(this.value)||0)"></div>`
+          <input class="form-input" type="number" step="0.01" value="${val||0}" onchange="updateCampo('${l.id}','${field}',parseFloat(this.value)||0)"></div>`
       : `<div class="sp-field"><div class="sp-label">${label}</div><div class="sp-val txt-mono" style="font-weight:800">${fmtMoeda(val)}</div></div>`;
   }
   function campoData(label, field, val){
     return isGestor
       ? `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
-          <input class="form-input" type="date" value="${val||''}" onchange="updateCampo(${l.id},'${field}',this.value)"></div>`
+          <input class="form-input" type="date" value="${val||''}" onchange="updateCampo('${l.id}','${field}',this.value)"></div>`
       : `<div class="sp-field"><div class="sp-label">${label}</div><div class="sp-val">${fmtData(val)}</div></div>`;
   }
   function campoSelect(label, field, val, opcoes){
     return isGestor
       ? `<div class="form-group" style="margin-bottom:12px"><label class="form-label">${label}</label>
-          <select class="form-input" onchange="updateCampo(${l.id},'${field}',this.value)">
+          <select class="form-input" onchange="updateCampo('${l.id}','${field}',this.value)">
             <option value="">—</option>
             ${opcoes.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}
           </select></div>`
@@ -1764,7 +1637,7 @@ function openSidePanel(id){
       <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-notes" style="font-size:12px"></i> Histórico de Cobrança</div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
         <input class="form-input" id="sp-nova-nota" placeholder="Ex: cliente confirmou pagamento até sexta">
-        <button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="adicionarNotaCobranca(${l.id})"><i class="ti ti-plus" style="font-size:12px"></i></button>
+        <button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="adicionarNotaCobranca('${l.id}')"><i class="ti ti-plus" style="font-size:12px"></i></button>
       </div>
       ${historico.length ? historico.map(h=>`
         <div class="sp-field" style="background:var(--surface2);border-radius:7px;padding:8px 10px">
@@ -1837,11 +1710,15 @@ function closeSidePanel(){
   document.getElementById('sp-overlay').classList.remove('open');
   currentSideId = null;
 }
-function toggleStatusAtual(){
+async function toggleStatusAtual(){
   if(currentSideId==null) return;
   var l = lancamentos.find(x=>x.id===currentSideId);
   if(!l) return;
   var isPago = l.status==='Pago'||l.status==='Recebido';
+  try{
+    if(l.tipo==='Receber') await sincronizarRecebido_(l, !isPago);
+    else await sincronizarPago_(l, !isPago);
+  }catch(e){ alert('Erro ao atualizar status: '+e.message); return; }
   if(isPago){
     l.status = l.tipo==='Pagar' ? 'A Pagar' : 'A Receber';
     l.dataPagamento = "";
@@ -1849,26 +1726,24 @@ function toggleStatusAtual(){
     l.status = l.tipo==='Pagar' ? 'Pago' : 'Recebido';
     l.dataPagamento = new Date().toISOString().slice(0,10);
   }
-  persist();
-  if(l.tipo==='Receber') sincronizarRecebido_(l, !isPago);
-  else sincronizarPago_(l, !isPago);
   renderAll();
   openSidePanel(currentSideId);
 }
-function adicionarNotaCobranca(id){
+async function adicionarNotaCobranca(id){
   var l = lancamentos.find(x=>x.id===id);
   if(!l) return;
   var input = document.getElementById('sp-nova-nota');
   var texto = input.value.trim();
   if(!texto) return;
-  if(!Array.isArray(l.historico)) l.historico = [];
   var hoje = new Date().toISOString().slice(0,10);
+  try{
+    await sincronizarNotaCobranca_(l, hoje, texto);
+  }catch(e){ alert('Erro ao adicionar nota: '+e.message); return; }
+  if(!Array.isArray(l.historico)) l.historico = [];
   l.historico.push({data: hoje, texto: texto});
-  persist();
-  sincronizarNotaCobranca_(l, hoje, texto);
   openSidePanel(id);
 }
-function updateCampo(id, field, value){
+async function updateCampo(id, field, value){
   var l = lancamentos.find(x=>x.id===id);
   if(!l) return;
   if(field==='tipoValor' || field==='cardCodigo' || field==='titular'){
@@ -1878,29 +1753,29 @@ function updateCampo(id, field, value){
     var conflito = getConflitoDuplicidade(novoCodigo, novoTipo, novoTitular, id);
     if(conflito){ alert(conflito); openSidePanel(id); return; }
   }
+  var anterior = l[field];
   l[field] = value;
-  persist();
-  if(l.tipo==='Receber'){
-    if(field==='favorecido' || field==='numeroFatura'){
-      console.warn('Alteração de cliente/nº fatura não sincroniza automaticamente com a planilha de Contas a Receber — ajuste manual pode ser necessário.');
-    } else {
-      sincronizarCriarReceber_(l);
-    }
-  } else if(field==='titular' || field==='cardCodigo'){
-    console.warn('Alteração de titular/código não sincroniza automaticamente com a planilha — ajuste manual pode ser necessário.');
-  } else {
-    sincronizarCriar_(l);
+  try{
+    await apiPut_(API_BASE + '/financeiro/' + l.id, mapearParaApi_(l));
+  }catch(e){
+    l[field] = anterior;
+    alert('Erro ao salvar: '+e.message);
+    openSidePanel(id);
+    return;
   }
   renderAll();
   openSidePanel(id);
 }
-function deleteLancamentoAtual(){
+async function deleteLancamentoAtual(){
   if(currentSideId==null) return;
   if(!confirm('Excluir este lançamento?')) return;
   var l = lancamentos.find(x=>x.id===currentSideId);
+  if(l){
+    try{
+      if(l.tipo==='Receber') await sincronizarExcluirReceber_(l); else await sincronizarExcluir_(l);
+    }catch(e){ alert('Erro ao excluir: '+e.message); return; }
+  }
   lancamentos = lancamentos.filter(x=>x.id!==currentSideId);
-  persist();
-  if(l){ if(l.tipo==='Receber') sincronizarExcluirReceber_(l); else sincronizarExcluir_(l); }
   closeSidePanel();
   renderAll();
 }
@@ -1924,7 +1799,7 @@ function toggleCamposPixLancamento(){
   document.getElementById('m-pix-fields').style.display = isPix ? 'grid' : 'none';
 }
 
-function saveLancamento(){
+async function saveLancamento(){
   var favorecido = document.getElementById('m-favorecido').value.trim();
   var vencimento = document.getElementById('m-vencimento').value;
   var descricao = document.getElementById('m-descricao').value.trim();
@@ -1958,9 +1833,10 @@ function saveLancamento(){
     responsavel: "",
     obs: document.getElementById('m-obs').value.trim()
   };
+  try{
+    await sincronizarCriar_(novo);
+  }catch(e){ alert('Erro ao salvar: '+e.message); return; }
   lancamentos.push(novo);
-  persist();
-  sincronizarCriar_(novo);
   closeModalLancamento();
   renderAll();
 }
@@ -1993,7 +1869,16 @@ function closeModalPix(){ document.getElementById('modal-pix').classList.remove(
 function atualizarValorEnfasePix(){
   var valor = parseFloat(document.getElementById('p-valor').value)||0;
   var tipo = document.getElementById('p-tipo-valor').value;
-  var pct = parseFloat(document.getElementById('p-adiantamento').value)||0;
+  var campoAdiantamento = document.getElementById('p-adiantamento');
+  // Saldo pedido sem nenhum adiantamento informado antes NÃO é 100% do
+  // valor — na prática o adiantamento de um card é quase sempre 70%, então
+  // o Saldo (quando é o primeiro pagamento do card) já nasce assumindo
+  // esse padrão (30%). O usuário pode digitar outro % se esse card for
+  // diferente — o campo só é preenchido automaticamente se estiver vazio.
+  if(tipo==='Saldo' && campoAdiantamento.value===''){
+    campoAdiantamento.value = 70;
+  }
+  var pct = parseFloat(campoAdiantamento.value)||0;
   var enfase = calcValorEnfase(valor, tipo, pct);
   document.getElementById('p-valor-enfase').textContent = fmtMoeda(enfase);
   var legenda = tipo==='Adiantamento' ? pct+'% do valor (Adiantamento)'
@@ -2065,7 +1950,7 @@ async function buscarCardKanban(){
   }
 }
 
-function savePix(){
+async function savePix(){
   var favorecido = document.getElementById('p-favorecido').value.trim();
   var vencimento = document.getElementById('p-vencimento').value;
   var descricao = document.getElementById('p-descricao').value.trim();
@@ -2133,9 +2018,10 @@ function savePix(){
     responsavel: "",
     obs: document.getElementById('p-obs').value.trim()
   };
+  try{
+    await sincronizarCriar_(novo);
+  }catch(e){ alert('Erro ao salvar: '+e.message); return; }
   lancamentos.push(novo);
-  persist();
-  sincronizarCriar_(novo);
   closeModalPix();
   renderAll();
 }
@@ -2393,7 +2279,7 @@ function aplicarCamposFatura(c){
   }
 }
 
-function saveFatura(){
+async function saveFatura(){
   var cliente = document.getElementById('r-cliente').value.trim();
   var vencimento = document.getElementById('r-vencimento').value;
   var valor = parseFloat(document.getElementById('r-valor').value);
@@ -2441,9 +2327,10 @@ function saveFatura(){
     dataCobranca: document.getElementById('r-data-cobranca').value || '',
     obs: document.getElementById('r-obs').value.trim()
   };
+  try{
+    await sincronizarCriarReceber_(novo);
+  }catch(e){ alert('Erro ao salvar: '+e.message); return; }
   lancamentos.push(novo);
-  persist();
-  sincronizarCriarReceber_(novo);
   closeModalFatura();
   renderAll();
 }
@@ -2465,7 +2352,7 @@ function construirLinhasPlanilhaBase(rows){
       mapa[chave] = {
         codigo: codigo, data: l.dataLanc, empresa: l.empresaCnpj||'', bancoOrigem: l.bancoOrigem||'', vendedor: l.vendedor||'',
         solicitante: l.solicitante||'', favorecido: favorecido, docFavorecido: l.doc||'', pix: '', banco: '',
-        forma: '', valorTotal: null, acrescimo: l.acrescimo||0, pct: 0,
+        forma: '', valorTotal: null, acrescimo: 0, pct: 0,
         pagoAdiant: '', pagoSaldo: '', tipoTotal: false, temSaldo: false
       };
       ordem.push(chave);
@@ -2476,6 +2363,17 @@ function construirLinhasPlanilhaBase(rows){
     reg.docFavorecido = l.doc || reg.docFavorecido;
     if(ehPix){ reg.pix = l.chavePix||reg.pix; reg.banco = l.banco||reg.banco; }
 
+    // Acréscimo pedido como solicitação própria é um pagamento à parte —
+    // o valor dele fica só na coluna ACRÉSCIMO, nunca conta como Valor
+    // Total do card (senão corrompe a conta de Adiantamento/Saldo/Total).
+    if(tipoValor==='Acréscimo'){
+      reg.acrescimo += Number(l.valor)||0;
+      return;
+    }
+    // Acréscimo lançado junto de uma solicitação de Total/Adiantamento/Saldo
+    // (campo "Acréscimo" do próprio lançamento) também soma na mesma coluna.
+    if(l.acrescimo) reg.acrescimo += Number(l.acrescimo)||0;
+
     // Valor Total é fixado UMA vez (o primeiro valor válido do card/lançamento) e
     // nunca recalculado a partir de solicitações posteriores — evita que um valor
     // digitado errado numa solicitação de Saldo corrompa a conta do card inteiro.
@@ -2484,14 +2382,15 @@ function construirLinhasPlanilhaBase(rows){
       reg.valorTotal = valorEntrada;
     }
 
-    if(tipoValor==='Adiantamento'){
+    // O % de adiantamento é o mesmo dos dois lados do card (Adiantamento
+    // e Saldo são as duas partes da mesma divisão) — lê de qualquer um dos
+    // dois que tiver o campo preenchido, não só do lado "Adiantamento".
+    if(tipoValor==='Adiantamento' || tipoValor==='Saldo'){
       var pctEntrada = Number(l.adiantamento);
       reg.pct = isFinite(pctEntrada) ? Math.min(100, Math.max(0, pctEntrada)) : reg.pct;
-      reg.pagoAdiant = pago?'OK':'';
       reg.temSaldo = true;
-    } else if(tipoValor==='Saldo'){
-      reg.pagoSaldo = pago?'OK':'';
-      reg.temSaldo = true;
+      if(tipoValor==='Adiantamento') reg.pagoAdiant = pago?'OK':'';
+      else reg.pagoSaldo = pago?'OK':'';
     } else { // Total — pago de uma vez só, Adiantamento/Saldo ficam em branco
       reg.tipoTotal = true;
       reg.pagoAdiant = pago?'OK':'';
@@ -2592,9 +2491,12 @@ function setMode(mode){
 
 /* ── Perfil de acesso pela sessão real do sistema ──
    Igual ao resto do sistema: sessionStorage.barretos_user = {nome, login, perfil}.
-   Master (gestão completa) só para Lisa Marie e Daniel — todo o resto vê o
-   modo Simplificado (só Fila do Dia de Contas a Pagar, nunca Contas a Receber).
-   Sem sessão (uso standalone/testes fora do shell), mantém o seletor manual. */
+   Master (gestão completa) é uma lista fixa de pessoas — de propósito
+   independente do perfil gestor/colaborador usado no resto do sistema,
+   porque Financeiro é mais sensível que os outros módulos. Todo o resto
+   vê o modo Simplificado (só Fila do Dia de Contas a Pagar, nunca Contas
+   a Receber). Sem sessão (uso standalone/testes fora do shell), mantém
+   o seletor manual. */
 function detectarModoPorSessao(){
   try{
     var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
@@ -2602,7 +2504,7 @@ function detectarModoPorSessao(){
     var user = JSON.parse(raw);
     var nome = (user.nome || '').toString().trim().toLowerCase();
     var login = (user.login || '').toString().trim().toLowerCase();
-    var masters = ['lisa', 'daniel'];
+    var masters = ['lisa', 'daniel', 'alex sandro'];
     var ehMaster = masters.some(function(m){ return nome.indexOf(m)===0 || login.indexOf(m)===0; });
     return ehMaster ? 'gestor' : 'colaborador';
   }catch(e){ return null; }

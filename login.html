@@ -28,16 +28,12 @@ body{display:flex;align-items:stretch}
   justify-content:center;padding:40px 48px;overflow-y:auto;
 }
 .logo{width:85%;max-width:520px;object-fit:contain;display:block}
-/* filtro modo claro removido */
-#logo-claro{width:316px!important;height:190px!important;object-fit:contain}
-#logo-escuro{filter:brightness(1.05);display:block;background:none;padding:0}
+/* O painel esquerdo (.left) é sempre escuro, mesmo no tema claro — por
+   isso a logo aqui não troca com o tema, sempre mostra a versão clara
+   (letras brancas), a única que fica legível nesse fundo fixo. */
 #logo-claro{display:none}
-body.tema-claro #logo-escuro{display:none!important}
-body.tema-claro #logo-claro{display:block!important;filter:none}
-/* Container escuro atrás do logo no tema claro */
+#logo-escuro{filter:brightness(1.05);display:block;background:none;padding:0}
 .logo-container{position:relative}
-body.tema-claro .logo-container{background:#0F1117;padding:20px;border-radius:8px;display:inline-block;margin:0 auto}
-body.tema-claro .logo-container #logo-claro{margin:0;padding:0}
 .left-footer{
   position:absolute;bottom:20px;left:0;right:0;
   font-size:10px;color:#6B7280;text-align:center;letter-spacing:.04em;
@@ -181,7 +177,7 @@ body.tema-claro .login-right label{color:#6B7280!important;}
     <!-- LOGIN -->
     <div class="fg">
       <label>Login <span class="req">*</span></label>
-      <input class="fi" id="lg-login" placeholder="Seu usuário" autocomplete="username"
+      <input class="fi" id="lg-login" type="text" placeholder="Seu usuário" autocomplete="username"
         onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="fg">
@@ -193,14 +189,9 @@ body.tema-claro .login-right label{color:#6B7280!important;}
       <i class="ti ti-login" style="font-size:13px"></i> Entrar
     </button>
 
-    <div class="divider"><span>ou</span></div>
-
-    <button class="btn btn-ghost" id="btn-toggle-reg" onclick="toggleReg()">
-      <i class="ti ti-user-plus" style="font-size:12px"></i> Criar novo usuário
-    </button>
-
-    <!-- CADASTRO -->
-    <div class="reg-form" id="reg-form">
+    <!-- CADASTRO (desativado: novos usuários são criados só pelo administrador,
+         direto no painel do Supabase — não é self-service) -->
+    <div class="reg-form" id="reg-form" style="display:none">
       <div class="fg" style="margin-bottom:0">
         <label>Nome Completo <span class="req">*</span></label>
         <input class="fi" id="rg-nome" placeholder="Seu nome completo">
@@ -238,137 +229,30 @@ body.tema-claro .login-right label{color:#6B7280!important;}
   </div>
 </div>
 
-<!-- SCRIPT MODAL -->
-<div id="modal-script" class="modal-ov" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal script-modal">
-    <div class="modal-hd">
-      <div class="modal-title"><i class="ti ti-code" style="color:var(--gold);margin-right:8px"></i>Apps Script — Gestão de Usuários</div>
-      <button class="modal-close" onclick="document.getElementById('modal-script').classList.remove('open')">×</button>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:11px;color:var(--txt-dim);margin-bottom:10px">
-        1. Crie uma <strong>nova planilha</strong> no Google Sheets chamada "Gestão de Usuários"<br>
-        2. Extensões → Apps Script → apague tudo → cole o código<br>
-        3. Salve → Implantar → Nova implantação → Web App (Execute como: Eu / Acesso: Qualquer pessoa)<br>
-      </p>
-      <textarea id="script-code" readonly
-        style="width:100%;height:260px;background:var(--surface);border:1px solid var(--border);
-        border-radius:7px;color:var(--txt);font-family:monospace;font-size:10px;
-        padding:11px;resize:vertical;outline:none"></textarea>
-    </div>
-    <div class="modal-ft">
-      <button class="btn-sm ghost" onclick="document.getElementById('modal-script').classList.remove('open')">Fechar</button>
-      <button class="btn-sm primary" onclick="copyScript()">
-        <i class="ti ti-copy" style="font-size:11px"></i> Copiar código
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- GAS SOURCE -->
-<textarea id="gas-src" style="display:none">// Planilha: Gestao de Usuarios (nova planilha independente)
-// Cole este codigo no Apps Script dessa planilha e implante como Web App
-
-function getOrCreateUsuarios() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(&#x27;USUARIOS&#x27;);
-  if (!sh) {
-    sh = ss.insertSheet(&#x27;USUARIOS&#x27;);
-    sh.appendRow([&#x27;ID&#x27;,&#x27;Nome&#x27;,&#x27;Login&#x27;,&#x27;Senha&#x27;,&#x27;Perfil&#x27;,&#x27;Ativo&#x27;,&#x27;Data Cadastro&#x27;]);
-  }
-  return sh;
-}
-
-function doGet(e) {
-  try {
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;login&#x27;) {
-      var login = String(e.parameter.login || &#x27;&#x27;).toLowerCase().trim();
-      var senha = String(e.parameter.senha || &#x27;&#x27;);
-      var sh = getOrCreateUsuarios();
-      if (sh.getLastRow() &lt;= 1) return respErr(&#x27;Nenhum usuario cadastrado ainda.&#x27;);
-      var data = sh.getDataRange().getValues();
-      var h = data[0].map(String);
-      var ci=h.indexOf(&#x27;Login&#x27;), cs=h.indexOf(&#x27;Senha&#x27;),
-          cn=h.indexOf(&#x27;Nome&#x27;),  cp=h.indexOf(&#x27;Perfil&#x27;), ca=h.indexOf(&#x27;Ativo&#x27;);
-      for (var i = 1; i &lt; data.length; i++) {
-        if (String(data[i][ci]).toLowerCase().trim() === login
-            &amp;&amp; String(data[i][cs]) === senha
-            &amp;&amp; String(data[i][ca]) !== &#x27;false&#x27;) {
-          return respOk({ user: {
-            nome:   String(data[i][cn]),
-            perfil: String(data[i][cp]),
-            login:  login
-          }});
-        }
-      }
-      return respErr(&#x27;Login ou senha incorretos.&#x27;);
-    }
-    return respErr(&#x27;Acao nao reconhecida.&#x27;);
-  } catch(err) { return respErr(err); }
-}
-
-function doPost(e) {
-  try {
-    var d = JSON.parse(e.postData.contents);
-
-    if (d.action === &#x27;register_user&#x27;) {
-      var sh = getOrCreateUsuarios();
-      var data = sh.getLastRow() &gt; 1 ? sh.getDataRange().getValues() : [sh.getRange(1,1,1,7).getValues()[0]];
-      var h = data[0].map(String);
-      var ci = h.indexOf(&#x27;Login&#x27;);
-      for (var i = 1; i &lt; data.length; i++) {
-        if (String(data[i][ci]).toLowerCase().trim() === String(d.login).toLowerCase().trim())
-          return respErr(&#x27;Login ja cadastrado. Escolha outro.&#x27;);
-      }
-      var tz = Session.getScriptTimeZone();
-      sh.appendRow([
-        &#x27;USR-&#x27; + Date.now(),
-        d.nome,
-        d.login.toLowerCase().trim(),
-        d.senha,
-        d.perfil || &#x27;colaborador&#x27;,
-        &#x27;true&#x27;,
-        Utilities.formatDate(new Date(), tz, &#x27;dd/MM/yyyy&#x27;)
-      ]);
-      return respOk({ ok: true });
-    }
-
-    return respErr(&#x27;Acao desconhecida: &#x27; + d.action);
-  } catch(err) { return respErr(err); }
-}
-
-function respOk(obj) {
-  obj.success = true;
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-function respErr(e) {
-  return ContentService.createTextOutput(JSON.stringify({ success: false, error: String(e) }))
-    .setMimeType(ContentService.MimeType.JSON);
-}</textarea>
-
-<!-- CONFIG + SCRIPT BUTTONS -->
-<div style="position:fixed;bottom:16px;right:16px;display:flex;gap:8px">
-  <button class="cfg-btn" onclick="document.getElementById('modal-script').classList.add('open')">
-    <i class="ti ti-code" style="font-size:12px"></i> Apps Script
-  </button>
-
-</div>
+<!-- (Modal do Apps Script removido — login agora usa Supabase Auth, não
+     precisa mais desse script de planilha) -->
 
 <script>
 /* ══════════════════════════════
-   CONFIG
+   CONFIG — Supabase Auth
+   URL e chave anônima são seguras de ficar aqui: a anônima só habilita
+   login, não dá acesso a nada sozinha (o controle de acesso de verdade
+   é feito no backend, checando o token em toda chamada da API).
 ══════════════════════════════ */
-var WEBAPP_URL='https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
+var SUPABASE_URL = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('script-code').value = document.getElementById('gas-src').value;
-});
-
-function copyScript() {
-  const t = document.getElementById('script-code');
-  t.select(); document.execCommand('copy');
-  alert('Código copiado!');
+// O Supabase só entende e-mail — quem digita um "usuário" comum (sem @)
+// ganha um e-mail disfarçado por trás dos panos, só pra ele conseguir
+// logar (ex: "sabrina ferreira" vira "sabrina.ferreira@barretos.sistema").
+// Quem já tem e-mail de verdade cadastrado usa ele normalmente.
+function loginParaEmail(login) {
+  if (login.indexOf('@') !== -1) return login;
+  var normalizado = login.toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9.]/g, '');
+  return normalizado + '@barretos.sistema';
 }
 
 /* ══════════════════════════════
@@ -382,89 +266,60 @@ function setMsg(err, ok) {
 }
 
 /* ══════════════════════════════
-   TOGGLE CADASTRO
-══════════════════════════════ */
-function toggleReg() {
-  const f   = document.getElementById('reg-form');
-  const btn = document.getElementById('btn-toggle-reg');
-  const open = f.classList.toggle('open');
-  btn.innerHTML = open
-    ? '<i class="ti ti-x" style="font-size:12px"></i> Cancelar'
-    : '<i class="ti ti-user-plus" style="font-size:12px"></i> Criar novo usuário';
-  setMsg('','');
-}
-
-/* ══════════════════════════════
    LOGIN
+   Novos usuários não se auto-cadastram aqui — são criados pelo
+   administrador direto no painel do Supabase (Authentication → Users).
 ══════════════════════════════ */
 async function doLogin() {
-  const login = document.getElementById('lg-login').value.trim();
+  const digitado = document.getElementById('lg-login').value.trim();
   const senha = document.getElementById('lg-senha').value;
-  if (!login || !senha) { setMsg('Preencha login e senha.',''); return; }
+  if (!digitado || !senha) { setMsg('Preencha login e senha.',''); return; }
   const btn = document.getElementById('btn-login');
   btn.innerHTML = '<span class="spinner"></span> Entrando…'; btn.disabled = true;
   setMsg('','');
   try {
-    const url = WEBAPP_URL + '?action=login&login=' + encodeURIComponent(login) + '&senha=' + encodeURIComponent(senha);
-    const r = await fetch(url);
-    const j = await r.json();
-    if (j.success && j.user) {
-      // Salva sessão para todos os HTMLs usarem
-      sessionStorage.setItem('barretos_user', JSON.stringify(j.user));
-      localStorage.setItem('barretos_nome',   j.user.nome);
-      localStorage.setItem('barretos_perfil', j.user.perfil);
-      localStorage.setItem('barretos_login',  j.user.login);
-      // Busca URLs centralizadas do servidor e salva localmente
-      try {
-        const ru = await fetch(WEBAPP_URL + '?action=get_urls');
-        const ju = await ru.json();
-        if (ju.success && ju.urls) {
-          Object.keys(ju.urls).forEach(function(k) {
-            if (ju.urls[k]) localStorage.setItem(k, ju.urls[k]);
-          });
-        }
-      } catch(e) { /* URLs não críticas, segue */ }
-      // Redireciona para o dashboard principal
-      window.location.href = 'shell.html';
-    } else {
-      setMsg(j.error || 'Login ou senha incorretos.','');
-    }
-  } catch(e) { setMsg('Erro de conexão. Verifique a URL do Apps Script.',''); }
-  btn.innerHTML = '<i class="ti ti-login" style="font-size:13px"></i> Entrar';
-  btn.disabled = false;
-}
-
-/* ══════════════════════════════
-   CADASTRO
-══════════════════════════════ */
-async function doRegister() {
-  const nome   = document.getElementById('rg-nome').value.trim();
-  const login  = document.getElementById('rg-login').value.trim().toLowerCase();
-  const perfil = document.getElementById('rg-perfil').value;
-  const senha  = document.getElementById('rg-senha').value;
-  const conf   = document.getElementById('rg-conf').value;
-  if (!nome||!login||!senha||!conf) { setMsg('Preencha todos os campos.',''); return; }
-  if (senha.length < 6)  { setMsg('Senha deve ter no mínimo 6 caracteres.',''); return; }
-  if (senha !== conf)    { setMsg('As senhas não coincidem.',''); return; }
-  const btn = document.getElementById('btn-reg');
-  btn.innerHTML = '<span class="spinner"></span> Cadastrando…'; btn.disabled = true;
-  setMsg('','');
-  try {
-    const r = await fetch(WEBAPP_URL, {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
       method: 'POST',
-      body: JSON.stringify({action:'register_user',nome,login,perfil,senha})
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: loginParaEmail(digitado), password: senha }),
     });
     const j = await r.json();
-    if (j.success) {
-      setMsg('', '✓ Usuário criado! Faça login com suas credenciais.');
-      toggleReg();
-      document.getElementById('lg-login').value = login;
-      document.getElementById('lg-senha').focus();
+    if (r.ok && j.access_token) {
+      // Nome, perfil e permissões vêm das tabelas "usuarios"/"permissoes"
+      // no banco (mesmo Supabase dos outros módulos) — não mais do Apps
+      // Script nem de metadados soltos na conta de login.
+      const pr = await fetch(
+        SUPABASE_URL + '/rest/v1/usuarios?select=nome,login,perfil,deve_trocar_senha,permissoes(ferramentas)&auth_user_id=eq.' + j.user.id,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + j.access_token } }
+      );
+      const linhas = await pr.json();
+      const perfilRow = Array.isArray(linhas) ? linhas[0] : null;
+      const permRel = perfilRow && perfilRow.permissoes;
+      const ferramentas = Array.isArray(permRel) ? (permRel[0] && permRel[0].ferramentas) || [] : (permRel && permRel.ferramentas) || [];
+      const user = {
+        nome:   (perfilRow && perfilRow.nome)   || digitado,
+        perfil: (perfilRow && perfilRow.perfil) || 'colaborador',
+        login:  (perfilRow && perfilRow.login)  || digitado,
+      };
+      // Salva sessão para todos os HTMLs usarem (mesmo padrão de antes)
+      sessionStorage.setItem('barretos_user', JSON.stringify(user));
+      localStorage.setItem('barretos_nome',   user.nome);
+      localStorage.setItem('barretos_perfil', user.perfil);
+      localStorage.setItem('barretos_login',  user.login);
+      localStorage.setItem('barretos_permissoes', JSON.stringify(ferramentas));
+      // Token do Supabase — é isso que o shell repassa pros módulos
+      // usarem nas chamadas da API
+      localStorage.setItem('barretos_auth_token',   j.access_token);
+      localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+      // Senha temporária (ex: a padrão dada na criação da conta) — o shell
+      // força a troca antes de liberar o resto do sistema.
+      localStorage.setItem('barretos_deve_trocar_senha', (perfilRow && perfilRow.deve_trocar_senha) ? '1' : '');
+      window.location.href = 'shell.html';
     } else {
-      setMsg(j.error || 'Erro ao cadastrar.','');
+      setMsg(j.error_description || j.msg || 'Login ou senha incorretos.', '');
     }
-  } catch(e) { setMsg('Erro de conexão. Verifique a URL do Apps Script.',''); }
-  btn.innerHTML = '<i class="ti ti-check" style="font-size:12px"></i> Cadastrar';
+  } catch(e) { setMsg('Erro de conexão com o Supabase.',''); }
+  btn.innerHTML = '<i class="ti ti-login" style="font-size:13px"></i> Entrar';
   btn.disabled = false;
 }
 </script>

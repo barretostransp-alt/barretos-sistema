@@ -251,10 +251,75 @@ body.tema-claro .card-section,body.tema-claro .op-row,body.tema-claro .op-card{b
 // ══════════════════════════════════════════════════
 //  URLs
 // ══════════════════════════════════════════════════
-var URL_REL  = 'https://script.google.com/macros/s/AKfycbx0b9geJN-50h8vQPMyAw5rAD5h4ghOFJrngeCgs29t3sqpaCGGC_b2ih99eYYnZdSDfg/exec';
-var URL_CAL  = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
+// Faturamento (kanban_cards), Agenda (calendario_eventos) e Helpdesk
+// (helpdesk_chamados) ja migrados pro Supabase — ver API_BASE abaixo.
+// Laboratorio de Ideias ainda nao foi migrado, entao continua batendo
+// direto no Apps Script dele.
 var URL_LAB  = 'https://script.google.com/macros/s/AKfycbzboBXmOiM6a_eG5veYo7Dk8kqNL9FXT5bD57NXzEx9y5g6MoDoHMmYAf9ceXIkVybb/exec';
-var URL_HELP = 'https://script.google.com/macros/s/AKfycbw0s7mrACL2idaSsEqiwHhStonOczR8f6PtEhsbj5FSE7l4f7FraoCGYzjyEwXHiVlo/exec';
+
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
 
 var TYPE_COLOR = {evento:'#3B82F6',reuniao:'#8B5CF6',alerta:'#F97316',lembrete:'#F5B800'};
 var TYPE_LABEL = {evento:'Evento',reuniao:'Reunião',alerta:'Alerta',lembrete:'Lembrete'};
@@ -263,6 +328,8 @@ var TYPE_LABEL = {evento:'Evento',reuniao:'Reunião',alerta:'Alerta',lembrete:'L
 //  INIT
 // ══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', function() {
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+
   // Usuário
   var user = null;
   try { user = JSON.parse(sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || '{}'); } catch(e){}
@@ -308,128 +375,85 @@ function startClock() {
 // ══════════════════════════════════════════════════
 //  FATURAMENTO
 // ══════════════════════════════════════════════════
-var _db = [];
-
-function _parseBRL(s) {
-  if (!s) return 0;
-  var v = String(s).replace(/R\$\s*/g,'').trim();
-  if (v.includes(',')) v = v.replace(/\./g,'').replace(',','.');
-  return parseFloat(v)||0;
+// O resumo (faturamento, margem, top 5 clientes) já vem pronto do backend
+// — antes essa tela baixava o histórico inteiro de fretes só pra montar
+// isso, toda vez que alguém fazia login. Trocar de mês busca de novo.
+async function carregarFaturamento(user) {
+  await _buscarResumo(null);
 }
 
-async function carregarFaturamento(user) {
+async function filtrarMes(mes) {
+  await _buscarResumo(mes);
+}
+
+async function _buscarResumo(mes) {
   try {
-    var r = await fetch(URL_REL);
-    var j = await r.json();
-    _db = j.data || j.rows || [];
-    if (!_db.length) {
+    var url = API_BASE + '/relatorio-vendedor/resumo-mensal' + (mes ? '?mes='+encodeURIComponent(mes) : '');
+    var r = await apiFetch(url);
+    var resumo = await r.json();
+    if (!r.ok) throw new Error(resumo.error || 'Erro ao carregar');
+    if (!resumo.meses.length) {
       document.getElementById('fat-wrap').innerHTML = '<div style="padding:20px;color:var(--txt-dim);font-size:12px;text-align:center">Nenhum dado encontrado.</div>';
       return;
     }
-    // Popula select igual ao relatório de vendedor
-    var meses = [];
-    _db.forEach(function(row){ var m=String(row['Mes']||row['Mês']||'').trim(); if(m && !meses.includes(m)) meses.push(m); });
-    meses.sort();
-    var agora = new Date();
-    var mesAtual = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][agora.getMonth()];
     var sel = document.getElementById('sel-mes');
-    sel.innerHTML = meses.map(function(m){
-      return '<option value="'+m+'"'+(m===mesAtual?' selected':'')+'>'+m.charAt(0).toUpperCase()+m.slice(1)+'</option>';
+    sel.innerHTML = resumo.meses.map(function(m){
+      return '<option value="'+m.chave+'"'+(m.chave===resumo.mesSelecionado?' selected':'')+'>'+m.label+'</option>';
     }).join('');
-    if (!sel.value && sel.options.length) sel.selectedIndex = sel.options.length-1;
-    _renderMes(sel.value);
+    _renderResumo(resumo);
   } catch(e) {
     document.getElementById('fat-wrap').innerHTML = '<div style="padding:20px;color:var(--txt-dim);font-size:12px;text-align:center"><i class="ti ti-plug-off" style="font-size:24px;display:block;margin-bottom:8px"></i>Erro ao carregar operações.</div>';
   }
 }
 
-function filtrarMes(mes) { _renderMes(mes); }
+function _renderResumo(resumo) {
+  var corMargem = resumo.margemPct >= 25 ? 'var(--green)' : resumo.margemPct >= 15 ? 'var(--gold)' : 'var(--red)';
 
-function _renderMes(mes) {
-  var doMes = _db.filter(function(r){ return (r['Mes']||r['Mês']||'') === mes; });
-
-  var fat=0, custo=0, icms=0;
-  doMes.forEach(function(r){
-    fat   += _parseBRL(r['Frete Cobrado']);
-    custo += _parseBRL(r['Custo Operacional']);
-    icms  += _parseBRL(r['ICMS']);
-  });
-  var liq    = fat - custo - icms;
-  var margem = fat > 0 ? (liq/fat*100) : 0;
-  var corMargem = margem >= 25 ? 'var(--green)' : margem >= 15 ? 'var(--gold)' : 'var(--red)';
-
-  document.getElementById('stat-faturamento').textContent = fmtBRL(fat);
-  document.getElementById('stat-coletas').textContent     = doMes.length;
-  document.getElementById('stat-margem').textContent      = margem.toFixed(1) + '%';
+  document.getElementById('stat-faturamento').textContent = fmtBRL(resumo.faturamento);
+  document.getElementById('stat-coletas').textContent     = resumo.operacoes.length;
+  document.getElementById('stat-margem').textContent      = resumo.margemPct.toFixed(1) + '%';
   document.getElementById('stat-margem').style.color      = corMargem;
-  document.getElementById('fat-badge').textContent        = doMes.length + ' operações';
+  document.getElementById('fat-badge').textContent        = resumo.operacoes.length + ' operações';
 
-  var nomeMes = mes.charAt(0).toUpperCase()+mes.slice(1);
+  var mesLabel = (resumo.meses.find(function(m){ return m.chave===resumo.mesSelecionado; })||{}).label || '';
   var html = '<div class="fat-mes-header">'+
-    '<span class="fat-mes-label">'+nomeMes+'</span>'+
-    '<span style="font-size:10px;color:'+corMargem+'">'+margem.toFixed(1)+'% margem</span>'+
-    '<span class="fat-mes-total">'+fmtBRL(fat)+'</span>'+
+    '<span class="fat-mes-label">'+esc(mesLabel)+'</span>'+
+    '<span style="font-size:10px;color:'+corMargem+'">'+resumo.margemPct.toFixed(1)+'% margem</span>'+
+    '<span class="fat-mes-total">'+fmtBRL(resumo.faturamento)+'</span>'+
   '</div>';
 
-  doMes.forEach(function(row) {
-    var f  = _parseBRL(row['Frete Cobrado']);
-    var cs = _parseBRL(row['Custo Operacional']);
-    var ic = _parseBRL(row['ICMS']);
-    var lq = f - cs - ic;
-    var pct= f > 0 ? (lq/f*100) : 0;
-    var cor= pct >= 25 ? 'var(--green)' : pct >= 15 ? 'var(--gold)' : 'var(--red)';
-    var origem  = String(row.Origem||'').toUpperCase();
-    var cliente = row.Cliente||'—';
-    var dtCod   = row['DT Codigo']||'';
-    var cidOri  = row['Cidade Origem']||'';
-    var cidDes  = row['Cidade Destino']||'';
+  resumo.operacoes.forEach(function(op) {
+    var cor = op.margemPct >= 25 ? 'var(--green)' : op.margemPct >= 15 ? 'var(--gold)' : 'var(--red)';
     html += '<div class="fat-row">'+
       '<div>'+
-        '<div class="fat-cliente">'+esc(cliente)+(dtCod?' <span style="font-size:10px;color:#F97316;font-weight:600">#'+esc(dtCod)+'</span>':'')+'</div>'+
-        '<div class="fat-rota">'+esc(cidOri)+(cidDes?' \u2192 '+esc(cidDes):'')+'</div>'+
+        '<div class="fat-cliente">'+esc(op.cliente||'—')+(op.dtCodigo?' <span style="font-size:10px;color:#F97316;font-weight:600">#'+esc(op.dtCodigo)+'</span>':'')+'</div>'+
+        '<div class="fat-rota">'+esc(op.cidadeOrigem)+(op.cidadeDestino?' \u2192 '+esc(op.cidadeDestino):'')+'</div>'+
       '</div>'+
-      '<div class="fat-origem">'+esc(origem)+'</div>'+
+      '<div class="fat-origem">'+esc(String(op.origem||'').toUpperCase())+'</div>'+
       '<div>'+
-        '<div class="fat-valor">'+fmtBRL(f)+'</div>'+
-        '<div class="fat-margem" style="color:'+cor+'">'+pct.toFixed(1)+'% margem</div>'+
+        '<div class="fat-valor">'+fmtBRL(op.frete)+'</div>'+
+        '<div class="fat-margem" style="color:'+cor+'">'+op.margemPct.toFixed(1)+'% margem</div>'+
       '</div>'+
     '</div>';
   });
 
   document.getElementById('fat-wrap').innerHTML = html;
-  renderTop5(_db, mes);
+  renderTop5(resumo.top5);
 }
 
 // ══════════════════════════════════════════════════
 // ══════════════════════════════════════════════════
 //  TOP 5 CLIENTES
 // ══════════════════════════════════════════════════
-function renderTop5(data, mes) {
+function renderTop5(top5) {
   var el = document.getElementById('top5-body');
   if (!el) return;
-  var rows = mes ? data.filter(function(r){ return (r['Mes']||r['Mês']||'') === mes; }) : data;
-  var porCliente = {};
-  rows.forEach(function(row) {
-    var cli   = row.Cliente||row.cliente||'—';
-    var frete = _parseBRL(row['Frete Cobrado']||0);
-    var custo = _parseBRL(row['Custo Operacional']||0);
-    var icms  = _parseBRL(row['ICMS']||0);
-    if (!porCliente[cli]) porCliente[cli] = { fat: 0, liq: 0, ops: 0 };
-    porCliente[cli].fat  += frete;
-    porCliente[cli].liq  += (frete - custo - icms);
-    porCliente[cli].ops  += 1;
-  });
-
-  var lista = Object.keys(porCliente).map(function(k) {
-    return { nome: k, fat: porCliente[k].fat, liq: porCliente[k].liq, ops: porCliente[k].ops };
-  }).sort(function(a,b){ return b.fat - a.fat; }).slice(0,5);
-
-  var maxFat = lista.length ? lista[0].fat : 1;
+  var lista = top5;
+  var maxFat = lista.length ? lista[0].faturamento : 1;
 
   el.innerHTML = lista.map(function(c, i) {
-    var pct   = c.fat > 0 ? (c.liq/c.fat*100) : 0;
-    var cor   = pct >= 25 ? 'var(--green)' : pct >= 15 ? 'var(--gold)' : 'var(--red)';
-    var barW  = Math.round(c.fat/maxFat*100);
+    var cor   = c.margemPct >= 25 ? 'var(--green)' : c.margemPct >= 15 ? 'var(--gold)' : 'var(--red)';
+    var barW  = Math.round(c.faturamento/maxFat*100);
     var medals = ['🥇','🥈','🥉','4°','5°'];
     return '<div style="padding:8px 0;border-bottom:1px solid rgba(30,33,48,.5)">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'+
@@ -438,8 +462,8 @@ function renderTop5(data, mes) {
           '<span style="font-size:11px;font-weight:600;color:var(--txt)">'+esc(c.nome)+'</span>'+
         '</div>'+
         '<div style="text-align:right">'+
-          '<div style="font-size:11px;font-weight:600;color:var(--txt)">'+fmtBRL(c.fat)+'</div>'+
-          '<div style="font-size:9px;color:'+cor+'">'+pct.toFixed(1)+'% margem · '+c.ops+' ops</div>'+
+          '<div style="font-size:11px;font-weight:600;color:var(--txt)">'+fmtBRL(c.faturamento)+'</div>'+
+          '<div style="font-size:9px;color:'+cor+'">'+c.margemPct.toFixed(1)+'% margem · '+c.operacoes+' ops</div>'+
         '</div>'+
       '</div>'+
       '<div style="height:3px;background:var(--border);border-radius:2px">'+
@@ -454,19 +478,20 @@ async function carregarAgenda(user) {
   var el = document.getElementById('agenda-body');
   try {
     var loginAtual = user && user.login ? user.login.trim().toLowerCase() : '';
-    var r = await fetch(URL_CAL + '?action=cal_listar');
-    var j = await r.json();
+    var r = await apiFetch(API_BASE + '/calendario');
+    var rows = await r.json();
+    if (!r.ok) throw new Error(rows.error || 'Erro ao carregar');
     var hoje = toISOLocal(new Date());
 
-    var eventos = (j.rows||[]).filter(function(ev) {
-      var dataIni = normDate(ev.DataIni||'');
-      var dataFim = normDate(ev.DataFim||dataIni);
+    var eventos = (rows||[]).filter(function(ev) {
+      var dataIni = ev.data_inicio||'';
+      var dataFim = ev.data_fim||dataIni;
       if (hoje < dataIni || hoje > dataFim) return false;
       if (!loginAtual) return true;
-      var parts = (ev.Participantes||'').split(',').map(function(s){return s.trim().toLowerCase();});
-      var criador = (ev.Criador||'').trim().toLowerCase();
+      var parts = (ev.participantes||[]).map(function(s){return String(s).trim().toLowerCase();});
+      var criador = (ev.criador||'').trim().toLowerCase();
       return parts.indexOf(loginAtual) >= 0 || criador === loginAtual;
-    }).sort(function(a,b){ return (a.HoraIni||'').localeCompare(b.HoraIni||''); });
+    }).sort(function(a,b){ return (a.hora_inicio||'').localeCompare(b.hora_inicio||''); });
 
     if (!eventos.length) {
       el.innerHTML = '<div class="side-empty">Nenhum evento hoje 🎉</div>';
@@ -477,17 +502,17 @@ async function carregarAgenda(user) {
     document.getElementById('agenda-count').textContent = eventos.length;
 
     el.innerHTML = eventos.map(function(ev) {
-      var tipo  = ev.Tipo||'evento';
+      var tipo  = ev.tipo||'evento';
       var color = TYPE_COLOR[tipo]||'#6B7280';
-      var hora  = normHora(ev.HoraIni||'');
-      var horaFim = normHora(ev.HoraFim||'');
+      var hora  = ev.hora_inicio||'';
+      var horaFim = ev.hora_fim||'';
       var horaTxt = hora ? hora+(horaFim?' – '+horaFim:'') : 'Dia inteiro';
       return '<div class="agenda-item">'+
         '<div class="agenda-hora">'+horaTxt+'</div>'+
         '<div class="agenda-dot" style="background:'+color+'"></div>'+
         '<div class="agenda-info">'+
-          '<div class="agenda-titulo">'+esc(ev.Titulo||'Sem título')+'</div>'+
-          '<div class="agenda-sub">'+(ev.Local?esc(ev.Local):TYPE_LABEL[tipo]||tipo)+'</div>'+
+          '<div class="agenda-titulo">'+esc(ev.titulo||'Sem título')+'</div>'+
+          '<div class="agenda-sub">'+(ev.local?esc(ev.local):TYPE_LABEL[tipo]||tipo)+'</div>'+
         '</div>'+
         '<span class="agenda-badge" style="background:'+color+'22;color:'+color+'">'+TYPE_LABEL[tipo]+'</span>'+
       '</div>';
@@ -533,9 +558,10 @@ async function carregarHelpdesk(user) {
   var el = document.getElementById('hd-body');
   try {
     var loginAtual = user && user.nome ? user.nome.trim().toLowerCase() : '';
-    var r = await fetch(URL_HELP);
-    var j = await r.json();
-    var items = (j.data || j.rows || []).filter(function(item) {
+    var r = await apiFetch(API_BASE + '/helpdesk');
+    var rows = await r.json();
+    if (!r.ok) throw new Error(rows.error || 'Erro ao carregar');
+    var items = (rows || []).filter(function(item) {
       if (!loginAtual) return true;
       var resp = String(item.Responsavel||item.responsavel||item.Atribuido||'').toLowerCase();
       var cria = String(item.Criador||item.criador||item.Solicitante||'').toLowerCase();

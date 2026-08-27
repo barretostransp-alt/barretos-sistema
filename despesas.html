@@ -299,7 +299,104 @@
         Chart.register(ChartDataLabels);
         
         // ============ CONFIGURAÇÃO ============
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDSvPmB2deARH4SlLgQvyc7-s52xUwfZPkebWNY5zHtyUbY3BZYoSK3uA87d8Z4Hs/exec';
+        const API_BASE = 'https://barretos-backend.onrender.com/api';
+
+        // Este módulo não tem tela de login própria — quem cuida disso é o
+        // shell (menu principal). Ele deixa o token de acesso salvo aqui no
+        // localStorage antes de carregar este módulo dentro do iframe. Se o
+        // token não estiver aqui, é porque o arquivo foi aberto direto, fora
+        // do shell.
+        const SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+        function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+        function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+        async function tentarRenovarToken() {
+          const refresh = getRefreshToken();
+          if (!refresh) return false;
+          // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+          // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+          // de novo com o refresh token antigo (ele so vale uma vez).
+          const agora = Date.now();
+          const ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+          if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+          try {
+            const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+              body: JSON.stringify({ refresh_token: refresh }),
+            });
+            if (!r.ok) return false;
+            const j = await r.json();
+            localStorage.setItem('barretos_auth_token', j.access_token);
+            localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+            localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+            return true;
+          } catch (e) { return false; }
+        }
+
+        async function apiFetch(url, options) {
+          options = options || {};
+          let headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+          let res = await fetch(url, Object.assign({}, options, { headers: headers }));
+          if (res.status === 401) {
+            if (await tentarRenovarToken()) {
+              headers.Authorization = 'Bearer ' + getAuthToken();
+              res = await fetch(url, Object.assign({}, options, { headers: headers }));
+            }
+            if (res.status === 401) {
+              mostrarTelaSemAcesso();
+              throw new Error('Sessão expirada');
+            }
+          }
+          return res;
+        }
+
+        function mostrarTelaSemAcesso() {
+          let el = document.getElementById('sem-acesso-overlay');
+          if (el) { el.style.display = 'flex'; return; }
+          el = document.createElement('div');
+          el.id = 'sem-acesso-overlay';
+          el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+          el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+            '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+          document.body.appendChild(el);
+        }
+
+        // Converte uma despesa vinda da API (snake_case) pro formato usado
+        // no resto desta tela (chaves em português, igual à planilha antiga).
+        function mapearDoApi_(d) {
+          const dataISO = d.data || '';
+          const mesNome = dataISO ? new Date(dataISO + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase()) : '';
+          return {
+            ID: d.id,
+            Data: dataISO,
+            Categoria: d.categoria || '',
+            'Descrição': d.descricao || '',
+            CNPJ: d.cnpj || '',
+            Valor: d.valor || 0,
+            'Tipo de Pagamento': d.tipo_pagamento || '',
+            Status: d.status || '',
+            'Responsável': d.responsavel || '',
+            Notas: d.notas || '',
+            'Mês': mesNome
+          };
+        }
+        function mapearParaApi_(data) {
+          return {
+            data: data['Data'],
+            categoria: data['Categoria'],
+            descricao: data['Descrição'],
+            cnpj: data['CNPJ'],
+            valor: data['Valor'],
+            tipo_pagamento: data['Tipo de Pagamento'],
+            status: data['Status'],
+            responsavel: data['Responsável'],
+            notas: data['Notas']
+          };
+        }
+
         const charts = {};
         const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
         let allData = [];
@@ -309,42 +406,37 @@
         // ============ API COMMUNICATION ============
         async function apiPost(payload) {
             try {
-                console.log('📤 Enviando:', JSON.stringify(payload));
-                const response = await fetch(APPS_SCRIPT_URL, { 
-                    method: 'POST', 
-                    body: JSON.stringify(payload),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-                });
-                
-                if (!response.ok) {
-                    console.error('❌ HTTP Error:', response.status);
-                    return { success: false, error: 'HTTP ' + response.status };
+                let res;
+                if (payload.action === 'addDespesa') {
+                    res = await apiFetch(API_BASE + '/despesas-gerais', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mapearParaApi_(payload.data))
+                    });
+                } else if (payload.action === 'updateDespesa') {
+                    res = await apiFetch(API_BASE + '/despesas-gerais/' + payload.ID, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mapearParaApi_(payload.newData))
+                    });
+                } else {
+                    return { success: false, error: 'Ação desconhecida' };
                 }
-                
-                const result = await response.json();
-                console.log('📥 Resposta:', JSON.stringify(result));
-                return result;
-            } catch(e) { 
-                console.error('❌ Erro:', e.message); 
+                const result = await res.json();
+                if (!res.ok) return { success: false, error: result.error || ('HTTP ' + res.status) };
+                return { success: true, row: mapearDoApi_(result) };
+            } catch(e) {
+                console.error('❌ Erro:', e.message);
                 return { success: false, error: e.message };
             }
         }
 
         async function apiGet() {
             try {
-                console.log('📤 GET...');
-                const response = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
-                
-                if (!response.ok) {
-                    console.error('❌ HTTP Error:', response.status);
-                    return { success: false, error: 'HTTP ' + response.status };
-                }
-                
+                const response = await apiFetch(API_BASE + '/despesas-gerais');
                 const result = await response.json();
-                console.log('📥 Dados carregados:', result.rows.length + ' registros');
-                return result;
-            } catch(e) { 
-                console.error('❌ Erro:', e.message); 
+                if (!response.ok) return { success: false, error: result.error || ('HTTP ' + response.status) };
+                return { success: true, rows: (result || []).map(mapearDoApi_) };
+            } catch(e) {
+                console.error('❌ Erro:', e.message);
                 return { success: false, error: e.message };
             }
         }
@@ -695,6 +787,7 @@
             } else {
                 document.body.classList.remove('tema-claro');
             }
+            if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
             loadData();
         });
     </script>

@@ -683,6 +683,34 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Pedágio (Sem Parar) */
+  .pedagio-panel {
+    background: var(--charcoal-light, #1a1c22);
+    border: 1px solid var(--charcoal-border);
+    border-radius: 7px; padding: 10px 12px; margin-top: 8px;
+    font-size: 12px;
+  }
+  .pedagio-titulo { display:flex; align-items:center; gap:6px; font-weight:700; color: var(--txt-dim,#9a9dac); margin-bottom: 8px; }
+  .pedagio-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom: 8px; }
+  .pedagio-chip {
+    display:flex; align-items:center; gap:5px;
+    background: rgba(245,184,0,.08); border:1px solid rgba(245,184,0,.25);
+    border-radius: 14px; padding: 3px 8px 3px 10px; font-size: 11px;
+  }
+  .pedagio-chip button { background:none; border:none; color: var(--txt-dim,#9a9dac); cursor:pointer; padding:0; font-size:13px; line-height:1; }
+  .pedagio-chip button:hover { color: #E24B4A; }
+  .pedagio-busca { position: relative; margin-bottom: 8px; }
+  .pedagio-busca-drop {
+    position:absolute; top:100%; left:0; right:0; z-index:20;
+    background: var(--charcoal-light,#1a1c22); border:1px solid var(--charcoal-border);
+    border-radius:7px; max-height:180px; overflow-y:auto; display:none;
+  }
+  .pedagio-busca-drop.open { display:block; }
+  .pedagio-busca-item { padding:6px 10px; font-size:11px; cursor:pointer; }
+  .pedagio-busca-item:hover { background: rgba(245,184,0,.08); }
+  .pedagio-total-row { display:flex; align-items:center; justify-content:space-between; margin-top:4px; font-weight:700; }
+  .pedagio-total-row span:last-child { color: var(--gold); }
+
   .vend-wrap { position: relative; }
   .vend-wrap input { width: 100%; }
 
@@ -1297,6 +1325,27 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
       <span class="spinner"></span> Calculando rota...
     </div>
 
+    <!-- Pedágio estimado (Sem Parar) -->
+    <div id="pedagio-panel" class="pedagio-panel" style="display:none">
+      <div class="pedagio-titulo"><i class="ti ti-road" style="color:var(--gold)"></i> Pedágio estimado (Sem Parar) — confira as praças</div>
+      <div id="pedagio-chips" class="pedagio-chips"></div>
+      <div class="pedagio-busca">
+        <input class="lbl" id="pedagio-busca-input" placeholder="Buscar e adicionar outra praça..." autocomplete="off"
+          oninput="buscarPracaPedagio(this.value)" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--charcoal-border);background:var(--charcoal-mid);color:inherit;font-size:11px">
+        <div id="pedagio-busca-drop" class="pedagio-busca-drop"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-recalc" style="margin-left:0;border:1px solid var(--charcoal-border);border-radius:6px;padding:5px 10px;color:var(--gold)" onclick="calcularPedagio()">
+          <i class="ti ti-calculator" style="font-size:12px;vertical-align:-1px"></i> Calcular Pedágio
+        </button>
+        <span id="pedagio-status" style="font-size:11px;color:var(--txt-dim,#888)"></span>
+      </div>
+      <div id="pedagio-total-row" class="pedagio-total-row" style="display:none">
+        <span>Total estimado</span>
+        <span id="pedagio-total-val"></span>
+      </div>
+    </div>
+
     <!-- Distância e viagens -->
     <div class="field-grid" style="margin-top:4px">
       <div class="field">
@@ -1777,6 +1826,153 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
 </div>
 
 <script>
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+// Converte uma cotação vinda da API (snake_case) pro formato usado no
+// resto desta tela — os mesmos nomes de cabeçalho que a planilha antiga
+// devolvia (histData sempre foi lido assim: r.Numero, r.Vendedor, etc).
+function mapearCotacaoDoApi_(row) {
+  return {
+    id: row.id,
+    Numero: row.numero,
+    Data: row.criado_em,
+    Vendedor: row.vendedor || '',
+    Cliente: row.cliente || '',
+    Modalidade: row.modalidade || '',
+    origem: row.origem || '', destino: row.destino || '',
+    'Cidade Origem': row.origem || '', 'Cidade Destino': row.destino || '',
+    Piso: fmtMoeda_(row.piso), Valor: fmtMoeda_(row.valor),
+    Empresa: row.empresa || '', 'Empresa Emitente': row.empresa || '',
+    'CNPJ Emit': row.cnpj_emit || '', 'CNPJ Emitente': row.cnpj_emit || '',
+    'CNPJ Tomador': row.cnpj_tomador || '',
+    Faturamento: row.faturamento || '', Tabela: row.tabela || '',
+    TipoCarga: row.tipo_carga || '', Eixos: row.eixos, KM: row.km,
+    Viagens: row.viagens, ValKm: row.val_km, PesoReal: row.peso_real,
+    Cubagem: row.cubagem ? JSON.stringify(row.cubagem) : '',
+    CapPeso: row.cap_peso, CapVol: row.cap_vol,
+    MargemTipo: row.margem_tipo || '', MargemVal: row.margem_val,
+    OverridePiso: row.override_piso, OverrideTotal: row.override_total, OverrideDesconto: row.override_desconto,
+    PrazoDias: row.prazo_dias, ObservacoesCliente: row.observacoes_cliente || '',
+    TipoMaterial: row.tipo_material || '', ValorNF: row.valor_nf,
+    Status: row.status || 'Pendente', StatusAprovacao: row.status_aprovacao || 'Aguardando',
+    Revisoes: row.revisoes || 0,
+    KanbanCardCodigo: row.kanban_card_codigo || '', KanbanCardEmpresa: row.kanban_card_empresa || '',
+    Observacao: formatarNotasComoBlob_(row.notas), 'Observação': formatarNotasComoBlob_(row.notas),
+  };
+}
+// As notas agora vêm de uma tabela própria (cotacao_notas), mas o resto
+// da tela (histórico de observações, PDF, etc) sempre leu um texto único
+// concatenado — remonta esse mesmo formato "dd/MM/yyyy HH:mm — Autor:
+// texto" por linha, pra não precisar reescrever quem lê isso.
+function formatarNotasComoBlob_(notas) {
+  if (!Array.isArray(notas)) return '';
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return notas.slice()
+    .sort(function(a,b){ return String(a.criado_em||'').localeCompare(String(b.criado_em||'')); })
+    .map(function(n) {
+      var d = new Date(n.criado_em);
+      var dataStr = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      return dataStr + ' — ' + (n.autor||'Desconhecido') + ': ' + n.texto;
+    }).join('\n');
+}
+// coletarCamposCotacao() guarda Piso/Valor já formatados como moeda BR
+// (ex: "R$ 1.234,56") pra exibição — mas as colunas no banco são
+// numéricas, então precisam voltar a um número puro antes de enviar.
+function parseMoeda_(v) {
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number') return v;
+  const limpo = String(v).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const n = parseFloat(limpo);
+  return Number.isFinite(n) ? n : null;
+}
+// Piso/Valor voltam do banco como número puro (ex: 1234.56) — formata
+// pra exibição igual antes ("R$ 1.234,56"). Usado só na leitura.
+function fmtMoeda_(v) {
+  if (v === '' || v == null) return '';
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
+}
+// Inverso — monta o payload snake_case que a API espera a partir dos
+// campos que coletarCamposCotacao() já monta hoje (camelCase).
+function mapearCotacaoParaApi_(d) {
+  return {
+    vendedor: d.vendedor, cliente: d.cliente, modalidade: d.modalidade,
+    origem: d.origem, destino: d.destino, piso: parseMoeda_(d.piso), valor: parseMoeda_(d.valor),
+    empresa: d.empresa, cnpj_emit: d.cnpjEmit, cnpj_tomador: d.cnpjTomador,
+    faturamento: d.faturamento, tabela: d.tabela, tipo_carga: d.tipoCarga,
+    eixos: d.eixos, km: d.km, viagens: d.viagens, val_km: d.valKm,
+    peso_real: d.pesoReal, cubagem: d.cubagem ? JSON.parse(d.cubagem) : null,
+    cap_peso: d.capPeso, cap_vol: d.capVol,
+    margem_tipo: d.margemTipo, margem_val: d.margemVal,
+    override_piso: d.overridePiso, override_total: d.overrideTotal, override_desconto: d.overrideDesconto,
+    prazo_dias: d.prazoDias, observacoes_cliente: d.observacoesCliente,
+    tipo_material: d.tipoMaterial, valor_nf: d.valorNF,
+  };
+}
+
 const tabelas={A:[[4.0338,444.84,5.166,533.36,5.8464,576.59,6.7381,642.1,7.4408,656.76,8.0855,792.3,9.2662,877.83],[4.1052,455.84,5.2583,550.1,5.9955,600.27,6.9002,669.38,7.608,685.45,8.2192,811.76,9.4199,902.8],[4.7442,502.29,6.0679,601.96,6.9216,663.16,7.9337,732.07,8.7563,745.94,9.6471,949.16,10.9629,1030.58],[null,null,5.1397,526.13,5.7767,557.42,6.6765,625.16,7.3776,639.38,8.0832,791.67,9.1859,855.76],[4.0031,436.39,5.1295,523.33,5.8178,568.72,6.7126,635.08,7.4124,648.95,8.1252,803.22,9.2466,872.44],[3.6028,436.39,5.1281,522.93,5.8441,575.96,6.7126,635.08,7.4124,648.95,8.1252,803.22,9.2466,872.44],[4.7775,587.98,5.9193,679.12,6.6352,727.28,7.5269,792.8,8.2296,807.45,8.8919,947.84,10.0803,1035.49],[4.8611,610.96,6.0237,707.85,6.7649,762.95,7.6697,832.06,8.3775,848.13,9.0063,979.29,10.2147,1072.44],[5.3315,609.31,6.6676,712.41,7.5371,780.02,8.5492,848.93,9.3718,862.8,10.2855,1072.32,11.6113,1156.49],[null,null,5.5109,623.38,6.1835,659.6,7.0832,727.35,7.7843,741.56,8.5076,898.7,9.618,964.9],[4.3647,531.01,5.5008,620.58,6.2246,670.91,7.1193,737.27,7.8191,751.14,8.5496,910.26,9.6787,981.58],[null,null,null,null,null,null,7.0646,731.9,7.8089,757.99,null,null,9.7697,1016.29]],B:[[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.3358,515.17,6.0623,574.29,6.7525,588.17,7.1695,695.68,7.9829,746.78],[null,null,null,null,6.2111,564.07,7.0457,623.2,7.8586,637.07,8.2933,749.43,9.2644,802.65],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,5.2729,515.17,5.9994,574.29,6.6896,588.17,7.1066,695.68,7.92,746.78],[null,null,null,null,6.0617,665.87,6.7882,724.99,7.4784,738.86,7.913,851.22,8.7341,904.44],[null,null,null,null,6.1053,677.85,6.8318,736.97,7.522,750.84,7.9566,863.2,8.7777,916.42],[null,null,null,null,6.8267,680.93,7.6612,740.05,8.4742,753.93,8.9317,872.59,9.9128,928.56],[null,null,null,null,5.6796,617.35,6.4062,676.48,7.0963,690.35,7.531,802.71,8.3521,855.93],[null,null,null,null,5.6796,617.35,6.4062,676.48,7.0963,690.35,7.531,802.71,8.3521,855.93],[null,null,null,null,null,null,5.9994,574.29,6.6896,588.17,null,null,7.92,746.78]],C:[[3.4369,168.42,4.3858,191.28,5.0084,207.68,5.7474,221.79,6.4159,224.95,6.787,261.12,7.7868,282.59],[3.4827,170.79,4.4391,194.88,5.1022,212.78,5.8459,227.67,6.5163,231.13,6.8753,265.31,7.8823,287.97],[4.1215,198.62,5.2426,225.01,6.0096,247.41,6.8611,262.25,7.6513,265.24,8.1234,318.08,9.2734,339.58],[null,null,4.3763,189.72,4.9834,203.55,5.7253,218.14,6.3932,221.21,6.7861,260.98,7.7579,277.83],[3.4259,166.6,4.3727,189.11,4.9981,205.98,5.7382,220.28,6.4057,223.27,6.8012,263.47,7.7797,281.43],[3.0257,166.6,4.3722,189.03,5.0076,207.54,5.7382,220.28,6.4057,223.27,6.8012,263.47,7.7797,281.43],[3.955,217.08,4.9142,241.63,5.5737,261.22,6.3127,275.34,6.9812,278.5,7.3713,317.8,8.3794,340.64],[3.985,222.03,4.9517,247.82,5.6203,268.91,6.364,283.8,7.0343,287.26,7.4123,324.57,8.4276,348.6],[4.5997,244.84,5.7343,273.44,6.5188,299.98,7.3703,314.83,8.1605,317.82,8.6573,374.73,9.8181,398.01],[null,null,4.6358,229.62,5.2797,246.64,6.0216,261.24,6.6895,264.3,7.1014,307.21,8.0815,325.43],[3.675,204.81,4.6321,229.02,5.2945,249.08,6.038,263.37,6.7105,266.36,7.1155,309.7,8.0989,329.02],[null,null,null,null,null,null,6.018,237.54,6.7011,250.28,null,null,8.2143,301.95]],D:[[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5553,170.79,5.1643,184.64,5.7558,187.38,6.0907,226.82,6.7865,248.42],[null,null,null,null,5.3256,198.62,6.0126,210.63,6.7116,212.48,7.0895,259.44,7.918,282.99],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,4.5095,168.42,5.1019,181.4,5.6977,183.99,6.0327,222.62,6.7285,243.76],[null,null,null,null,5.1767,217.08,5.8526,227.21,6.543,229.48,6.9176,272.44,7.7149,297.54],[null,null,null,null,5.22,222.03,5.8959,232.96,6.5863,235.23,6.9609,278.17,7.7582,303.27],[null,null,null,null,5.866,244.84,6.5419,258.45,7.321,261.39,7.7399,310.76,8.6531,340.17],[null,null,null,null,4.8895,207.18,5.5654,218.59,6.2558,221.27,6.6304,263.7,7.4277,287.63],[null,null,null,null,4.8895,207.18,5.5654,218.59,6.2558,221.27,6.6304,263.7,7.4277,287.63],[null,null,null,null,null,null,5.1019,181.4,5.6977,183.99,null,null,6.7285,243.76]]};
 const eixosIdx=[2,3,4,5,6,7,9];
 const capVeic={fiorino:{eixosAntt:2,kg:650,m3:3.3,nome:'Fiorino'},vuc:{eixosAntt:2,kg:1500,m3:8,nome:'VUC'},toco:{eixosAntt:2,kg:6000,m3:40,nome:'Toco'},truck:{eixosAntt:3,kg:14000,m3:50,nome:'Truck'},bitruck:{eixosAntt:4,kg:22000,m3:60,nome:'Bitruck'},carreta4:{eixosAntt:5,kg:25000,m3:90,nome:'Carreta Toco'},carreta5:{eixosAntt:6,kg:32000,m3:90,nome:'Carreta Trucada / LS'},bitrem7:{eixosAntt:7,kg:42000,m3:180,nome:'Bitrem / Rodotrem 7 eixos'},bitrem9:{eixosAntt:9,kg:57000,m3:180,nome:'Bitrem / Rodotrem 9 eixos'},guindaste_tm:{eixosAntt:3,kg:0,m3:0,nome:'Guindaste TM',especial:true},munk:{eixosAntt:3,kg:0,m3:0,nome:'Munk',especial:true},prancha:{eixosAntt:5,kg:0,m3:0,nome:'Prancha',especial:true}};
@@ -2129,12 +2325,20 @@ function normRoute(s){
   return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
 }
 
+// Endereço é texto livre ("Arujá, São Paulo", ou algo mais longo vindo do
+// autocomplete de mapa, tipo "Rua X, Bairro Y, Arujá, Arujá — São Paulo").
+// A cidade é o penúltimo pedaço (o último é o estado) — mesma regra usada
+// no backend pra extrair Cidade/UF do card do Kanban.
+function cidadeDoEndereco_(s){
+  const partes = String(s||'').split(/,|—/).map(p=>p.trim()).filter(Boolean);
+  if(!partes.length) return '';
+  return partes.length>1 ? partes[partes.length-2] : partes[0];
+}
+
 function routeMatch(a, b){
-  const na=normRoute(a), nb=normRoute(b);
-  if(!na||!nb) return false;
-  // First word of each (city name before comma/dash)
-  const wa=na.split(/[\s,]/)[0], wb=nb.split(/[\s,]/)[0];
-  return na.includes(wb) || nb.includes(wa) || wa===wb;
+  const ca=normRoute(cidadeDoEndereco_(a)), cb=normRoute(cidadeDoEndereco_(b));
+  if(!ca||!cb) return false;
+  return ca===cb;
 }
 
 function checkRouteHistory(){
@@ -2328,8 +2532,7 @@ async function gerarPDF(){
 
   /* Recarrega histData silenciosamente para o alerta de rota ter dados atualizados */
   if (quoteNum) {
-    const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-    if (url) fetch(url).then(r=>r.json()).then(j=>{ if(j.rows) histData=j.rows; }).catch(()=>{});
+    apiFetch(API_BASE + '/cotacoes').then(r=>r.json()).then(rows=>{ if(Array.isArray(rows)) histData = rows.map(mapearCotacaoDoApi_); }).catch(()=>{});
   }
 
   btn.innerHTML = origLabel;
@@ -2774,16 +2977,8 @@ function getOCEmpresaData() {
 }
 
 /* ============================================================
-   HISTÓRICO — leitura da planilha Google Sheets pública
-   SHEETS_WEBAPP_URL: cole aqui a URL do Apps Script para gravar cotações
+   HISTÓRICO — dados vêm da API (/api/cotacoes)
    ============================================================ */
-const SHEETS_ID   = '1kWZWpKuweKmSMLsG1Smc-y2ZvxSqou8X2-6fNLPgVDU';
-const SHEETS_URL  = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/edit?usp=sharing`;
-const SHEETS_CSV  = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/export?format=csv`;
-
-// ▼ COLE AQUI a URL do Apps Script após fazer o deploy (veja instruções no botão Sheets)
-const SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
-
 let currentQuoteNum = null; // número da cotação atual
 
 
@@ -2831,7 +3026,7 @@ function contemTodosTokens_(base, tokens) {
 // pra saber "essa cotação foi criada por um aprovador" (Ponto extra:
 // aprovadores também vendem, então a própria cotação deles não deve
 // aparecer no modal de aprovação).
-const APROVADORES_TOKENS = [['filipe'], ['gabriel','pinheiro'], ['diego','florido']];
+const APROVADORES_TOKENS = [['filipe'], ['gabriel','pinheiro'], ['diego','florido'], ['alex','brochini']];
 
 function stringEhAprovador_(s) {
   const base = normNomeLogin_(s||'');
@@ -2904,19 +3099,26 @@ function renderAprovPanel() {
   }).join('');
 }
 
+// Encontra o id real (uuid) de uma cotação pelo número exibido na tela —
+// histData sempre tem os dois desde que veio de mapearCotacaoDoApi_.
+function idPorNumero_(numero) {
+  const row = histData.find(r => String(r.Numero) === String(numero));
+  return row ? row.id : null;
+}
+
 async function decidirCotacao(numero, novoStatus) {
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) return;
+  const id = idPorNumero_(numero);
+  if (!id) { alert('Cotação não encontrada.'); return; }
   const autor = nomeUsuarioAtual() || 'Desconhecido';
   const inputNota = document.getElementById('nova-nota-' + numero);
   const comentario = inputNota ? inputNota.value.trim() : '';
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'cotacao_aprovacao', numero: numero, novoStatus: novoStatus, autor: autor, comentario: comentario })
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/aprovacao', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus, autor: autor, comentario: comentario })
     });
     const json = await res.json();
-    if (json.success) {
+    if (res.ok) {
       await loadHistory();
       renderAprovPanel();
     } else {
@@ -2937,24 +3139,15 @@ function initOC() {
     document.getElementById('oc-dt-coleta').value = today;
 
   /* Sempre recarrega histData ao abrir OC para garantir empresa emitente atualizada */
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (url) {
-    fetch(url)
-      .then(r => r.json())
-      .then(j => { if (j.rows) histData = j.rows; })
-      .catch(() => {});
-  }
+  apiFetch(API_BASE + '/cotacoes')
+    .then(r => r.json())
+    .then(rows => { if (Array.isArray(rows)) histData = rows.map(mapearCotacaoDoApi_); })
+    .catch(() => {});
 
   document.addEventListener('click', e => {
     const wrap = document.getElementById('oc-cotacao-ref')?.closest('[style*="relative"]');
     if (wrap && !wrap.contains(e.target)) closeCotacaoDrop();
   }, {once: false});
-}
-
-function gerarNumeroOC() {
-  let num = parseInt(localStorage.getItem('oc_counter') || '0') + 1;
-  localStorage.setItem('oc_counter', num);
-  return String(num).padStart(5, '0');
 }
 
 /* ---- Cotação vinculada autocomplete ---- */
@@ -3282,7 +3475,33 @@ async function gerarOCPDF() {
   const gv=id=>(document.getElementById(id)?.value||'').trim();
   const fv=s=>String(s||'').trim()||'';
   const fmtDate=s=>{if(!s)return now.toLocaleDateString('pt-BR');const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;};
-  const numOC=gerarNumeroOC();
+  const ocPlacas=[document.getElementById('oc-placa')?.value?.trim()||'',
+    ...[...document.querySelectorAll('.oc-placa-extra')].map(i=>i.value.trim())].filter(v=>v);
+  let ocRegistro;
+  try{
+    const ocRes=await apiFetch(API_BASE+'/cotacoes/ordens-coleta',{
+      method:'POST',
+      body: JSON.stringify({
+        solicitante: gv('oc-solicitante'),
+        cotacao_numero: (()=>{const n=parseInt(gv('oc-cotacao-ref').replace(/\D/g,''),10);return Number.isFinite(n)?n:null;})(),
+        end_coleta: gv('oc-end-coleta'),
+        end_entrega: gv('oc-end-entrega'),
+        remetente: gv('oc-rem-nome'),
+        cnpj_remetente: gv('oc-rem-cnpj'),
+        destinatario: gv('oc-dest-nome'),
+        cnpj_destinatario: gv('oc-dest-cnpj'),
+        placas: ocPlacas,
+        veiculo: gv('oc-veiculo'),
+        motorista: gv('oc-motorista'),
+      }),
+    });
+    ocRegistro=await ocRes.json();
+    if(!ocRes.ok) throw new Error(ocRegistro.error||'Erro ao salvar Ordem de Coleta');
+  }catch(e){
+    alert('Erro ao salvar Ordem de Coleta: '+e.message);
+    return;
+  }
+  const numOC=String(ocRegistro.numero).padStart(5,'0');
   document.getElementById('oc-numero').value=numOC;
   const emp=getOCEmpresaData();
   const empNome=emp.nome||(gv('oc-empresa-emit')||gv('empresa-emit')||"BARRETO'S TRANSPORTES E SERVIÇOS LTDA").toUpperCase();
@@ -3421,29 +3640,6 @@ async function gerarOCPDF() {
     categoria: gv('oc-cnh-cat')
   });
 
-  /* Salva OC no Sheets */
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (url) {
-    fetch(url, {
-      method:'POST',
-      body: JSON.stringify({
-        action: 'oc',
-        numero: numOC,
-        solicitante: gv('oc-solicitante'),
-        cotacao: gv('oc-cotacao-ref'),
-        endColeta: gv('oc-end-coleta'),
-        endEntrega: gv('oc-end-entrega'),
-        remetente: gv('oc-rem-nome'),
-        cnpjRem: gv('oc-rem-cnpj'),
-        destinatario: gv('oc-dest-nome'),
-        cnpjDest: gv('oc-dest-cnpj'),
-        placa: getTodasPlacas(),
-        veiculo: gv('oc-veiculo'),
-        motorista: gv('oc-motorista')
-      })
-    }).catch(()=>{});
-  }
-
   doc.save(`ordem-coleta-OC${numOC}-${now.toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
 }
 
@@ -3453,19 +3649,15 @@ async function loadHistory() {
   const statsEl = document.getElementById('hist-stats-fixed');
   el.innerHTML = '<div class="hist-loading"><span class="spinner"></span> Carregando histórico…</div>';
   errEl.style.display = 'none';
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
   try {
-    if (!url) throw new Error('Apps Script não configurado');
-    const res = await fetch(url);
-    const json = await res.json();
-    if (!json.rows) throw new Error('Resposta inválida do Apps Script');
-    histData = json.rows;
+    const res = await apiFetch(API_BASE + '/cotacoes');
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows.error || 'Resposta inválida do servidor');
+    histData = rows.map(mapearCotacaoDoApi_);
     popularFiltrosVendMes();
     errEl.style.display = 'none';
   } catch(e) {
-    errEl.innerHTML = '<i class="ti ti-alert-triangle" style="margin-right:6px"></i>' +
-      (url ? 'Erro ao carregar dados. Verifique se o Apps Script foi reimplantado com o novo código (doGet).' :
-             'Configure o Apps Script no botão <strong>Sheets</strong> para carregar o histórico.');
+    errEl.innerHTML = '<i class="ti ti-alert-triangle" style="margin-right:6px"></i>Erro ao carregar dados: ' + e.message;
     errEl.style.display = 'flex';
     histData = [];
   }
@@ -3654,16 +3846,14 @@ function showSaveBadge(btnEl, state) { /* state: 'saving' | 'saved' | 'error' */
 }
 
 async function pushUpdateToSheets(rowKey, fields) {
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) return;
+  const id = idPorNumero_(rowKey);
+  if (!id) return false;
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ action: 'update', numero: rowKey, ...fields })
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(mapearCotacaoParaApi_(fields))
     });
-    const json = await res.json();
-    return json.success;
+    return res.ok;
   } catch(e) { return false; }
 }
 
@@ -3676,19 +3866,27 @@ async function changeStatus(btn, rowKey, newStatus) {
   btn.className = 'status-btn ' + sc;
   btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></span>${labels[sc]||newStatus}<i class="ti ti-chevron-down"></i>`;
   refreshStatsOnly();
-  // Salva na planilha
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) { console.warn('[changeStatus] URL não configurada'); return; }
+  // Salva no servidor — quando o novo status é "Aceita", o backend já cria
+  // sozinho o card no Kanban da empresa emitente (uma vez só, mesmo se o
+  // status for trocado pra Aceita mais de uma vez).
+  const id = idPorNumero_(rowKey);
+  if (!id) { console.warn('[changeStatus] cotação não encontrada:', rowKey); return; }
   showSaveBadge(btn, 'saving');
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'update', numero: rowKey, status: newStatus })
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/status', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ status: newStatus })
     });
     const json = await res.json();
-    console.log('[changeStatus] rowKey:', rowKey, '| status:', newStatus, '| resposta:', JSON.stringify(json));
-    showSaveBadge(btn, json.success ? 'saved' : 'error');
-    if (!json.success) console.error('[changeStatus] falha ao salvar status:', json.error);
+    showSaveBadge(btn, res.ok ? 'saved' : 'error');
+    if (!res.ok) console.error('[changeStatus] falha ao salvar status:', json.error);
+    else if (json.kanban_card_codigo) {
+      // Atualiza histData em memória com o vínculo do card recém-criado,
+      // sem precisar recarregar tudo do servidor.
+      const row = histData.find(r => String(r.Numero) === String(rowKey));
+      if (row) { row.KanbanCardCodigo = json.kanban_card_codigo; row.KanbanCardEmpresa = json.kanban_card_empresa; }
+      console.log('[changeStatus] card criado no Kanban:', json.kanban_card_codigo, '(' + json.kanban_card_empresa + ')');
+    }
   } catch(e) {
     console.error('[changeStatus] erro:', e);
     showSaveBadge(btn, 'error');
@@ -3752,17 +3950,17 @@ async function adicionarNotaCotacao(numero) {
   if (!input) return;
   const texto = input.value.trim();
   if (!texto) return;
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) { console.warn('[adicionarNotaCotacao] URL não configurada'); return; }
+  const id = idPorNumero_(numero);
+  if (!id) { console.warn('[adicionarNotaCotacao] cotação não encontrada:', numero); return; }
   const autor = nomeUsuarioAtual() || 'Desconhecido';
   input.disabled = true;
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'nota_cotacao', numero: numero, autor: autor, texto: texto })
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/notas', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ autor: autor, texto: texto })
     });
     const json = await res.json();
-    if (json.success) {
+    if (res.ok) {
       input.value = '';
       await loadHistory();
       // Reabre o mesmo modal/painel com os dados atualizados, se estiver aberto
@@ -3995,8 +4193,7 @@ function renderHistory() {
       }).join('')}</tbody>
     </table>
     <p style="font-size:11px;color:var(--txt-dim,#888);margin-top:10px;text-align:right">
-      ${filtered.length} cotaç${filtered.length===1?'ão':'ões'}${isFiltered ? ' (filtradas de ' + totalGeral + ')' : ''} ·
-      <a href="${SHEETS_URL}" target="_blank" style="color:var(--gold);text-decoration:none">Abrir planilha <i class="ti ti-external-link" style="font-size:10px"></i></a>
+      ${filtered.length} cotaç${filtered.length===1?'ão':'ões'}${isFiltered ? ' (filtradas de ' + totalGeral + ')' : ''}
     </p></div>` :
     `<div class="hist-empty"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4"></i>${histData.length?'Nenhuma cotação com esse filtro.':'Nenhuma cotação registrada ainda.'}</div>`;
 
@@ -4015,37 +4212,6 @@ function renderHistory() {
   /* close menus on outside click */
   document.addEventListener('click', () => document.querySelectorAll('.status-menu.open').forEach(m => m.classList.remove('open')));
 }
-function applyWebAppURL(){
-  const val = document.getElementById('input-webapp-url')?.value?.trim();
-  if(!val) return;
-  window._sheetsWebAppUrl = val;
-  try{ localStorage.setItem('sheets_webapp_url', val); }catch(e){}
-  const msgEl = document.getElementById('url-save-msg');
-  msgEl.style.display='block'; msgEl.style.color='#2EBD85';
-  msgEl.innerHTML='<i class="ti ti-check"></i> URL salva! Cotações serão enviadas automaticamente.';
-  const dot = document.getElementById('sheets-status-dot');
-  if(dot){dot.style.background='#2EBD85';dot.title='Apps Script configurado';}
-}
-
-async function testWebAppURL(){
-  const url = (document.getElementById('input-webapp-url')?.value?.trim()) || window._sheetsWebAppUrl;
-  const msgEl = document.getElementById('url-save-msg');
-  if(!url){msgEl.style.display='block';msgEl.style.color='#E24B4A';msgEl.innerHTML='<i class="ti ti-alert-circle"></i> Cole a URL primeiro.';return;}
-  msgEl.style.display='block';msgEl.style.color='var(--txt-dim,#888)';
-  msgEl.innerHTML='<span class="spinner" style="width:11px;height:11px;border-width:2px"></span> Testando conexão…';
-  try{
-    const res=await fetch(url);
-    const json=await res.json();
-    if(json.status==='ok'||json.success!==undefined){
-      msgEl.style.color='#2EBD85';msgEl.innerHTML='<i class="ti ti-check"></i> Conexão OK! Clique em Salvar.';
-    }else{
-      msgEl.style.color='#E24B4A';msgEl.innerHTML='<i class="ti ti-alert-circle"></i> Resposta inesperada. Verifique o código.';
-    }
-  }catch(e){
-    msgEl.style.color='#E24B4A';msgEl.innerHTML='<i class="ti ti-alert-circle"></i> Erro de conexão. Verifique a URL e o deploy.';
-  }
-}
-
 /* ============================================================
    CAMPOS COMPLETOS DA COTAÇÃO (Ponto 1) — coleta TODOS os campos
    da calculadora (não só os 10 originais), usado tanto na criação
@@ -4102,23 +4268,44 @@ function coletarCamposCotacao() {
 }
 
 async function saveToSheets(){
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if(!url) return null;
   const data = coletarCamposCotacao();
+  // Modo "refazer": sobrescreve os campos da cotação original (mantém o
+  // número, soma 1 na contagem de revisões) em vez de criar uma nova.
+  if (refazerAtivo) {
+    try {
+      const res = await apiFetch(API_BASE + '/cotacoes/refazer/' + refazerAtivo.numero, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(mapearCotacaoParaApi_(data))
+      });
+      const json = await res.json();
+      if (res.ok) {
+        const numOriginal = refazerAtivo.numero;
+        refazerAtivo = null;
+        document.getElementById('refazer-num').value = '';
+        document.getElementById('refazer-info').style.display = 'none';
+        document.getElementById('refazer-panel').classList.remove('loaded');
+        return numOriginal;
+      } else {
+        console.error('Erro ao refazer:', json.error);
+        alert('Erro ao salvar revisão: ' + (json.error || 'desconhecido'));
+      }
+    } catch(e) {
+      console.error('Erro ao refazer:', e);
+      alert('Erro de conexão ao salvar revisão.');
+    }
+    return null;
+  }
   try{
-    const res=await fetch(url,{
-      method:'POST',
-      body:JSON.stringify(data)
-      /* sem Content-Type: application/json → evita preflight CORS do Apps Script */
+    const res = await apiFetch(API_BASE + '/cotacoes', {
+      method:'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(mapearCotacaoParaApi_(data))
     });
-    const text=await res.text();
-    const json=JSON.parse(text);
-    if(json.success)return json.num;
-  }catch(e){console.error('Sheets erro:',e);}
+    const json = await res.json();
+    if (res.ok) return json.numero;
+    console.error('Erro ao salvar cotação:', json.error);
+  }catch(e){console.error('Erro ao salvar cotação:',e);}
   return null;
 }
-
-// Carregar URL salva no localStorage ao iniciar
 
 
 /* ============================================================
@@ -4252,8 +4439,10 @@ async function calcRoute() {
   document.getElementById('route-loading').style.display = 'flex';
 
   try {
-    // OSRM — rota por caminhão (driving profile)
-    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?overview=false`;
+    // OSRM — rota por caminhão (driving profile). steps=true também traz
+    // o nome de cada trecho/rodovia percorrido — usado só pra sugerir
+    // praças de pedágio (não precisa da geometria completa da rota).
+    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?overview=false&steps=true`;
     const res  = await fetch(url);
     const data = await res.json();
 
@@ -4277,6 +4466,23 @@ async function calcRoute() {
     document.getElementById('route-dur-label').textContent = '· ~' + durLabel + ' de viagem';
     document.getElementById('route-result').style.display  = 'flex';
 
+    // Nomes das rodovias percorridas (dos steps do OSRM) — pra sugerir
+    // praças de pedágio da Sem Parar por essa rota. O "ref" (ex: "BR-116")
+    // é o que realmente bate com o jeito que a Sem Parar identifica a
+    // rodovia — o "name" (ex: "Rodovia Presidente Dutra") quase nunca bate.
+    // "ref" pode vir composto tipo "SP-060; BR-116", por isso o split.
+    // Coordenadas de cada passo — mandadas junto pro backend decidir por
+    // quais estados a rota realmente passa (não só origem/destino), em
+    // vez de tentar adivinhar isso no navegador.
+    const nomesRodovia = new Set();
+    const pontosRota = [];
+    (data.routes[0].legs||[]).forEach(leg => (leg.steps||[]).forEach(s => {
+      if(s.name) nomesRodovia.add(s.name);
+      if(s.ref) s.ref.split(';').forEach(r => { r = r.trim(); if(r) nomesRodovia.add(r); });
+      if(s.maneuver && Array.isArray(s.maneuver.location)) pontosRota.push(s.maneuver.location); // [lon,lat]
+    }));
+    carregarSugestoesPedagio(Array.from(nomesRodovia), pontosRota);
+
     calc(); // Atualiza o resultado
   } catch(e) {
     document.getElementById('route-loading').style.display = 'none';
@@ -4287,6 +4493,120 @@ async function calcRoute() {
 function showRouteError(msg) {
   document.getElementById('route-error-msg').textContent = msg;
   document.getElementById('route-error').style.display = 'flex';
+}
+
+/* ── Pedágio estimado (Sem Parar) ──
+   A Sem Parar não dá lat/long de cada praça (só rodovia+km), então a
+   sugestão automática é por nome de rodovia — pode vir gente demais ou
+   errada numa rodovia longa. Por isso sempre mostra as sugestões como
+   uma lista editável (chips removíveis + busca manual), nunca calcula o
+   preço sem quem está montando a cotação confirmar as praças certas. ── */
+var pedagioPracasSelecionadas = [];
+
+function renderPedagioChips(){
+  var el = document.getElementById('pedagio-chips');
+  if(!pedagioPracasSelecionadas.length){
+    el.innerHTML = '<span style="color:var(--txt-dim,#888);font-size:11px">Nenhuma praça selecionada ainda.</span>';
+  } else {
+    el.innerHTML = pedagioPracasSelecionadas.map(function(p,i){
+      return '<span class="pedagio-chip">'+(p.praca||('Praça #'+p.id))+'<button onclick="removerPracaPedagio('+i+')" title="Remover"><i class="ti ti-x"></i></button></span>';
+    }).join('');
+  }
+  document.getElementById('pedagio-total-row').style.display = 'none';
+}
+
+// Última parte do endereço (depois da última vírgula/travessão) é o
+// estado — mesma convenção usada em toda essa tela pra extrair cidade/UF
+// do texto livre do endereço.
+function estadoDoEndereco_(s){
+  var partes = String(s||'').split(/,|—/).map(function(p){return p.trim();}).filter(Boolean);
+  return partes.length ? partes[partes.length-1] : '';
+}
+
+async function carregarSugestoesPedagio(nomesRodovia, pontosRota){
+  document.getElementById('pedagio-panel').style.display = 'block';
+  var statusEl = document.getElementById('pedagio-status');
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando praças de pedágio...';
+  pedagioPracasSelecionadas = [];
+  renderPedagioChips();
+  try{
+    var estadoOrigem = estadoDoEndereco_(addrState.origem.label);
+    var estadoDestino = estadoDoEndereco_(addrState.destino.label);
+    var pontosStr = (pontosRota||[]).map(function(p){ return p[1].toFixed(3)+','+p[0].toFixed(3); }).join(';');
+    var qs = 'rodovias='+encodeURIComponent(nomesRodovia.join(','))+
+      '&estadoOrigem='+encodeURIComponent(estadoOrigem)+
+      '&estadoDestino='+encodeURIComponent(estadoDestino)+
+      '&pontos='+encodeURIComponent(pontosStr);
+    var res = await apiFetch(API_BASE+'/semparar/pracas-sugeridas?'+qs);
+    var lista = await res.json();
+    if(Array.isArray(lista)) pedagioPracasSelecionadas = lista;
+    statusEl.textContent = lista.length ? '' : 'Nenhuma praça sugerida automaticamente — busque manualmente se souber que a rota tem pedágio.';
+  }catch(e){
+    statusEl.textContent = 'Não foi possível buscar sugestões de pedágio agora.';
+  }
+  renderPedagioChips();
+}
+
+function removerPracaPedagio(i){
+  pedagioPracasSelecionadas.splice(i,1);
+  renderPedagioChips();
+}
+
+var pedagioBuscaTimer_ = null;
+function buscarPracaPedagio(texto){
+  clearTimeout(pedagioBuscaTimer_);
+  var drop = document.getElementById('pedagio-busca-drop');
+  if(!texto || texto.trim().length<3){ drop.classList.remove('open'); drop.innerHTML=''; return; }
+  pedagioBuscaTimer_ = setTimeout(async function(){
+    try{
+      var res = await apiFetch(API_BASE+'/semparar/pracas?busca='+encodeURIComponent(texto.trim()));
+      var lista = await res.json();
+      if(!Array.isArray(lista) || !lista.length){
+        drop.innerHTML = '<div class="pedagio-busca-item" style="color:var(--txt-dim,#888)">Nenhuma praça encontrada</div>';
+      } else {
+        drop.innerHTML = lista.map(function(p, i){
+          return '<div class="pedagio-busca-item" onclick="adicionarPracaPedagioPorIndice_('+i+')" data-idx="'+i+'">'+(p.praca||'')+' — '+(p.rodovia||'')+'</div>';
+        }).join('');
+        window._pedagioBuscaResultados_ = lista;
+      }
+      drop.classList.add('open');
+    }catch(e){}
+  }, 350);
+}
+function adicionarPracaPedagioPorIndice_(i){
+  var p = (window._pedagioBuscaResultados_||[])[i];
+  if(!p) return;
+  if(!pedagioPracasSelecionadas.some(function(x){ return x.id===p.id; })) pedagioPracasSelecionadas.push(p);
+  document.getElementById('pedagio-busca-input').value = '';
+  document.getElementById('pedagio-busca-drop').classList.remove('open');
+  renderPedagioChips();
+}
+
+document.addEventListener('click', function(ev){
+  var drop = document.getElementById('pedagio-busca-drop');
+  var input = document.getElementById('pedagio-busca-input');
+  if(drop && input && !input.contains(ev.target) && !drop.contains(ev.target)) drop.classList.remove('open');
+});
+
+async function calcularPedagio(){
+  var statusEl = document.getElementById('pedagio-status');
+  if(!pedagioPracasSelecionadas.length){ statusEl.textContent = 'Selecione ao menos uma praça primeiro.'; return; }
+  var vkey = document.getElementById('eixos').value;
+  var veic = capVeic[vkey] || capVeic['carreta4'];
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Calculando com a Sem Parar...';
+  try{
+    var res = await apiFetch(API_BASE+'/semparar/preco', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ pracaIds: pedagioPracasSelecionadas.map(function(p){ return p.id; }), eixos: veic.eixosAntt })
+    });
+    var dados = await res.json();
+    if(!res.ok) throw new Error(dados.error||'Erro ao calcular');
+    document.getElementById('pedagio-total-val').textContent = fmtBRL(dados.total);
+    document.getElementById('pedagio-total-row').style.display = 'flex';
+    statusEl.textContent = dados.pracas.length + ' praça(s) · ' + veic.eixosAntt + ' eixos (' + veic.nome + ')';
+  }catch(e){
+    statusEl.textContent = 'Erro ao calcular: ' + e.message;
+  }
 }
 
 // Inicializa os dois campos de endereço
@@ -4344,18 +4664,20 @@ async function loadRefazer() {
   errEl.style.display = 'none';
   infoEl.style.display = 'none';
   if (!numRaw) { errEl.textContent = 'Informe o número da cotação.'; errEl.style.display = 'block'; return; }
-  const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-  if (!url) { errEl.textContent = 'Configure a integração com o Sheets primeiro.'; errEl.style.display = 'block'; return; }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px;border-width:2px"></span>';
   try {
-    const res  = await fetch(url);
-    const json = await res.json();
+    const numSearch = parseInt(numRaw, 10);
+    let row = histData.find(r => parseInt(r['Numero'], 10) === numSearch);
+    if (!row) {
+      const res  = await apiFetch(API_BASE + '/cotacoes');
+      const rows = await res.json();
+      if (!res.ok) throw new Error(rows.error || 'Resposta inválida');
+      histData = rows.map(mapearCotacaoDoApi_);
+      row = histData.find(r => parseInt(r['Numero'], 10) === numSearch);
+    }
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-download" style="font-size:13px"></i> Carregar';
-    if (!json.rows) throw new Error('Resposta inválida');
-    const numSearch = parseInt(numRaw, 10);
-    const row = json.rows.find(r => parseInt(r['Numero'], 10) === numSearch);
     if (!row) { errEl.textContent = 'Cotação #' + numRaw.padStart(4,'0') + ' não encontrada.'; errEl.style.display = 'block'; return; }
     const editCount = parseInt(row['Revisoes'] || '0', 10);
     // Limite de 2 revisões removido (mesmo ajuste já feito no Apps
@@ -4430,8 +4752,8 @@ async function loadRefazer() {
     }
     // Piso — tenta aplicar override se o campo existir e não veio pelo OverridePiso
     if (row['Piso'] && !row['OverridePiso']) {
-      const pisoNum = parseFloat(String(row['Piso']).replace(/[^\d,]/g,'').replace(',','.'));
-      if (!isNaN(pisoNum)) {
+      const pisoNum = parseMoeda_(row['Piso']);
+      if (pisoNum != null) {
         const pisoInput = document.getElementById('override-piso');
         if (pisoInput) { pisoInput.value = pisoNum.toFixed(2); }
       }
@@ -4452,40 +4774,16 @@ async function loadRefazer() {
   }
 }
 
-/* Wrap saveToSheets to handle refazer mode */
-(function(){
-  const _orig = saveToSheets;
-  saveToSheets = async function() {
-    if (!refazerAtivo) return _orig();
-    const url = window._sheetsWebAppUrl || SHEETS_WEBAPP_URL;
-    if (!url) return null;
-    const data = Object.assign({ action: 'refazer', numero: refazerAtivo.numero }, coletarCamposCotacao());
-    try {
-      const res  = await fetch(url, { method:'POST', body: JSON.stringify(data) });
-      const json = await res.json();
-      if (json.success) {
-        const numOriginal = refazerAtivo.numero; // preserva antes de limpar
-        refazerAtivo = null;
-        document.getElementById('refazer-num').value = '';
-        document.getElementById('refazer-info').style.display = 'none';
-        document.getElementById('refazer-panel').classList.remove('loaded');
-        return numOriginal; // retorna número ORIGINAL, não gera novo
-      } else {
-        console.error('Sheets refazer erro:', json.error);
-        alert('Erro ao salvar revisão: ' + (json.error || 'desconhecido'));
-      }
-    } catch(e) {
-      console.error('Sheets refazer:', e);
-      alert('Erro de conexão ao salvar revisão.');
-    }
-    return null;
-  };
-})();
-
 /* Carrega histData em background ao iniciar para o alerta de rota funcionar imediatamente */
 setTimeout(()=>{
-  const url=window._sheetsWebAppUrl||SHEETS_WEBAPP_URL;
-  if(url) fetch(url).then(r=>r.json()).then(j=>{if(j.rows&&j.rows.length){histData=j.rows;const b=document.getElementById('hist-badge');if(b){b.textContent=j.rows.length;b.style.display='inline';}}}).catch(()=>{});
+  if (!getAuthToken()) return;
+  apiFetch(API_BASE + '/cotacoes').then(r=>r.json()).then(rows=>{
+    if (Array.isArray(rows) && rows.length) {
+      histData = rows.map(mapearCotacaoDoApi_);
+      const b = document.getElementById('hist-badge');
+      if (b) { b.textContent = rows.length; b.style.display = 'inline'; }
+    }
+  }).catch(()=>{});
 },800);
 </script>
 

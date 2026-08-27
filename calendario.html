@@ -350,7 +350,71 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 // ══════════════════════════════════════════════════════
 //  CONFIG & STATE
 // ══════════════════════════════════════════════════════
-var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYMOKvOInjNNHjQGlW5k8mGJ6ydl2NKfOr3HRWKrpFXARXxYSsb-vJF5t71yYG_6k69A/exec';
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Toda chamada à API passa por aqui em vez de fetch() direto, pra sempre
+// ir com o token de login e tentar renovar sozinho se ele já tiver expirado.
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
 
 var TYPE_CFG = {
   evento:   { label:'Evento',   color:'#3B82F6', bg:'rgba(59,130,246,.15)',  icon:'ti-calendar-event' },
@@ -384,6 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Data de hoje como selecionada
   state.selected = toISO(new Date());
 
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   carregarDados();
 });
 
@@ -395,14 +460,14 @@ async function carregarDados() {
   try {
     // Carrega eventos e usuários em paralelo
     var [evRes, usRes] = await Promise.all([
-      fetch(SCRIPT_URL + '?action=cal_listar'),
-      fetch(SCRIPT_URL + '?action=get_users')
+      apiFetch(API_BASE + '/calendario'),
+      apiFetch(API_BASE + '/usuarios')
     ]);
     var evJson = await evRes.json();
     var usJson = await usRes.json();
 
-    state.events = (evJson.rows || []).map(parseEvent);
-    state.users  = usJson.users || [];
+    state.events = (evJson || []).map(parseEvent);
+    state.users  = usJson || [];
 
     // Por padrão mostra apenas agenda do usuário logado
     var loginAtual = state.currentUser ? state.currentUser.login.trim().toLowerCase() : '';
@@ -438,12 +503,11 @@ async function salvarEvento() {
   var basePayload = {
     tipo: tipo,
     titulo: titulo,
-    desc: document.getElementById('ev-desc').value.trim(),
-    horaIni: document.getElementById('ev-hora-ini').value,
-    horaFim: document.getElementById('ev-hora-fim').value,
+    descricao: document.getElementById('ev-desc').value.trim(),
+    hora_inicio: document.getElementById('ev-hora-ini').value,
+    hora_fim: document.getElementById('ev-hora-fim').value,
     local: document.getElementById('ev-local').value.trim(),
-    participantes: participantes.join(','),
-    criador: state.currentUser ? state.currentUser.login : ''
+    participantes: participantes
   };
 
   var repeatTipo = document.getElementById('ev-repeat').value;
@@ -467,18 +531,18 @@ async function salvarEvento() {
     if (!isNovaRecorrencia) {
       // Fluxo normal: cria ou atualiza um único evento (edição nunca mexe na série)
       var payload = Object.assign({}, basePayload, {
-        action: state.editingId ? 'cal_update' : 'cal_create',
-        id: state.editingId || '',
-        dataIni: dataIni,
-        dataFim: dataFimOriginal
+        data_inicio: dataIni,
+        data_fim: dataFimOriginal
       });
-      var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
-      var j = await r.json();
-      if (j.success) {
+      var r = state.editingId
+        ? await apiFetch(API_BASE + '/calendario/' + state.editingId, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+        : await apiFetch(API_BASE + '/calendario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if (r.ok) {
         toast(state.editingId ? 'Evento atualizado!' : 'Evento criado!', 'ok');
         closeModal();
         await carregarDados();
       } else {
+        var j = await r.json();
         toast(j.error || 'Erro ao salvar', 'err');
       }
     } else {
@@ -488,16 +552,13 @@ async function salvarEvento() {
         var dIni = datasParaCriar[i];
         var dFim = toISO(new Date(new Date(dIni+'T00:00:00').getTime() + duracaoDias*86400000));
         var payloadOcorrencia = Object.assign({}, basePayload, {
-          action: 'cal_create',
-          id: '',
-          dataIni: dIni,
-          dataFim: dFim,
-          grupoRecorrencia: grupoRecorrencia
+          data_inicio: dIni,
+          data_fim: dFim,
+          grupo_recorrencia: grupoRecorrencia
         });
         try {
-          var rr = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payloadOcorrencia) });
-          var jj = await rr.json();
-          if (!jj.success) erros++;
+          var rr = await apiFetch(API_BASE + '/calendario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payloadOcorrencia) });
+          if (!rr.ok) erros++;
         } catch(e) { erros++; }
       }
       if (erros === 0) toast(datasParaCriar.length + ' eventos criados!', 'ok');
@@ -517,9 +578,9 @@ async function deletarSerie() {
   if (!ev || !ev.grupoRecorrencia) return;
   if (!confirm('Excluir TODOS os eventos desta série recorrente? Essa ação não pode ser desfeita.')) return;
   try {
-    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cal_delete_serie', grupoRecorrencia: ev.grupoRecorrencia }) });
+    var r = await apiFetch(API_BASE + '/calendario/serie/' + encodeURIComponent(ev.grupoRecorrencia), { method:'DELETE' });
     var j = await r.json();
-    if (j.success) {
+    if (r.ok) {
       toast('Série excluída (' + (j.removidos||0) + ' eventos)', 'ok');
       closeModal();
       await carregarDados();
@@ -546,15 +607,13 @@ async function salvarEventoSerie() {
   }
 
   var payload = {
-    action: 'cal_update_serie',
-    grupoRecorrencia: ev.grupoRecorrencia,
     tipo: tipo,
     titulo: titulo,
-    desc: document.getElementById('ev-desc').value.trim(),
-    horaIni: document.getElementById('ev-hora-ini').value,
-    horaFim: document.getElementById('ev-hora-fim').value,
+    descricao: document.getElementById('ev-desc').value.trim(),
+    hora_inicio: document.getElementById('ev-hora-ini').value,
+    hora_fim: document.getElementById('ev-hora-fim').value,
     local: document.getElementById('ev-local').value.trim(),
-    participantes: participantes.join(',')
+    participantes: participantes
   };
 
   var btnSerie = document.getElementById('btn-salvar-serie');
@@ -563,9 +622,9 @@ async function salvarEventoSerie() {
   btnSerie.textContent = 'Salvando série…';
 
   try {
-    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
+    var r = await apiFetch(API_BASE + '/calendario/serie/' + encodeURIComponent(ev.grupoRecorrencia), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var j = await r.json();
-    if (j.success) {
+    if (r.ok) {
       toast('Série atualizada (' + (j.atualizados||0) + ' eventos)', 'ok');
       closeModal();
       await carregarDados();
@@ -582,16 +641,15 @@ async function deletarEvento() {
   if (!state.editingId) return;
   if (!confirm('Excluir este evento?')) return;
   try {
-    var r = await fetch(SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({ action:'cal_delete', id: state.editingId })
-    });
-    var j = await r.json();
-    if (j.success) {
+    var r = await apiFetch(API_BASE + '/calendario/' + state.editingId, { method:'DELETE' });
+    if (r.ok) {
       toast('Evento excluído', 'ok');
       closeModal();
       await carregarDados();
-    } else { toast(j.error || 'Erro', 'err'); }
+    } else {
+      var j = await r.json();
+      toast(j.error || 'Erro', 'err');
+    }
   } catch(e) { toast('Erro de conexão', 'err'); }
 }
 
@@ -912,7 +970,7 @@ function openModal(ev, defaultDate, defaultHora) {
   onRepeatChange();
 
   // Participantes
-  var parts = ev ? (ev.participantes||'').split(',').filter(Boolean) : [];
+  var parts = ev ? (ev.participantes||[]) : [];
   renderUsersSelect(parts);
 
   document.getElementById('ev-overlay').classList.add('open');
@@ -1023,7 +1081,7 @@ function showDetail(id) {
   var t = TYPE_CFG[ev.tipo]||TYPE_CFG.evento;
   var colors = ['#3B82F6','#8B5CF6','#F97316','#22C55E','#F5B800','#EF4444','#EC4899'];
 
-  var parts = (ev.participantes||'').split(',').filter(Boolean);
+  var parts = ev.participantes||[];
   var partsHtml = parts.length ? parts.map(function(login) {
     var u = state.users.find(function(u){ return u.login===login; });
     var nome = u ? u.nome : login;
@@ -1079,10 +1137,9 @@ async function deletarEventoById(id) {
   if (!confirm('Excluir este evento?')) return;
   document.getElementById('detail-overlay').classList.remove('open');
   try {
-    var r = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cal_delete', id:id }) });
-    var j = await r.json();
-    if (j.success) { toast('Evento excluído', 'ok'); await carregarDados(); }
-    else toast(j.error||'Erro', 'err');
+    var r = await apiFetch(API_BASE + '/calendario/' + id, { method:'DELETE' });
+    if (r.ok) { toast('Evento excluído', 'ok'); await carregarDados(); }
+    else { var j = await r.json(); toast(j.error||'Erro', 'err'); }
   } catch(e) { toast('Erro de conexão', 'err'); }
 }
 
@@ -1161,7 +1218,7 @@ function buildEvMap() {
 }
 
 function evVisible(ev) {
-  var parts = (ev.participantes||'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+  var parts = (ev.participantes||[]).map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
   var criador = (ev.criador||'').trim().toLowerCase();
   var currentLogin = state.currentUser ? state.currentUser.login.trim().toLowerCase() : '';
 
@@ -1188,18 +1245,18 @@ function evVisible(ev) {
 
 function parseEvent(row) {
   return {
-    id:            row.ID||'',
-    tipo:          row.Tipo||'evento',
-    titulo:        row.Titulo||'',
-    desc:          row.Desc||'',
-    dataIni:       normDate(row.DataIni),
-    horaIni:       normHora(row.HoraIni),
-    dataFim:       normDate(row.DataFim) || normDate(row.DataIni),
-    horaFim:       normHora(row.HoraFim),
-    local:         row.Local||'',
-    participantes: row.Participantes||'',
-    criador:       row.Criador||'',
-    grupoRecorrencia: row.GrupoRecorrencia||''
+    id:            row.id||'',
+    tipo:          row.tipo||'evento',
+    titulo:        row.titulo||'',
+    desc:          row.descricao||'',
+    dataIni:       normDate(row.data_inicio),
+    horaIni:       normHora(row.hora_inicio),
+    dataFim:       normDate(row.data_fim) || normDate(row.data_inicio),
+    horaFim:       normHora(row.hora_fim),
+    local:         row.local||'',
+    participantes: row.participantes||[],
+    criador:       row.criador||'',
+    grupoRecorrencia: row.grupo_recorrencia||''
   };
 }
 
@@ -1276,137 +1333,6 @@ function loading(on) {
 }
 </script>
 
-<!-- APPS SCRIPT ADDITIONS (cole no seu .gs) -->
-<!--
-// ── CALENDÁRIO — adicionar ao Apps Script existente ──
-
-var HEADERS_CAL = ['ID','Tipo','Titulo','Desc','DataIni','HoraIni','DataFim','HoraFim','Local','Participantes','Criador','CriadoEm','GrupoRecorrencia'];
-
-function getOrCreateCalSheet(ss) {
-  var sh = ss.getSheetByName('CALENDARIO');
-  if (!sh) {
-    sh = ss.insertSheet('CALENDARIO');
-    sh.appendRow(HEADERS_CAL);
-    sh.setFrozenRows(1);
-    sh.getRange(1,1,1,HEADERS_CAL.length).setBackground('#F5B800').setFontWeight('bold').setFontColor('#111');
-    sh.setColumnWidths(1,HEADERS_CAL.length,120);
-  }
-  // Migração não destrutiva: se a planilha já existia sem a coluna
-  // GrupoRecorrencia (versão anterior à recorrência), adiciona no final
-  var headerRow = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
-  if (headerRow.indexOf('GrupoRecorrencia') === -1) {
-    var col = sh.getLastColumn() + 1;
-    sh.getRange(1,col).setValue('GrupoRecorrencia').setBackground('#F5B800').setFontWeight('bold').setFontColor('#111');
-  }
-  return sh;
-}
-
-// No doGet, adicionar:
-if (action === 'cal_listar') {
-  var sh = getOrCreateCalSheet(ss);
-  var data = sh.getDataRange().getValues();
-  if (data.length <= 1) return corsOutput({ status:'ok', rows:[] });
-  var headers = data[0].map(String);
-  var rows = data.slice(1).map(function(row) {
-    var obj = {};
-    headers.forEach(function(h,i){ obj[h] = row[i]===''?'':String(row[i]); });
-    return obj;
-  });
-  return corsOutput({ status:'ok', rows:rows });
-}
-
-if (action === 'get_users') {
-  // Busca da aba USUARIOS (ou como estiver no seu script)
-  var sh = ss.getSheetByName('USUARIOS') || ss.getSheetByName('Usuários');
-  if (!sh) return corsOutput({ users:[] });
-  var data = sh.getDataRange().getValues();
-  var headers = data[0].map(String);
-  var niIdx = headers.indexOf('Nome') >= 0 ? headers.indexOf('Nome') : 0;
-  var liIdx = headers.indexOf('Login') >= 0 ? headers.indexOf('Login') : 1;
-  var users = data.slice(1).map(function(row){ return { nome: String(row[niIdx]||''), login: String(row[liIdx]||'') }; })
-    .filter(function(u){ return u.login; });
-  return corsOutput({ users:users });
-}
-
-// No doPost, adicionar:
-if (data.action === 'cal_create') {
-  var sh = getOrCreateCalSheet(ss);
-  var id = 'CAL-' + now.getTime() + '-' + Math.floor(Math.random()*1000);
-  var d = data;
-  sh.appendRow([id, d.tipo||'evento', d.titulo||'', d.desc||'', d.dataIni||'', d.horaIni||'', d.dataFim||'', d.horaFim||'', d.local||'', d.participantes||'', d.criador||'', Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'), d.grupoRecorrencia||'']);
-  return corsOutput({ success:true, id:id });
-}
-if (data.action === 'cal_update') {
-  var sh = getOrCreateCalSheet(ss);
-  var rows = sh.getDataRange().getValues();
-  var idCol = rows[0].indexOf('ID');
-  var grCol = rows[0].indexOf('GrupoRecorrencia');
-  for (var i=1; i<rows.length; i++) {
-    if (String(rows[i][idCol]) === String(data.id)) {
-      var d = data;
-      // Preserva o GrupoRecorrencia existente — editar uma ocorrência não
-      // deve tirá-la da série nem mudar as outras
-      var grupoAtual = grCol >= 0 ? rows[i][grCol] : '';
-      sh.getRange(i+1,1,1,HEADERS_CAL.length).setValues([[rows[i][idCol], d.tipo, d.titulo, d.desc, d.dataIni, d.horaIni, d.dataFim, d.horaFim, d.local, d.participantes, d.criador, rows[i][HEADERS_CAL.length-2], grupoAtual]]);
-      return corsOutput({ success:true });
-    }
-  }
-  return corsOutput({ success:false, error:'Evento não encontrado' });
-}
-if (data.action === 'cal_delete') {
-  var sh = getOrCreateCalSheet(ss);
-  var rows = sh.getDataRange().getValues();
-  var idCol = rows[0].indexOf('ID');
-  for (var i=1; i<rows.length; i++) {
-    if (String(rows[i][idCol]) === String(data.id)) { sh.deleteRow(i+1); return corsOutput({ success:true }); }
-  }
-  return corsOutput({ success:false, error:'Não encontrado' });
-}
-if (data.action === 'cal_delete_serie') {
-  var sh = getOrCreateCalSheet(ss);
-  var rows = sh.getDataRange().getValues();
-  var grCol = rows[0].indexOf('GrupoRecorrencia');
-  if (grCol === -1) return corsOutput({ success:false, error:'Série não encontrada' });
-  var removidos = 0;
-  // Percorre de baixo pra cima pra deletar linhas sem bagunçar os índices
-  for (var i=rows.length-1; i>=1; i--) {
-    if (String(rows[i][grCol]) === String(data.grupoRecorrencia)) { sh.deleteRow(i+1); removidos++; }
-  }
-  return corsOutput({ success:true, removidos:removidos });
-}
-if (data.action === 'cal_update_serie') {
-  var sh = getOrCreateCalSheet(ss);
-  var rows = sh.getDataRange().getValues();
-  var grCol = rows[0].indexOf('GrupoRecorrencia');
-  if (grCol === -1) return corsOutput({ success:false, error:'Série não encontrada' });
-  var d = data;
-  var atualizados = 0;
-  // Atualiza título/descrição/tipo/horário/local/participantes em todas as
-  // ocorrências da série, preservando ID, DataIni, DataFim, Criador e CriadoEm
-  // de cada linha — a data de cada ocorrência nunca é alterada aqui.
-  for (var i=1; i<rows.length; i++) {
-    if (String(rows[i][grCol]) === String(d.grupoRecorrencia)) {
-      sh.getRange(i+1,1,1,HEADERS_CAL.length).setValues([[
-        rows[i][0],        // ID
-        d.tipo,
-        d.titulo,
-        d.desc,
-        rows[i][4],        // DataIni (preservada)
-        d.horaIni,
-        rows[i][6],        // DataFim (preservada)
-        d.horaFim,
-        d.local,
-        d.participantes,
-        rows[i][10],       // Criador (preservado)
-        rows[i][11],       // CriadoEm (preservado)
-        rows[i][grCol]     // GrupoRecorrencia
-      ]]);
-      atualizados++;
-    }
-  }
-  return corsOutput({ success:true, atualizados:atualizados });
-}
--->
 
 <script>
 /* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */

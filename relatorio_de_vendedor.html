@@ -248,14 +248,11 @@ body.tema-claro .perf-grid>*{background:#FFFFFF!important;border:1px solid #E2E6
       </div>
     </div>
     <div class="header-divider"></div>
-    <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openConfig()">
+    <div style="display:flex;align-items:center;gap:8px">
       <div class="conn-dot" id="conn-dot"></div>
       <span class="conn-label" id="conn-label">Não configurado</span>
     </div>
     <div class="header-right">
-      <button class="config-btn" onclick="openConfig()">
-        <i class="ti ti-settings" style="font-size:13px"></i> Configurar
-      </button>
       <button class="sync-btn" id="sync-btn" onclick="syncData()">
         <i class="ti ti-refresh" style="font-size:13px"></i> Atualizar
       </button>
@@ -349,44 +346,80 @@ body.tema-claro .perf-grid>*{background:#FFFFFF!important;border:1px solid #E2E6
   </div>
 </div>
 
-<!-- CONFIG MODAL -->
-<div id="modal-config" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <div class="modal-title"><i class="ti ti-link" style="color:var(--gold);margin-right:8px"></i>Configurar Conexão</div>
-    <div class="form-group">
-      <label class="form-label">URL do Apps Script</label>
-      <input class="form-input" id="cfg-url" placeholder="https://script.google.com/macros/s/...">
-      <p class="help-txt">Cole aqui a URL do Web App após implantar o Apps Script fornecido abaixo.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="document.getElementById('modal-config').classList.remove('open')">Cancelar</button>
-      <button class="btn-primary" onclick="saveConfig()">Salvar e Conectar</button>
-    </div>
-  </div>
-</div>
-
-<!-- APPS SCRIPT CODE MODAL -->
-<div id="modal-script" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal" style="width:700px;max-width:95vw">
-    <div class="modal-title"><i class="ti ti-code" style="color:var(--gold);margin-right:8px"></i>Código do Apps Script</div>
-    <p style="font-size:11px;color:var(--txt-dim);margin-bottom:12px">Cole este código em Extensões → Apps Script na planilha "Jira Barreto's", depois implante como Web App.</p>
-    <textarea id="script-code" readonly style="width:100%;height:300px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--txt);font-family:'DM Mono',monospace;font-size:10px;padding:12px;resize:vertical;outline:none"></textarea>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="document.getElementById('modal-script').classList.remove('open')">Fechar</button>
-      <button class="btn-primary" onclick="copyScript()"><i class="ti ti-copy" style="font-size:12px"></i> Copiar Código</button>
-    </div>
-  </div>
-</div>
 
 <script>
 /* ════════════════════════════════════════
-   APPS SCRIPT CODE (para implantar)
-════════════════════════════════════════ */
-
-/* ════════════════════════════════════════
    ESTADO
 ════════════════════════════════════════ */
-var WEBAPP_URL='https://script.google.com/macros/s/AKfycbx0b9geJN-50h8vQPMyAw5rAD5h4ghOFJrngeCgs29t3sqpaCGGC_b2ih99eYYnZdSDfg/exec';
+// Este relatório lê direto da tabela kanban_cards (Supabase) — antes vinha
+// de uma aba "TORRE DE CONTROLE" numa planilha à parte, que só atualizava
+// quando alguém clicava em "Atualizar" (o botão disparava uma sincronização
+// separada). Como os 4 Kanbans já são uma tabela só, esse passo some: os
+// dados aqui são sempre os mesmos que estão nos quadros agora mesmo.
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
 let db = [];
 let filtered = [];
 let activeVendedor = null;
@@ -400,96 +433,53 @@ function _getPerfil(){ return localStorage.getItem('barretos_perfil')||sessionSt
 function _getNome()  { return localStorage.getItem('barretos_nome')||sessionStorage.getItem('barretos_nome')||''; }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('script-code').value = document.getElementById('gas-source').value;
-  if (WEBAPP_URL) {
-    setConnected(true);
-    loadData();
-    // Lock vendedor for colaborador after data loads
-    if(_getPerfil()!=='gestor'){
-      var _nome=_getNome();
-      if(_nome){
-        setTimeout(function(){
-          var s=document.getElementById('f-vendedor');
-          if(s){s.value=_nome;s.disabled=true;}
-          applyFilters();
-        },1200);
-      }
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+  setConnected(true);
+  loadData();
+  // Lock vendedor for colaborador after data loads
+  if(_getPerfil()!=='gestor'){
+    var _nome=_getNome();
+    if(_nome){
+      setTimeout(function(){
+        var s=document.getElementById('f-vendedor');
+        if(s){s.value=_nome;s.disabled=true;}
+        applyFilters();
+      },1200);
     }
-  } else {
-    setConnected(false);
   }
 });
 
-/* ════════════════════════════════════════
-   CONFIG
-════════════════════════════════════════ */
-function openConfig() {
-  document.getElementById('cfg-url').value = WEBAPP_URL;
-  document.getElementById('modal-config').classList.add('open');
-}
-function saveConfig() {
-  const url = document.getElementById('cfg-url').value.trim();
-  if (!url) return alert('Cole a URL do Apps Script');
-  WEBAPP_URL = url;
-  localStorage.setItem('relatorio_webapp_url', url);
-  document.getElementById('modal-config').classList.remove('open');
-  setConnected(true);
-  loadData();
-}
 function setConnected(on) {
   document.getElementById('conn-dot').className = 'conn-dot' + (on ? ' on' : '');
-  document.getElementById('conn-label').textContent = on ? 'Planilha conectada' : 'Não configurado';
-}
-function showScript() {
-  document.getElementById('modal-script').classList.add('open');
-}
-function copyScript() {
-  const ta = document.getElementById('script-code');
-  ta.select(); document.execCommand('copy');
-  alert('Código copiado! Cole no Apps Script da planilha.');
+  document.getElementById('conn-label').textContent = on ? 'Conectado ao Supabase' : 'Não conectado';
 }
 
 /* ════════════════════════════════════════
    DADOS
 ════════════════════════════════════════ */
 async function loadData() {
-  if (!WEBAPP_URL) return;
   try {
-    const r = await fetch(WEBAPP_URL);
-    const j = await r.json();
-    if (j.success) {
-      db = j.data || [];
-      populateFilters();
-      applyFilters();
-    }
-  } catch(e) { console.error(e); }
+    const r = await apiFetch(API_BASE + '/relatorio-vendedor');
+    const rows = await r.json();
+    if (!r.ok) throw new Error(rows.error || 'Erro ao carregar');
+    db = rows || [];
+    populateFilters();
+    applyFilters();
+  } catch(e) { console.error(e); setConnected(false); }
 }
 
+// Mantido só pelo botão já existente na tela — os dados já vêm sempre
+// atualizados da tabela, então isso só recarrega.
 async function syncData() {
-  if (!WEBAPP_URL) { openConfig(); return; }
   const btn = document.getElementById('sync-btn');
   btn.innerHTML = '<span class="spinner"></span> Atualizando…';
   btn.disabled = true;
-  try {
-    const r = await fetch(WEBAPP_URL + '?action=sync');
-    const j = await r.json();
-    if (j.success) {
-      await loadData();
-      btn.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Atualizado!';
-      setTimeout(() => {
-        btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
-        btn.disabled = false;
-      }, 2000);
-    } else {
-      alert('Erro: ' + (j.error || 'Falha na sincronização'));
-      btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    alert('Erro de conexão. Verifique a URL.');
+  await loadData();
+  btn.innerHTML = '<i class="ti ti-check" style="font-size:13px"></i> Atualizado!';
+  setTimeout(() => {
     btn.innerHTML = '<i class="ti ti-refresh" style="font-size:13px"></i> Atualizar';
     btn.disabled = false;
-  }
+  }, 1200);
 }
 
 /* ════════════════════════════════════════
@@ -800,160 +790,6 @@ function exportXLSX() {
   XLSX.writeFile(wb, `relatorio_fretes_${dt}.xlsx`);
 }
 </script>
-<div style="position:fixed;bottom:16px;right:16px;z-index:50">
-  <button onclick="showScript()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt-dim);font-size:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--txt-dim)'">
-    <i class="ti ti-code" style="font-size:13px"></i> Ver Apps Script
-  </button>
-</div>
-<textarea id="gas-source" style="display:none">const SS_FONTE_ID   = &#x27;15SW9S9N7kJugsbZE7_-Owd0uxvvsuJ4NX6YJiS47DuA&#x27;;
-const SS_DESTINO_ID = &#x27;1V2v2Na6x0IiC5OMDCaGdq1D6vAREtNDQA-cXzBbR8iE&#x27;;
-const TORRE_SHEET   = &#x27;TORRE DE CONTROLE&#x27;;
-
-function col(headers, name) {
-  function norm(s) {
-    return String(s).toLowerCase()
-      .normalize(&#x27;NFD&#x27;)
-      .replace(/[\u0300-\u036f]/g, &#x27;&#x27;)
-      .trim();
-  }
-  var n = norm(name);
-  for (var i = 0; i &lt; headers.length; i++) {
-    if (norm(headers[i]) === n) return i;
-  }
-  return -1;
-}
-
-function doGet(e) {
-  try {
-    // action=sync via GET para evitar CORS
-    if (e &amp;&amp; e.parameter &amp;&amp; e.parameter.action === &#x27;sync&#x27;) {
-      sincronizar();
-      return ok({msg:&#x27;Atualizado com sucesso&#x27;});
-    }
-    // Leitura normal dos dados
-    var ss = SpreadsheetApp.openById(SS_DESTINO_ID);
-    var sh = ss.getSheets()[0];
-    if (!sh || sh.getLastRow() &lt;= 1) return ok({data:[]});
-    var data = sh.getDataRange().getValues();
-    var headers = data[0].map(String);
-    var rows = data.slice(1).map(function(r) {
-      var o = {}; headers.forEach(function(h,i){ o[h] = cellStr(r[i]); }); return o;
-    }).filter(function(r){ return Object.values(r).some(function(v){return v;}); });
-    return ok({data:rows});
-  } catch(err) { return err_(err); }
-}
-
-function doPost(e) {
-  try {
-    var d = JSON.parse(e.postData.contents);
-    if (d.action === &#x27;sync&#x27;) { sincronizar(); return ok({msg:&#x27;Sincronizado com sucesso&#x27;}); }
-    return err_(&#x27;Acao desconhecida&#x27;);
-  } catch(err) { return err_(err); }
-}
-
-function ok(obj)   { obj.success=true;  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
-function err_(e)   { return ContentService.createTextOutput(JSON.stringify({success:false,error:String(e)})).setMimeType(ContentService.MimeType.JSON); }
-
-function sincronizar() {
-  var ssFonte   = SpreadsheetApp.openById(SS_FONTE_ID);
-  var ssDestino = SpreadsheetApp.openById(SS_DESTINO_ID);
-  var torre = ssFonte.getSheetByName(TORRE_SHEET);
-  if (!torre) throw new Error(&#x27;Aba &quot;TORRE DE CONTROLE&quot; nao encontrada.&#x27;);
-
-  var tData = torre.getDataRange().getValues();
-  var h = tData[0].map(String);
-
-  var C = {
-    origem  : col(h,&#x27;ORIGEM&#x27;),
-    resumo  : col(h,&#x27;Resumo&#x27;),
-    coleta  : col(h,&#x27;DATA DA COLETA&#x27;),
-    cliente : col(h,&#x27;CLIENTE&#x27;),
-    contato : col(h,&#x27;CONTATO CLIENTE&#x27;),
-    vendedor: col(h,&#x27;VENDEDOR&#x27;),
-    codigo  : col(h,&#x27;DT CODIGO&#x27;),
-    frete   : col(h,&#x27;FRETE CLIENTE&#x27;),
-    custo   : col(h,&#x27;CUSTO TOTAL OPERACIONAL&#x27;),
-    mes     : col(h,&#x27;MES&#x27;),
-    icms    : col(h,&#x27;IMPOSTO (12%)&#x27;)
-  };
-
-  var rel = ssDestino.getSheets()[0];
-  rel.clearContents();
-
-  var newH = [&#x27;Mes&#x27;,&#x27;Data Coleta&#x27;,&#x27;Cidade Origem&#x27;,&#x27;UF Origem&#x27;,&#x27;Cidade Destino&#x27;,&#x27;UF Destino&#x27;,
-    &#x27;Cliente&#x27;,&#x27;Contato Cliente&#x27;,&#x27;Vendedor&#x27;,&#x27;DT Codigo&#x27;,&#x27;Origem&#x27;,&#x27;Frete Cobrado&#x27;,&#x27;Custo Operacional&#x27;,&#x27;ICMS&#x27;];
-  rel.appendRow(newH);
-
-  var rows = [];
-  for (var i = 1; i &lt; tData.length; i++) {
-    var r = tData[i];
-    if (!r.some(function(v){return v;})) continue;
-    var route    = parseRoute(String(r[C.resumo] || &#x27;&#x27;));
-    var freteVal = parseBRL(r[C.frete]);
-    var custoVal = parseBRL(r[C.custo]);
-    var icmsVal  = C.icms &gt;= 0 ? parseBRL(r[C.icms]) : Math.round(freteVal * 0.12 * 100) / 100;
-    rows.push([
-      cellStr(r[C.mes]),
-      r[C.coleta] instanceof Date ? Utilities.formatDate(r[C.coleta], Session.getScriptTimeZone(), &#x27;dd/MM/yyyy&#x27;) : cellStr(r[C.coleta]),
-      route.cidadeOrigem, route.ufOrigem,
-      route.cidadeDestino, route.ufDestino,
-      cellStr(r[C.cliente]), cellStr(r[C.contato]),
-      cellStr(r[C.vendedor]), cellStr(r[C.codigo]),
-      cellStr(r[C.origem]),
-      freteVal, custoVal, icmsVal
-    ]);
-  }
-  if (rows.length &gt; 0) rel.getRange(2, 1, rows.length, newH.length).setValues(rows);
-}
-
-function parseRoute(resumo) {
-  if (!resumo) return {cidadeOrigem:&#x27;&#x27;,ufOrigem:&#x27;&#x27;,cidadeDestino:&#x27;&#x27;,ufDestino:&#x27;&#x27;};
-  var s = resumo.trim();
-  var xMatch = s.match(/(\s+)[xX](\s+)/);
-  if (!xMatch) return {cidadeOrigem:limpar(s),ufOrigem:&#x27;&#x27;,cidadeDestino:&#x27;&#x27;,ufDestino:&#x27;&#x27;};
-  var xIdx = s.search(/(\s+)[xX](\s+)/);
-  var orig = s.substring(0, xIdx).split(/\s*\+\s*/)[0].trim();
-  var dest = s.substring(xIdx + xMatch[0].length).replace(/\s*\(.*?\)/g,&#x27;&#x27;).split(/\s*\+\s*/)[0].trim();
-  var o = cidadeUF(orig), d = cidadeUF(dest);
-  return {cidadeOrigem:o.c,ufOrigem:o.u,cidadeDestino:d.c,ufDestino:d.u};
-}
-
-function cidadeUF(s) {
-  s = String(s).trim();
-  var m = s.match(/^(.*?)\s*\/\s*([A-Za-z]{2})\s*$/);
-  if (m) return {c:limpar(m[1]),u:m[2].toUpperCase()};
-  var m2 = s.match(/^(.*?)\s*-\s*([A-Za-z]{2})\s*$/);
-  if (m2 &amp;&amp; /^[A-Z]{2}$/i.test(m2[2])) return {c:limpar(m2[1]),u:m2[2].toUpperCase()};
-  return {c:limpar(s),u:&#x27;&#x27;};
-}
-
-function limpar(s) {
-  s = String(s).trim()
-    .replace(/\bS\d{4,}\s*[-]\s*/ig, &#x27;&#x27;)
-    .replace(/\bCTE\s*[\d\/]+\s*[-]\s*/ig, &#x27;&#x27;)
-    .replace(/\bNF\s*[\w]+\s*[-]\s*/ig, &#x27;&#x27;)
-    .replace(/\bMDF\s*\d+\s*[-]\s*/ig, &#x27;&#x27;);
-  var p = s.split(/\s+-\s+/);
-  for (var i = p.length - 1; i &gt;= 0; i--) {
-    var v = p[i].trim();
-    if (v &amp;&amp; v.length &gt; 1 &amp;&amp; !/^\d+$/.test(v)) return v;
-  }
-  return s.trim();
-}
-
-function cellStr(val) {
-  if (val === null || val === undefined || val === &#x27;&#x27;) return &#x27;&#x27;;
-  if (val instanceof Date) return Utilities.formatDate(val, Session.getScriptTimeZone(), &#x27;dd/MM/yyyy&#x27;);
-  return String(val);
-}
-
-function parseBRL(val) {
-  if (!val &amp;&amp; val !== 0) return 0;
-  if (typeof val === &#x27;number&#x27;) return val;
-  var s = String(val).replace(/R\$\s*/g,&#x27;&#x27;).trim();
-  if (s.includes(&#x27;,&#x27;)) s = s.replace(/\./g,&#x27;&#x27;).replace(&#x27;,&#x27;,&#x27;.&#x27;);
-  return parseFloat(s) || 0;
-}</textarea>
 
 <script>
 /* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */

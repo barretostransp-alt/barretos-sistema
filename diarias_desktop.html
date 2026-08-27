@@ -528,8 +528,75 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-var URL_DIARIAS    = 'https://script.google.com/macros/s/AKfycbxotPbQ44MYstDRfLGq1fhRk_gCq4oYHfc0uMQ-k8l5jJVKa8nC7D5f1rw7RtlW4ueI/exec';
+// Antes: URL_DIARIAS apontava pro Apps Script. Agora: API_BASE aponta pra
+// API Node.js nova. Trocar aqui pela URL de produção quando publicarmos.
+var API_BASE       = 'https://barretos-backend.onrender.com/api';
 var NOME_VALIDADOR = localStorage.getItem('diarias_validador') || '';
+
+// ── LOGIN ───────────────────────────────────────────────────
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Toda chamada à API passa por aqui em vez de fetch() direto, pra sempre
+// ir com o token de login e tentar renovar sozinho se ele já tiver expirado.
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
 
 // ── ESTADO ──────────────────────────────────────────────────
 var allData     = [];
@@ -541,6 +608,7 @@ var validandoRow = null;
 window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('cfg-validador').value = NOME_VALIDADOR;
   document.getElementById('val-nome').value      = NOME_VALIDADOR;
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   carregarDados();
 });
 
@@ -568,25 +636,25 @@ function switchTab(tab) {
 
 // ── CARREGAR DADOS ──────────────────────────────────────────
 async function carregarDados() {
-  if (!URL_DIARIAS) return;
+  if (!API_BASE) return;
   document.getElementById('table-loading').style.display = 'block';
   document.getElementById('tabela-diarias').style.display = 'none';
   document.getElementById('empty-state').style.display = 'none';
 
   try {
     // Carrega motoristas e diárias em paralelo
-    var [rMot, rDia] = await Promise.all([
-      fetch(URL_DIARIAS + '?action=motoristas').then(r => r.json()),
-      fetch(URL_DIARIAS + '?action=diarias').then(r => r.json())
+    var [respMotoristas, respDiarias] = await Promise.all([
+      apiFetch(API_BASE + '/diarias/motoristas').then(r => r.json()),
+      apiFetch(API_BASE + '/diarias').then(r => r.json())
     ]);
 
-    // Motoristas
-    motoristas = rMot.motoristas || [];
+    // Motoristas — agora vem como [{id, nome}, ...] em vez de string[]
+    motoristas = respMotoristas || [];
     popularSelectMotoristas();
 
     // Diárias
-    allData = (rDia.rows || []).sort(function(a,b) {
-      return parseDateBR(b.Data) - parseDateBR(a.Data);
+    allData = (respDiarias || []).sort(function(a,b) {
+      return parseDataISO(b.data) - parseDataISO(a.data);
     });
 
     popularFiltros();
@@ -599,15 +667,16 @@ async function carregarDados() {
   }
 }
 
-function parseDateBR(str) {
+// A API nova devolve datas em ISO (yyyy-MM-dd), não mais dd/MM/yyyy.
+function parseDataISO(str) {
   if (!str) return 0;
-  var p = String(str).split('/');
-  if (p.length === 3) return new Date(p[2], p[1]-1, p[0]).getTime();
+  var p = String(str).split('-');
+  if (p.length === 3) return new Date(+p[0], +p[1]-1, +p[2]).getTime();
   return 0;
 }
 
 function semanaISO(str) {
-  var d = new Date(parseDateBR(str));
+  var d = new Date(parseDataISO(str));
   if (isNaN(d)) return '';
   var jan1 = new Date(d.getFullYear(), 0, 1);
   var week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
@@ -637,8 +706,8 @@ function popularSelectMotoristas() {
     sel.innerHTML = isFilter ? '<option value="">Todos</option>' : '<option value="">— selecione —</option>';
     motoristas.forEach(function(m) {
       var opt = document.createElement('option');
-      opt.value = m; opt.textContent = m;
-      if (m === cur) opt.selected = true;
+      opt.value = m.id; opt.textContent = m.nome;
+      if (m.id === cur) opt.selected = true;
       sel.appendChild(opt);
     });
   });
@@ -648,7 +717,7 @@ function popularFiltros() {
   // Meses únicos — normaliza Data para capturar qualquer formato
   var meses = {}, semanas = {};
   allData.forEach(function(r) {
-    var ts = parseDateBR(r.Data);
+    var ts = parseDataISO(r.data);
     if (ts) {
       var d = new Date(ts);
       var mm = String(d.getMonth()+1).padStart(2,'0');
@@ -656,7 +725,7 @@ function popularFiltros() {
       var key = mm + '/' + yyyy;
       meses[key] = nomeMes(d.getMonth()) + '/' + yyyy.slice(-2);
     }
-    var sw = semanaISO(r.Data);
+    var sw = semanaISO(r.data);
     if (sw) semanas[sw] = semanaLabel(sw);
   });
 
@@ -698,16 +767,16 @@ function filtradoAtual() {
   var status = document.getElementById('flt-status').value;
 
   return allData.filter(function(r) {
-    if (mot    && r.Motorista !== mot) return false;
-    if (status && r.Status   !== status) return false;
+    if (mot    && r.motorista_id !== mot) return false;
+    if (status && r.status       !== status) return false;
     if (mes) {
-      var ts = parseDateBR(r.Data);
+      var ts = parseDataISO(r.data);
       if (!ts) return false;
       var d = new Date(ts);
       var mesKey = String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
       if (mesKey !== mes) return false;
     }
-    if (semana && semanaISO(r.Data) !== semana) return false;
+    if (semana && semanaISO(r.data) !== semana) return false;
     return true;
   });
 }
@@ -735,20 +804,21 @@ function renderTabela(dados) {
 
   dados.forEach(function(r) {
     var tr = document.createElement('tr');
-    var sc = statusClass(r.Status);
-    var podeValidar = r.Status !== 'Aprovado' && r.Status !== 'Rejeitado';
-    var dataFmt = formatarData(r.Data);
-    var regFmt  = formatarDataHora(r.DataRegistro);
+    var nomeMotorista = (r.motorista && r.motorista.nome) || '';
+    var sc = statusClass(r.status);
+    var podeValidar = r.status !== 'Aprovado' && r.status !== 'Rejeitado';
+    var dataFmt = formatarData(r.data);
+    var regFmt  = formatarDataHora(r.criado_em);
     tr.innerHTML =
       '<td><b>' + esc(dataFmt) + '</b></td>' +
-      '<td>' + esc(r.Motorista||'') + '</td>' +
-      '<td style="color:var(--txt-dim);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.Observacao||'—') + '</td>' +
-      '<td><span class="status-pill ' + sc + '">' + esc(r.Status||'') + '</span></td>' +
+      '<td>' + esc(nomeMotorista) + '</td>' +
+      '<td style="color:var(--txt-dim);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.observacao||'—') + '</td>' +
+      '<td><span class="status-pill ' + sc + '">' + esc(r.status||'') + '</span></td>' +
       '<td style="color:var(--txt-dim);font-size:12px">' + esc(regFmt) + '</td>' +
       '<td><div class="row-actions">' +
-        (podeValidar ? '<button class="row-btn success" onclick="abrirValidar(\'' + esc(r.ID) + '\')"><i class="ti ti-shield-check"></i> Validar</button>' : '') +
-        '<button class="row-btn" onclick="abrirEditar(\'' + esc(r.ID) + '\')"><i class="ti ti-edit"></i></button>' +
-        '<button class="row-btn danger" onclick="excluir(\'' + esc(r.ID) + '\')"><i class="ti ti-trash"></i></button>' +
+        (podeValidar ? '<button class="row-btn success" onclick="abrirValidar(\'' + esc(r.id) + '\')"><i class="ti ti-shield-check"></i> Validar</button>' : '') +
+        '<button class="row-btn" onclick="abrirEditar(\'' + esc(r.id) + '\')"><i class="ti ti-edit"></i></button>' +
+        '<button class="row-btn danger" onclick="excluir(\'' + esc(r.id) + '\')"><i class="ti ti-trash"></i></button>' +
       '</div></td>';
     tbody.appendChild(tr);
   });
@@ -759,7 +829,12 @@ function formatarData(val) {
   var s = String(val).trim();
   // Já está no formato dd/MM/yyyy
   if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s.slice(0, 10);
-  // Tenta como Date (cobre objetos Date e strings tipo "Wed Jun 10 2026 11:12:00 GMT...")
+  // yyyy-MM-dd (formato que a API nova usa) — manipula como texto em vez de
+  // passar por "new Date()", que interpretaria como meia-noite UTC e podia
+  // voltar um dia no fuso do Brasil.
+  var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
+  // Tenta como Date (cobre timestamps completos, com hora e fuso)
   var d = new Date(val);
   if (!isNaN(d)) {
     return String(d.getDate()).padStart(2,'0') + '/' +
@@ -797,9 +872,9 @@ function statusClass(s) {
 // ── RESUMO RÁPIDO ────────────────────────────────────────────
 function renderResumoRapido(dados) {
   var total    = dados.length;
-  var pend     = dados.filter(function(r) { return r.Status === 'Pendente'; }).length;
-  var aprov    = dados.filter(function(r) { return r.Status === 'Aprovado'; }).length;
-  var rejeit   = dados.filter(function(r) { return r.Status === 'Rejeitado'; }).length;
+  var pend     = dados.filter(function(r) { return r.status === 'Pendente'; }).length;
+  var aprov    = dados.filter(function(r) { return r.status === 'Aprovado'; }).length;
+  var rejeit   = dados.filter(function(r) { return r.status === 'Rejeitado'; }).length;
 
   document.getElementById('badge-total').textContent = total;
   document.getElementById('resumo-rapido').innerHTML =
@@ -861,9 +936,11 @@ function renderResumo() {
   }
 
   // Filtra dados: sem rejeitados, com motorista se filtrado
+  // (mot aqui é o motorista_id do <select>; o resumo abaixo agrupa por
+  // nome porque é o que aparece na tabela)
   var dadosBase = allData.filter(function(r) {
-    if (r.Status === 'Rejeitado') return false;
-    if (mot && r.Motorista !== mot) return false;
+    if (r.status === 'Rejeitado') return false;
+    if (mot && r.motorista_id !== mot) return false;
     return true;
   });
 
@@ -872,20 +949,22 @@ function renderResumo() {
   var fimTotal = semanas[semanas.length - 1].fim;
   var seen = {}, motLista = [];
   dadosBase.forEach(function(r) {
-    if (!r.Motorista || seen[r.Motorista]) return;
-    var d = toDate(r.Data);
+    var nome = (r.motorista && r.motorista.nome) || '';
+    if (!nome || seen[nome]) return;
+    var d = toDate(r.data);
     if (d && d >= iniTotal && d <= fimTotal) {
-      seen[r.Motorista] = true;
-      motLista.push(r.Motorista);
+      seen[nome] = true;
+      motLista.push(nome);
     }
   });
   motLista.sort();
 
-  // Conta diárias de um motorista em uma semana
-  function contar(motorista, semana) {
+  // Conta diárias de um motorista (por nome) em uma semana
+  function contar(nomeMotorista, semana) {
     return dadosBase.filter(function(r) {
-      if (r.Motorista !== motorista) return false;
-      var d = toDate(r.Data);
+      var nome = (r.motorista && r.motorista.nome) || '';
+      if (nome !== nomeMotorista) return false;
+      var d = toDate(r.data);
       return d && d >= semana.ini && d <= semana.fim;
     }).length;
   }
@@ -953,10 +1032,10 @@ function renderResumo() {
 
 // ── VALIDAÇÕES ───────────────────────────────────────────────
 function renderValidacoes() {
-  var dados = allData.filter(function(r) { return r.Status === 'Pendente'; });
+  var dados = allData.filter(function(r) { return r.status === 'Pendente'; });
 
   document.getElementById('badge-pendente').textContent =
-    allData.filter(function(r) { return r.Status === 'Pendente'; }).length;
+    allData.filter(function(r) { return r.status === 'Pendente'; }).length;
 
   var tbody = document.getElementById('tbody-val');
   tbody.innerHTML = '';
@@ -971,15 +1050,16 @@ function renderValidacoes() {
 
   dados.forEach(function(r) {
     var tr = document.createElement('tr');
-    var sc = statusClass(r.Status);
+    var nomeMotorista = (r.motorista && r.motorista.nome) || '';
+    var sc = statusClass(r.status);
     tr.innerHTML =
-      '<td><b>' + esc(formatarData(r.Data)||'') + '</b></td>' +
-      '<td>' + esc(r.Motorista||'') + '</td>' +
-      '<td style="color:var(--txt-dim)">' + esc(r.Observacao||'—') + '</td>' +
-      '<td><span class="status-pill ' + sc + '">' + esc(r.Status||'') + '</span></td>' +
-      '<td style="color:var(--txt-dim);font-size:12px">' + esc(formatarDataHora(r.DataRegistro)||'') + '</td>' +
+      '<td><b>' + esc(formatarData(r.data)||'') + '</b></td>' +
+      '<td>' + esc(nomeMotorista) + '</td>' +
+      '<td style="color:var(--txt-dim)">' + esc(r.observacao||'—') + '</td>' +
+      '<td><span class="status-pill ' + sc + '">' + esc(r.status||'') + '</span></td>' +
+      '<td style="color:var(--txt-dim);font-size:12px">' + esc(formatarDataHora(r.criado_em)||'') + '</td>' +
       '<td><div class="row-actions" style="opacity:1">' +
-        '<button class="row-btn success" onclick="abrirValidar(\'' + esc(r.ID) + '\')"><i class="ti ti-shield-check"></i> Analisar</button>' +
+        '<button class="row-btn success" onclick="abrirValidar(\'' + esc(r.id) + '\')"><i class="ti ti-shield-check"></i> Analisar</button>' +
       '</div></td>';
     tbody.appendChild(tr);
   });
@@ -987,7 +1067,7 @@ function renderValidacoes() {
 
 // ── ATUALIZAÇÕES DE BADGES ───────────────────────────────────
 function atualizarBadges() {
-  var pend = allData.filter(function(r) { return r.Status === 'Pendente'; }).length;
+  var pend = allData.filter(function(r) { return r.status === 'Pendente'; }).length;
   document.getElementById('badge-pendente').textContent = pend;
   document.getElementById('badge-total').textContent = allData.length;
 }
@@ -1006,15 +1086,15 @@ function abrirModalNovo() {
 }
 
 function abrirEditar(id) {
-  var row = allData.find(function(r) { return r.ID === id; });
+  var row = allData.find(function(r) { return r.id === id; });
   if (!row) return;
   editandoId = id;
   document.getElementById('modal-form-title').textContent = 'Editar Lançamento';
-  // Converte dd/MM/yyyy → yyyy-MM-dd
-  var p = String(row.Data||'').split('/');
-  if (p.length === 3) document.getElementById('mf-data').value = p[2]+'-'+p[1]+'-'+p[0];
-  document.getElementById('mf-motorista').value = row.Motorista || '';
-  document.getElementById('mf-obs').value = row.Observacao || '';
+  // A API nova já devolve a data em yyyy-MM-dd — é o mesmo formato que o
+  // <input type="date"> espera, não precisa mais converter.
+  document.getElementById('mf-data').value = row.data || '';
+  document.getElementById('mf-motorista').value = row.motorista_id || '';
+  document.getElementById('mf-obs').value = row.observacao || '';
   document.getElementById('modal-form-error').style.display = 'none';
   document.getElementById('modal-form').classList.add('open');
 }
@@ -1031,20 +1111,19 @@ async function salvarLancamento() {
     errEl.style.display = 'block'; return;
   }
 
-  var p = data.split('-');
-  var dataFmt = p[2] + '/' + p[1] + '/' + p[0];
-
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
 
   try {
+    var url    = editandoId ? (API_BASE + '/diarias/' + editandoId) : (API_BASE + '/diarias');
+    var method = editandoId ? 'PUT' : 'POST';
     var payload = editandoId
-      ? { action: 'editar', id: editandoId, data: dataFmt, observacao: obs }
-      : { action: 'registrar', data: dataFmt, motorista: motorista, observacao: obs };
+      ? { data: data, observacao: obs }
+      : { data: data, motorista_id: motorista, observacao: obs };
 
-    var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify(payload) });
+    var res  = await apiFetch(url, { method: method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var json = await res.json();
 
-    if (json.success) {
+    if (res.ok) {
       fecharModal('modal-form');
       await carregarDados();
       toast(editandoId ? 'Lançamento atualizado' : 'Diária registrada', 'success');
@@ -1061,14 +1140,14 @@ async function salvarLancamento() {
 
 // ── VALIDAR ──────────────────────────────────────────────────
 function abrirValidar(id) {
-  var row = allData.find(function(r) { return r.ID === id; });
+  var row = allData.find(function(r) { return r.id === id; });
   if (!row) return;
   validandoRow = row;
 
   document.getElementById('val-detail').innerHTML =
-    '<div><b>Motorista:</b> ' + esc(row.Motorista) + '</div>' +
-    '<div><b>Data:</b> ' + esc(row.Data) + '</div>' +
-    '<div><b>Observação:</b> ' + esc(row.Observacao||'—') + '</div>';
+    '<div><b>Motorista:</b> ' + esc((row.motorista && row.motorista.nome) || '') + '</div>' +
+    '<div><b>Data:</b> ' + esc(formatarData(row.data)) + '</div>' +
+    '<div><b>Observação:</b> ' + esc(row.observacao||'—') + '</div>';
 
   document.getElementById('val-steps').innerHTML = '';
 
@@ -1094,19 +1173,21 @@ async function confirmarValidacao(acao) {
     }
     if (!motivo) { toast('Informe o motivo da rejeição', 'error'); return; }
 
-    var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify({
-      action: 'validar', id: validandoRow.ID, validador: validador, acao: 'rejeitar', motivo: motivo
-    })});
+    var res  = await apiFetch(API_BASE + '/diarias/' + validandoRow.id + '/rejeitar', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ validador: validador, motivo: motivo })
+    });
     var json = await res.json();
-    if (json.success) {
+    if (res.ok) {
       fecharModal('modal-val'); await carregarDados(); toast('Diária rejeitada', 'error');
     } else toast(json.error || 'Erro', 'error');
   } else {
-    var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify({
-      action: 'validar', id: validandoRow.ID, validador: validador, acao: 'aprovar'
-    })});
+    var res  = await apiFetch(API_BASE + '/diarias/' + validandoRow.id + '/aprovar', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ validador: validador })
+    });
     var json = await res.json();
-    if (json.success) {
+    if (res.ok) {
       fecharModal('modal-val'); await carregarDados();
       toast('Diária aprovada!', 'success');
     } else toast(json.error || 'Erro', 'error');
@@ -1116,10 +1197,9 @@ async function confirmarValidacao(acao) {
 // ── EXCLUIR ──────────────────────────────────────────────────
 async function excluir(id) {
   if (!confirm('Excluir este lançamento?')) return;
-  var res  = await fetch(URL_DIARIAS, { method: 'POST', body: JSON.stringify({ action: 'excluir', id: id }) });
-  var json = await res.json();
-  if (json.success) { await carregarDados(); toast('Excluído', 'success'); }
-  else toast(json.error || 'Erro', 'error');
+  var res = await apiFetch(API_BASE + '/diarias/' + id, { method: 'DELETE' });
+  if (res.ok) { await carregarDados(); toast('Excluído', 'success'); }
+  else { var json = await res.json().catch(function(){ return {}; }); toast(json.error || 'Erro', 'error'); }
 }
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────
@@ -1129,14 +1209,14 @@ function exportarExcel() {
 
   var rows = dados.map(function(r) {
     return {
-      'Data':        formatarData(r.Data),
-      'Motorista':   r.Motorista,
-      'Observação':  r.Observacao,
-      'Status':      r.Status,
-      'Validador':   r.Validador1,
-      'Dt. Validação': formatarData(r.DataVal1),
-      'Motivo Rejeição': r.MotivoRejeicao,
-      'Registrado em': formatarDataHora(r.DataRegistro)
+      'Data':        formatarData(r.data),
+      'Motorista':   (r.motorista && r.motorista.nome) || '',
+      'Observação':  r.observacao,
+      'Status':      r.status,
+      'Validador':   r.validador,
+      'Dt. Validação': formatarData(r.data_validacao),
+      'Motivo Rejeição': r.motivo_rejeicao,
+      'Registrado em': formatarDataHora(r.criado_em)
     };
   });
 
@@ -1160,14 +1240,14 @@ function exportarExcel() {
 function exportarExcelResumo() {
   var mot = document.getElementById('res-motorista').value;
   var dados = allData.filter(function(r) {
-    if (mot && r.Motorista !== mot) return false;
-    return r.Status !== 'Rejeitado';
+    if (mot && r.motorista_id !== mot) return false;
+    return r.status !== 'Rejeitado';
   });
 
   var porMotSem = {};
   dados.forEach(function(r) {
-    var m = r.Motorista || '—';
-    var s = semanaISO(r.Data);
+    var m = (r.motorista && r.motorista.nome) || '—';
+    var s = semanaISO(r.data);
     var key = m + '|||' + s;
     if (!porMotSem[key]) porMotSem[key] = { Motorista: m, Semana: s, Período: semanaLabel(s), Diárias: 0 };
     porMotSem[key].Diárias++;

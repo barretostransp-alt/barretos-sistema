@@ -566,11 +566,27 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
       <!-- ── COMERCIAL ── -->
       <div class="fsec">
         <div class="fsec-title"><i class="ti ti-briefcase" style="font-size:12px"></i> Comercial</div>
-        <div class="fg-grid g3">
+        <div class="fg-grid g4">
           <div class="fg">
             <label>Vendedor Responsável</label>
             <input class="fi" id="fi-vendedor" placeholder="Nome do vendedor" list="list-vendedores">
             <datalist id="list-vendedores"></datalist>
+          </div>
+          <div class="fg">
+            <label>Segmento</label>
+            <select class="fi" id="fi-segmento">
+              <option value="">— Selecione —</option>
+              <option>Varejo</option>
+              <option>Indústria</option>
+              <option>Serviços</option>
+              <option>Tecnologia</option>
+              <option>Saúde</option>
+              <option>Educação</option>
+              <option>Construção Civil</option>
+              <option>Alimentício</option>
+              <option>Logística</option>
+              <option>Financeiro</option>
+            </select>
           </div>
           <div class="fg">
             <label>Limite de Crédito (R$)</label>
@@ -684,8 +700,132 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 ══════════════════════════════════════ -->
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-var WEBAPP_URL  = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
+// Cadastro de clientes ja migrado (API_BASE abaixo). O historico de
+// cotacoes por cliente ainda le do Apps Script antigo porque Cotacao
+// Comercial ainda nao foi migrada — fica para quando chegar a vez dela.
 var COTACAO_URL = 'https://script.google.com/macros/s/AKfycbza9DkwnUwCDSZImGeoLLvJJeJhXVYryWv0WyBIxwbb9Ampih8_QYghTWKlBMfORq7V/exec';
+
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+// Este módulo não tem tela de login própria — quem cuida disso é o shell
+// (menu principal). Ele deixa o token de acesso salvo aqui no localStorage
+// antes de carregar este módulo dentro do iframe. Se o token não estiver
+// aqui, é porque o arquivo foi aberto direto, fora do shell.
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+// Converte um cliente vindo da API (snake_case) pro formato usado no
+// resto desta tela (chaves em CamelCase, igual à planilha antiga).
+function mapearDoApi_(c) {
+  return {
+    ID: c.id,
+    Tipo: c.tipo || 'PJ',
+    Doc: c.doc || '',
+    IE: c.ie || '',
+    RazaoSocial: c.razao_social || '',
+    NomeFantasia: c.nome_fantasia || '',
+    Regime: c.regime || '',
+    CNAE: c.cnae || '',
+    Situacao: c.situacao || '',
+    Contato: c.contato || '',
+    Telefone: c.telefone || '',
+    Email: c.email || '',
+    CEP: c.cep || '',
+    Logradouro: c.logradouro || '',
+    Numero: c.numero || '',
+    Complemento: c.complemento || '',
+    Bairro: c.bairro || '',
+    Cidade: c.cidade || '',
+    UF: c.uf || '',
+    Vendedor: c.vendedor || '',
+    Segmento: c.segmento || '',
+    Limite: c.limite || '',
+    Status: c.status || '',
+    Obs: c.obs || ''
+  };
+}
+function mapearParaApi_(dados) {
+  return {
+    tipo: dados.Tipo,
+    doc: dados.Doc,
+    ie: dados.IE,
+    razao_social: dados.RazaoSocial,
+    nome_fantasia: dados.NomeFantasia,
+    regime: dados.Regime,
+    cnae: dados.CNAE,
+    situacao: dados.Situacao,
+    contato: dados.Contato,
+    telefone: dados.Telefone,
+    email: dados.Email,
+    cep: dados.CEP,
+    logradouro: dados.Logradouro,
+    numero: dados.Numero,
+    complemento: dados.Complemento,
+    bairro: dados.Bairro,
+    cidade: dados.Cidade,
+    uf: dados.UF,
+    vendedor: dados.Vendedor,
+    segmento: dados.Segmento,
+    limite: dados.Limite,
+    status: dados.Status,
+    obs: dados.Obs
+  };
+}
 
 // ── ESTADO ──────────────────────────────────────────────────
 var allClientes = [];
@@ -707,6 +847,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sb-role').textContent = (perfil.charAt(0).toUpperCase() + perfil.slice(1)) || 'Colaborador';
   document.getElementById('tb-user').textContent = nome;
 
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   carregarDados();
 });
 
@@ -716,9 +857,10 @@ async function carregarDados() {
   document.getElementById('lista-wrap').style.display    = 'none';
 
   try {
-    var res  = await fetch(WEBAPP_URL + '?action=listar');
-    var json = await res.json();
-    allClientes = (json.rows || []);
+    var res  = await apiFetch(API_BASE + '/clientes');
+    var rows = await res.json();
+    if (!res.ok) throw new Error(rows.error || 'Erro ao carregar');
+    allClientes = rows.map(mapearDoApi_);
     atualizarStats();
     renderLista();
     popularVendedores();
@@ -831,6 +973,7 @@ function abrirDetalhe(id) {
     ['Cidade / UF', c.Cidade && c.UF ? c.Cidade + ' / ' + c.UF : (c.Cidade||c.UF)],
     ['CEP', c.CEP],
     ['Vendedor', c.Vendedor],
+    ['Segmento', c.Segmento],
     ['Limite de Crédito', c.Limite ? 'R$ ' + c.Limite : null],
     ['Status', c.Status],
     ['Observações', c.Obs],
@@ -953,7 +1096,7 @@ function editarClienteAtual() {
 function limparForm() {
   ['doc','ie','razao','fantasia','regime','cnae','situacao','contato','telefone',
    'email','cep','logradouro','numero','complemento','bairro','cidade','uf',
-   'vendedor','limite','status','obs'].forEach(function(id) {
+   'vendedor','segmento','limite','status','obs'].forEach(function(id) {
     var el = document.getElementById('fi-' + id);
     if (!el) return;
     if (el.tagName === 'SELECT') el.selectedIndex = 0;
@@ -973,7 +1116,7 @@ function preencherForm(c) {
     contato:c.Contato, telefone:c.Telefone, email:c.Email,
     cep:c.CEP, logradouro:c.Logradouro, numero:c.Numero, complemento:c.Complemento,
     bairro:c.Bairro, cidade:c.Cidade, uf:c.UF,
-    vendedor:c.Vendedor, limite:c.Limite, status:c.Status, obs:c.Obs
+    vendedor:c.Vendedor, segmento:c.Segmento, limite:c.Limite, status:c.Status, obs:c.Obs
   };
   Object.keys(campos).forEach(function(k) {
     var el = document.getElementById('fi-' + k);
@@ -1078,6 +1221,7 @@ async function salvarCliente() {
     Cidade:       document.getElementById('fi-cidade').value.trim(),
     UF:           document.getElementById('fi-uf').value,
     Vendedor:     document.getElementById('fi-vendedor').value.trim(),
+    Segmento:     document.getElementById('fi-segmento').value,
     Limite:       document.getElementById('fi-limite').value.trim(),
     Status:       document.getElementById('fi-status').value,
     Obs:          document.getElementById('fi-obs').value.trim(),
@@ -1088,12 +1232,12 @@ async function salvarCliente() {
   document.getElementById('form-status').textContent = '';
 
   try {
-    var payload = editandoId
-      ? { action:'cliente_update', id: editandoId, dados: dados }
-      : { action:'cliente_create', dados: dados };
-    var res  = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify(payload) });
+    var payload = mapearParaApi_(dados);
+    var res = editandoId
+      ? await apiFetch(API_BASE + '/clientes/' + editandoId, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      : await apiFetch(API_BASE + '/clientes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var json = await res.json();
-    if (json.success) {
+    if (res.ok) {
       toast(editandoId ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!', 'ok');
       fecharModal('ov-form');
       await carregarDados();
