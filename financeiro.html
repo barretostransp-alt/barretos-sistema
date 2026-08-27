@@ -1897,10 +1897,20 @@ function mapearCardApiParaAntigo_(c){
     "DT CODIGO": c.codigo, "Chave": c.codigo, "TITULO": c.titulo,
     "CLIENTE": c.cliente, "CONTATO CLIENTE": c.contato_cliente, "VENDEDOR": c.vendedor,
     "MOTORISTA": c.motorista, "FRETE COBRADO": c.frete_cobrado, "FRETE PAGO": c.frete_pago,
+    "PEDAGIO": c.pedagio_valor,
     "CUSTO OPERACIONAL TOTAL": c.custo_operacional_total, "ADIANTAMENTO": c.adiantamento,
     "TITULAR DA CONTA": c.titular_conta, "TIPO CHAVE PIX": c.tipo_chave_pix,
     "CHAVE PIX": c.chave_pix, "BANCO": c.banco,
   };
+}
+// Aceita tanto "200,00" (digitado à mão) quanto "180.5" (gerado pelo
+// cálculo automático do Custo Operacional Total no Kanban).
+function parseValorBR_(s){
+  if(s===null||s===undefined||s==="")return 0;
+  var v=String(s).replace(/R\$\s*/g,"").trim();
+  if(v.indexOf(",")!==-1)v=v.replace(/\./g,"").replace(",",".");
+  var n=parseFloat(v);
+  return isFinite(n)?n:0;
 }
 async function buscarCardsAba_(aba, codigo){
   var res = await apiFetch(API_BASE + "/kanban?empresa=" + encodeURIComponent(aba));
@@ -1938,7 +1948,14 @@ async function buscarCardKanban(){
     }
     document.getElementById('p-favorecido').value = card["TITULAR DA CONTA"]||card["CLIENTE"]||card["MOTORISTA"]||"";
     document.getElementById('p-descricao').value = "Referente ao card "+codigo+(card["TITULO"]?" — "+card["TITULO"]:"");
-    document.getElementById('p-valor').value = card["FRETE PAGO"]||card["FRETE COBRADO"]||"";
+    // Valor de referência para Adiantamento/Saldo/Total = Frete Pago menos
+    // o Pedágio (o pedágio é reembolso à parte, não entra nessa divisão).
+    if(card["FRETE PAGO"]){
+      var valorRef = Math.max(0, parseValorBR_(card["FRETE PAGO"]) - parseValorBR_(card["PEDAGIO"]));
+      document.getElementById('p-valor').value = valorRef.toFixed(2);
+    }else{
+      document.getElementById('p-valor').value = card["FRETE COBRADO"]||"";
+    }
     document.getElementById('p-adiantamento').value = card["ADIANTAMENTO"]||"";
     document.getElementById('p-titular').value = card["TITULAR DA CONTA"]||"";
     document.getElementById('p-banco-favorecido').value = card["BANCO"]||"";
