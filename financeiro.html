@@ -1888,20 +1888,28 @@ function atualizarValorEnfasePix(){
   document.getElementById('p-enfase-legenda').textContent = legenda;
 }
 
+// Os cards do Kanban vivem no Supabase desde a migração (não mais na
+// planilha do Apps Script — ver comentário no topo de kanbanService.js).
+// Busca na API nova e traduz de volta pro formato de chaves maiúsculas
+// que o resto desta função já espera, pra não precisar reescrever tudo.
+function mapearCardApiParaAntigo_(c){
+  return {
+    "DT CODIGO": c.codigo, "Chave": c.codigo, "TITULO": c.titulo,
+    "CLIENTE": c.cliente, "CONTATO CLIENTE": c.contato_cliente, "VENDEDOR": c.vendedor,
+    "MOTORISTA": c.motorista, "FRETE COBRADO": c.frete_cobrado, "FRETE PAGO": c.frete_pago,
+    "CUSTO OPERACIONAL TOTAL": c.custo_operacional_total, "ADIANTAMENTO": c.adiantamento,
+    "TITULAR DA CONTA": c.titular_conta, "TIPO CHAVE PIX": c.tipo_chave_pix,
+    "CHAVE PIX": c.chave_pix, "BANCO": c.banco,
+  };
+}
 async function buscarCardsAba_(aba, codigo){
-  var url = KANBAN_WEBAPP_URL + "?aba=" + encodeURIComponent(aba);
-  if(codigo) url += "&codigo=" + encodeURIComponent(codigo);
-  var data = await fetchComTentativas_(url);
-  // Importante: {success:false, ocupado:true} do Kanban NÃO significa "0
-  // cards nessa aba" — significa que a busca nem chegou a acontecer
-  // direito. Tratar isso como lista vazia fazia o card aparecer como
-  // "não encontrado" mesmo quando ele existe de verdade na planilha —
-  // agora isso vira um erro de verdade, que o chamador mostra como
-  // "não foi possível buscar agora" em vez da mensagem errada.
-  if(data && data.success === false){
-    throw new Error(data.error || 'Falha ao buscar no Kanban');
+  var res = await apiFetch(API_BASE + "/kanban?empresa=" + encodeURIComponent(aba));
+  if(!res.ok){
+    var j = await res.json().catch(function(){ return {}; });
+    throw new Error(j.error || 'Falha ao buscar no Kanban');
   }
-  return Array.isArray(data) ? data : (data.rows || data.data || []);
+  var cards = await res.json();
+  return (cards||[]).map(mapearCardApiParaAntigo_);
 }
 
 async function buscarCardKanban(){
