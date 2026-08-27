@@ -3272,7 +3272,7 @@ function openEditMulta(idx) {
   populateSelects();
   document.getElementById('modal-multa').querySelector('.modal-title').innerHTML=
     '<i class="ti ti-pencil" style="color:var(--gold);margin-right:6px"></i>Editar Multa — '+(r['Auto de Infracao']||r['Auto']||'');
-  document.getElementById('mt-data').value           = r['Data']||'';
+  document.getElementById('mt-data').value           = toDateInputValue(r['Data']||'');
   document.getElementById('mt-placa').value          = r['Placa']||'';
   document.getElementById('mt-motorista').value      = r['Motorista Real']||r['Motorista']||'';
   document.getElementById('mt-orgao').value          = r['Orgao']||r['Órgão']||'DETRAN SP';
@@ -3282,8 +3282,8 @@ function openEditMulta(idx) {
   document.getElementById('mt-local').value          = r['Local']||'';
   document.getElementById('mt-valor').value          = r['Valor']||'';
   document.getElementById('mt-valor-desc').value     = r['Valor Desconto']||'';
-  document.getElementById('mt-prazo-pgto').value     = r['Prazo Pagamento']||'';
-  document.getElementById('mt-prazo-rec').value      = r['Prazo Recurso']||'';
+  document.getElementById('mt-prazo-pgto').value     = toDateInputValue(r['Prazo Pagamento']||'');
+  document.getElementById('mt-prazo-rec').value      = toDateInputValue(r['Prazo Recurso']||'');
   document.getElementById('mt-resp').value           = r['Responsabilidade']||'Empresa';
   document.getElementById('mt-status').value         = r['Status']||'A Vencer';
   document.getElementById('mt-comp').value           = r['Comprovante']||'';
@@ -3475,7 +3475,7 @@ function editDespesa(idx){
   populateSelects();
   // Fill fields
   const sv=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val||'';};
-  sv('d-data',r['Data']||'');
+  sv('d-data',toDateInputValue(r['Data']||''));
   sv('d-cat',r['Categoria']||'');
   sv('d-placa',r['Placa']||'');
   sv('d-desc',r['Descricao']||r['Descrição']||'');
