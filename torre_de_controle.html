@@ -375,7 +375,7 @@ function renderChartDiario(d){
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.y); } } } },
       scales:{
         x:{ ticks:{ color: cssVar('--txt-dim'), font:{ size:10 }, maxRotation:0 }, grid:{ display:false } },
-        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ color: cssVar('--border') } }
+        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } }
       }
     }
   });
