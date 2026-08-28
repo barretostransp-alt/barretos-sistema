@@ -2624,9 +2624,13 @@ async function gerarPDF(){
   const destino=document.getElementById('addr-destino').value.trim();
   const obs=document.getElementById('observacoes').value.trim();
   const cargaEl=document.getElementById('carga');
-  const cargaTxt=cargaEl.options[cargaEl.selectedIndex].text;
+  // selectedIndex pode vir -1 em algumas situações (ex.: campo nunca
+  // tocado em certos navegadores/estados de formulário) — nesse caso
+  // options[-1] é undefined e ".text" quebrava a geração inteira do PDF
+  // sem nenhum aviso. Cai pro .value bruto em vez de travar.
+  const cargaTxt=(cargaEl.options[cargaEl.selectedIndex]&&cargaEl.options[cargaEl.selectedIndex].text)||cargaEl.value||'';
   const eixosEl=document.getElementById('eixos');
-  const _eixosKey=eixosEl.value; const veiculo=(capVeic[_eixosKey]&&capVeic[_eixosKey].nome)||eixosEl.options[eixosEl.selectedIndex].text;
+  const _eixosKey=eixosEl.value; const veiculo=(capVeic[_eixosKey]&&capVeic[_eixosKey].nome)||(eixosEl.options[eixosEl.selectedIndex]&&eixosEl.options[eixosEl.selectedIndex].text)||eixosEl.value||'';
   const km=parseFloat(document.getElementById('km').value)||0;
   const viagens=parseInt(document.getElementById('viagens').value)||1;
   const isFrac=modo==='fracionado';
