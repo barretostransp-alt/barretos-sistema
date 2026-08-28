@@ -209,6 +209,22 @@ body.tema-claro .logo-claro{display:block}
       </div>
     </div>
   </div>
+
+  <div class="tv-view" id="view-frota" style="display:none">
+    <div class="kpi-row" id="kpi-frota" style="margin-bottom:16px"></div>
+    <div style="display:flex;gap:16px;flex:1;min-height:0">
+      <div class="card" style="flex:1.3;min-height:0">
+        <div class="card-title"><i class="ti ti-truck"></i> Resultado por Placa (mês)</div>
+        <div style="flex:1;overflow-y:auto;min-height:0">
+          <table class="tv-table" id="tabela-frota"></table>
+        </div>
+      </div>
+      <div class="card" style="flex:1;min-height:0">
+        <div class="card-title"><i class="ti ti-chart-bar"></i> Faturamento por Cliente (mês)</div>
+        <div class="chart-wrap"><canvas id="chart-frota-cliente"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -304,6 +320,7 @@ var PAINEIS = [
   { key:'torre',    label:'Torre de Controle' },
   { key:'vendedor', label:'Faturamento Por Vendedor' },
   { key:'clientes', label:'Painel de Clientes' },
+  { key:'frota',    label:'Gestão da Frota' },
 ];
 var painelAtual = 0;
 var ROTATE_MS = 30000; // troca de painel a cada 30s
@@ -314,6 +331,7 @@ function mostrarPainel(idx){
   document.getElementById('view-torre').style.display    = idx===0 ? 'flex' : 'none';
   document.getElementById('view-vendedor').style.display = idx===1 ? 'flex' : 'none';
   document.getElementById('view-clientes').style.display = idx===2 ? 'flex' : 'none';
+  document.getElementById('view-frota').style.display    = idx===3 ? 'flex' : 'none';
   if(idx===0 && ultimoDado){
     renderKpis(ultimoDado); renderSlaChart(ultimoDado); renderStatusChart(ultimoDado);
     renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); renderMeta(ultimoDado);
@@ -323,6 +341,9 @@ function mostrarPainel(idx){
   }
   if(idx===2 && dadosClientes){
     renderKpisClientes(dadosClientes); renderPizzaClientes(dadosClientes); renderTabelaClientes(dadosClientes);
+  }
+  if(idx===3 && dadosFrota){
+    renderKpisFrota(dadosFrota); renderTabelaFrota(dadosFrota); renderChartFrotaCliente(dadosFrota);
   }
 }
 function rotacionar(){ mostrarPainel((painelAtual+1) % PAINEIS.length); }
@@ -337,9 +358,11 @@ function iniciarTV(){
   carregarDados();
   carregarVendedor();
   carregarClientes();
+  carregarFrota();
   setInterval(carregarDados, REFRESH_MS);
   setInterval(carregarVendedor, REFRESH_MS);
   setInterval(carregarClientes, REFRESH_MS);
+  setInterval(carregarFrota, REFRESH_MS);
   setInterval(rotacionar, ROTATE_MS);
 }
 
@@ -360,6 +383,7 @@ var CH = {};
 var ultimoDado = null;
 var dadosVendedor = null;
 var dadosClientes = null;
+var dadosFrota = null;
 function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
 function cssVar(nome){ return getComputedStyle(document.body).getPropertyValue(nome).trim(); }
 
@@ -399,19 +423,80 @@ async function carregarClientes(){
   }catch(e){}
 }
 
+async function carregarFrota(){
+  try{
+    var r = await apiFetch(API_BASE + '/torre-de-controle/frota');
+    if(!r.ok) return;
+    dadosFrota = await r.json();
+    if(painelAtual===3) mostrarPainel(3);
+  }catch(e){}
+}
+
+function renderKpisFrota(d){
+  var itens = [
+    { lbl:'Viagens no Mês',   val:d.viagens,             cor:'var(--gold)' },
+    { lbl:'Faturamento',      val:fmtMoeda(d.faturamento), cor:'var(--blue)' },
+    { lbl:'Pedágio',          val:fmtMoeda(d.pedagio),      cor:'var(--orange)' },
+    { lbl:'Abastecimento',    val:fmtMoeda(d.abastecimento),cor:'var(--teal)' },
+    { lbl:'Resultado Líquido',val:fmtMoeda(d.liquido),      cor: d.liquido>=0 ? 'var(--green)' : 'var(--red)' },
+  ];
+  document.getElementById('kpi-frota').innerHTML = itens.map(function(i){
+    return '<div class="kpi-tile" style="--accent:'+i.cor+'">'+
+      '<div class="kpi-lbl">'+i.lbl+'</div>'+
+      '<div class="kpi-val" style="font-size:22px">'+i.val+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderTabelaFrota(d){
+  var tbl = document.getElementById('tabela-frota');
+  var linhas = d.resumoPorPlaca || [];
+  var head = '<thead><tr>'+
+    '<th>Placa</th>'+
+    '<th style="text-align:center">Faturamento</th><th style="text-align:center">Abastecimento</th>'+
+    '<th style="text-align:center">Pedágio</th><th style="text-align:center">Despesas</th>'+
+    '<th style="text-align:center">Líquido</th>'+
+  '</tr></thead>';
+  var body = '<tbody>' + linhas.map(function(l){
+    return '<tr>'+
+      '<td class="venc">'+l.placa+'</td>'+
+      '<td class="num">'+fmtMoeda(l.faturamento)+'</td>'+
+      '<td class="num">'+fmtMoeda(l.abastecimento)+'</td>'+
+      '<td class="num">'+fmtMoeda(l.pedagio)+'</td>'+
+      '<td class="num">'+fmtMoeda(l.despesas)+'</td>'+
+      '<td class="num" style="color:'+(l.liquido>=0?cssVar('--green'):cssVar('--red'))+'">'+fmtMoeda(l.liquido)+'</td>'+
+    '</tr>';
+  }).join('') + '</tbody>';
+  tbl.innerHTML = head + body;
+}
+
+function renderChartFrotaCliente(d){
+  destroyChart('frotaCliente');
+  var linhas = (d.faturamentoPorCliente||[]).slice();
+  var ctx = document.getElementById('chart-frota-cliente').getContext('2d');
+  CH.frotaCliente = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: linhas.map(function(l){ return l.cliente; }), datasets:[{ label:'Faturamento', data: linhas.map(function(l){ return l.valor; }), backgroundColor:'#8B5E3C', borderRadius:6, maxBarThickness:32 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x); } } } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } },
+        y:{ ticks:{ color: cssVar('--txt'), font:{ size:11 } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
 function renderKpisClientes(d){
   var html =
-    '<div class="kpi-tile" style="--accent:var(--gold)">'+
-      '<div class="kpi-lbl">Faturamento do Mês</div>'+
-      '<div class="kpi-val">'+fmtMoeda(d.faturamentoTotal)+'</div>'+
+    '<div class="kpi-tile" style="--accent:var(--green)">'+
+      '<div class="kpi-lbl">Clientes Novos no Mês</div>'+
+      '<div class="kpi-val">'+d.qtdClientesNovos+'</div>'+
     '</div>'+
     '<div class="kpi-tile" style="--accent:var(--blue)">'+
       '<div class="kpi-lbl">Qtd. Clientes</div>'+
       '<div class="kpi-val">'+d.qtdClientes+'</div>'+
-    '</div>'+
-    '<div class="kpi-tile" style="--accent:var(--green);grid-column:1/3">'+
-      '<div class="kpi-lbl">Clientes Novos no Mês</div>'+
-      '<div class="kpi-val">'+d.qtdClientesNovos+'</div>'+
     '</div>';
   document.getElementById('kpi-clientes').innerHTML = html;
 }
