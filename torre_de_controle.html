@@ -63,6 +63,7 @@ body.tema-claro .logo-claro{display:block}
 .tv-table tr:last-child td{border-bottom:none}
 .tv-table td.num{text-align:center;font-family:'DM Mono',monospace}
 .tv-table td.venc{font-family:'Syne',sans-serif;font-weight:700}
+.tv-table td.placa{font-family:'Montserrat',sans-serif;font-weight:700}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;min-height:0}
 .card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .card-sub{font-size:12px;color:var(--txt-dim);margin:-8px 0 12px}
@@ -459,7 +460,7 @@ function renderTabelaFrota(d){
   '</tr></thead>';
   var body = '<tbody>' + linhas.map(function(l){
     return '<tr>'+
-      '<td class="venc">'+l.placa+'</td>'+
+      '<td class="placa">'+l.placa+'</td>'+
       '<td class="num">'+fmtMoeda(l.faturamento)+'</td>'+
       '<td class="num">'+fmtMoeda(l.abastecimento)+'</td>'+
       '<td class="num">'+fmtMoeda(l.pedagio)+'</td>'+
