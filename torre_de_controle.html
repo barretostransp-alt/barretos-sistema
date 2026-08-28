@@ -571,7 +571,7 @@ function renderChartFrotaMeses(d){
       labels: linhas.map(function(l){ return labelMes(l.mes); }),
       datasets:[
         { label:'Bruto', data: linhas.map(function(l){ return l.bruto; }), backgroundColor:'#3B82F6', borderRadius:4, maxBarThickness:26 },
-        { label:'Líquido', data: linhas.map(function(l){ return l.liquido; }), backgroundColor:'#F5B800', borderRadius:4, maxBarThickness:26 }
+        { label:'Líquido', data: linhas.map(function(l){ return l.liquido; }), backgroundColor: linhas.map(function(l){ return l.liquido<0 ? '#EF4444' : '#F5B800'; }), borderRadius:4, maxBarThickness:26 }
       ]
     },
     options:{
