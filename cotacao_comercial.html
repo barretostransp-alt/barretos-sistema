@@ -1027,7 +1027,7 @@
 .refazer-badge.red{background:rgba(226,75,74,.15);color:#E24B4A;border-color:rgba(226,75,74,.3);}
 .refazer-error{color:#E24B4A;font-size:11px;margin-top:6px;display:none;}
 </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     #btn-pdf { display: none; }
     #btn-pdf.visible { display: inline-flex !important; }
@@ -2512,6 +2512,7 @@ function getPrazo(){
 }
 
 async function gerarPDF(){
+ try{
   if(typeof window.jspdf==='undefined'){alert('Biblioteca PDF não carregada. Verifique sua conexão.');return;}
   const prazo = getPrazo();
   if(!prazo){
@@ -2766,6 +2767,16 @@ async function gerarPDF(){
   const date=now.toLocaleDateString('pt-BR').replace(/\//g,'-');
   const numSuffix=quoteNum?'-cot'+String(quoteNum).padStart(4,'0'):'';
   doc.save('cotacao-frete'+numSuffix+'-'+date+'.pdf');
+ }catch(err){
+  // Antes, qualquer erro inesperado aqui dentro (form incompleto, elemento
+  // faltando etc.) fazia o botão "não fazer nada" silenciosamente — o
+  // usuário clicava e nada acontecia, sem nenhuma pista do porquê. Agora
+  // sempre avisa e devolve o botão ao estado normal.
+  console.error('Erro ao gerar PDF da cotação:', err);
+  alert('Não foi possível gerar o PDF da cotação: ' + (err && err.message ? err.message : 'erro inesperado') + '\n\nTente novamente. Se continuar, avise o suporte.');
+  const btnErro = document.getElementById('btn-pdf');
+  if(btnErro){ btnErro.innerHTML = '<i class="ti ti-file-download" style="font-size:15px"></i> Baixar Cotação PDF'; btnErro.style.pointerEvents = ''; }
+ }
 }
 ['tabela','carga','km','viagens','margem-tipo','margem-val','cap-peso','cap-vol','peso-real','val-km'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('input',()=>{if(id==='peso-real')recalcCubagem();else{calc();showBtnPDF();}});el.addEventListener('change',()=>{if(id==='peso-real')recalcCubagem();else{calc();showBtnPDF();}});}});
 /* ============================================================
