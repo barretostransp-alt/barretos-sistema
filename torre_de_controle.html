@@ -192,6 +192,22 @@ body.tema-claro .logo-claro{display:block}
       </div>
     </div>
   </div>
+
+  <div class="tv-view" id="view-clientes" style="display:none;flex-direction:row;gap:16px">
+    <div class="card" style="flex:1.6;min-height:0">
+      <div class="card-title"><i class="ti ti-address-book"></i> Painel de Clientes (mês)</div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+        <table class="tv-table" id="tabela-clientes"></table>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:16px;min-height:0">
+      <div class="kpi-row" style="grid-template-columns:repeat(2,1fr)" id="kpi-clientes"></div>
+      <div class="card" style="flex:1;min-height:0">
+        <div class="card-title"><i class="ti ti-chart-pie"></i> Proporção de Faturamento por Empresa</div>
+        <div class="chart-wrap"><canvas id="chart-clientes-pizza"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -286,6 +302,7 @@ function alternarTema(){
 var PAINEIS = [
   { key:'torre',    label:'Torre de Controle' },
   { key:'vendedor', label:'Faturamento Por Vendedor' },
+  { key:'clientes', label:'Painel de Clientes' },
 ];
 var painelAtual = 0;
 var ROTATE_MS = 30000; // troca de painel a cada 30s
@@ -295,12 +312,16 @@ function mostrarPainel(idx){
   document.getElementById('tv-panel-title').textContent = PAINEIS[idx].label;
   document.getElementById('view-torre').style.display    = idx===0 ? 'flex' : 'none';
   document.getElementById('view-vendedor').style.display = idx===1 ? 'flex' : 'none';
+  document.getElementById('view-clientes').style.display = idx===2 ? 'flex' : 'none';
   if(idx===0 && ultimoDado){
     renderKpis(ultimoDado); renderSlaChart(ultimoDado); renderStatusChart(ultimoDado);
     renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); renderMeta(ultimoDado);
   }
   if(idx===1 && dadosVendedor){
     renderChartDiario(dadosVendedor); renderTabelaVendedores(dadosVendedor);
+  }
+  if(idx===2 && dadosClientes){
+    renderKpisClientes(dadosClientes); renderPizzaClientes(dadosClientes); renderTabelaClientes(dadosClientes);
   }
 }
 function rotacionar(){ mostrarPainel((painelAtual+1) % PAINEIS.length); }
@@ -314,8 +335,10 @@ function iniciarTV(){
   mostrarPainel(0);
   carregarDados();
   carregarVendedor();
+  carregarClientes();
   setInterval(carregarDados, REFRESH_MS);
   setInterval(carregarVendedor, REFRESH_MS);
+  setInterval(carregarClientes, REFRESH_MS);
   setInterval(rotacionar, ROTATE_MS);
 }
 
@@ -330,6 +353,7 @@ function atualizarRelogio(){
 var CH = {};
 var ultimoDado = null;
 var dadosVendedor = null;
+var dadosClientes = null;
 function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
 function cssVar(nome){ return getComputedStyle(document.body).getPropertyValue(nome).trim(); }
 
@@ -358,6 +382,70 @@ async function carregarVendedor(){
     dadosVendedor = await r.json();
     if(painelAtual===1) mostrarPainel(1);
   }catch(e){}
+}
+
+async function carregarClientes(){
+  try{
+    var r = await apiFetch(API_BASE + '/torre-de-controle/clientes');
+    if(!r.ok) return;
+    dadosClientes = await r.json();
+    if(painelAtual===2) mostrarPainel(2);
+  }catch(e){}
+}
+
+function renderKpisClientes(d){
+  var html =
+    '<div class="kpi-tile" style="--accent:var(--gold)">'+
+      '<div class="kpi-lbl">Faturamento do Mês</div>'+
+      '<div class="kpi-val">'+fmtMoeda(d.faturamentoTotal)+'</div>'+
+    '</div>'+
+    '<div class="kpi-tile" style="--accent:var(--blue)">'+
+      '<div class="kpi-lbl">Qtd. Clientes</div>'+
+      '<div class="kpi-val">'+d.qtdClientes+'</div>'+
+    '</div>';
+  document.getElementById('kpi-clientes').innerHTML = html;
+}
+
+var CORES_PIZZA = ['#3B82F6','#F5B800','#22C55E','#A855F7','#F97316','#14B8A6'];
+function renderPizzaClientes(d){
+  destroyChart('pizza');
+  var linhas = (d.porEmpresa||[]).slice().sort(function(a,b){ return b.valor-a.valor; });
+  var ctx = document.getElementById('chart-clientes-pizza').getContext('2d');
+  CH.pizza = new Chart(ctx, {
+    type:'pie',
+    data:{
+      labels: linhas.map(function(l){ return l.empresa; }),
+      datasets:[{ data: linhas.map(function(l){ return l.valor; }), backgroundColor: CORES_PIZZA, borderWidth:2, borderColor: cssVar('--card') }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, padding:12, boxWidth:9 } },
+        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+fmtMoeda(c.parsed); } } }
+      }
+    }
+  });
+}
+
+function renderTabelaClientes(d){
+  var tbl = document.getElementById('tabela-clientes');
+  var linhas = d.clientes || [];
+  var head = '<thead><tr>'+
+    '<th>Cliente</th><th>Vendedor</th>'+
+    '<th style="text-align:center">Faturamento</th>'+
+    '<th style="text-align:center">Qtd Frete</th>'+
+    '<th style="text-align:center">% Faturamento</th>'+
+  '</tr></thead>';
+  var body = '<tbody>' + linhas.map(function(c){
+    return '<tr>'+
+      '<td class="venc">'+c.cliente+'</td>'+
+      '<td>'+c.vendedor+'</td>'+
+      '<td class="num">'+fmtMoeda(c.faturamento)+'</td>'+
+      '<td class="num">'+c.qtdFrete+'</td>'+
+      '<td class="num">'+c.pctFaturamento.toFixed(1)+'%</td>'+
+    '</tr>';
+  }).join('') + '</tbody>';
+  tbl.innerHTML = head + body;
 }
 
 function renderChartDiario(d){
