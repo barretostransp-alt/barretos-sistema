@@ -734,7 +734,7 @@ function renderTabelaVendedores(d){
     '<th>Vendedor</th>'+
     '<th style="text-align:center">Faturamento</th><th style="text-align:center">Operacional</th>'+
     '<th style="text-align:center">Margem Líquida</th>'+
-    '<th style="text-align:center">% Empresa</th><th style="text-align:center">Proporção</th>'+
+    '<th style="text-align:center">Proporção</th>'+
     '<th style="text-align:center">Qtd Frete</th><th style="text-align:center">Frete Médio</th>'+
     '<th style="text-align:center">Qtd Cliente</th>'+
   '</tr></thead>';
@@ -744,7 +744,6 @@ function renderTabelaVendedores(d){
       '<td class="num">'+fmtMoeda(v.faturamento)+'</td>'+
       '<td class="num">'+fmtMoeda(v.operacional)+'</td>'+
       '<td class="num">'+fmtMoeda(v.margemLiquida)+'</td>'+
-      '<td class="num">'+v.pctDaEmpresa.toFixed(1)+'%</td>'+
       '<td class="num">'+v.proporcao.toFixed(1)+'%</td>'+
       '<td class="num">'+v.qtdFrete+'</td>'+
       '<td class="num">'+fmtMoeda(v.freteMedio)+'</td>'+
