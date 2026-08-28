@@ -62,9 +62,21 @@ body.tema-claro{
   --accent:#D97706;
   --accent-2:#EAB308;
   --accent-soft:rgba(217,119,6,.10);
-  --sidebar-bg:#161820;
-  --sidebar-bg-2:#0E0F12;
+  --sidebar-bg:#FFFFFF;
+  --sidebar-bg-2:#FFFFFF;
+  --sidebar-text:#6B7280;
 }
+/* Sidebar no tema claro — mesmo padrão do shell.html (fundo branco, texto
+   escuro), já que os outros elementos daqui usam cor literal em vez de
+   variável CSS e não acompanham a troca de tema sozinhos. */
+body.tema-claro #sidebar{ box-shadow:1px 0 0 var(--border); }
+body.tema-claro #sidebar .brand{ border-bottom-color:var(--border); }
+body.tema-claro #sidebar .brand .brand-name{ color:var(--text); }
+body.tema-claro #sidebar .brand .brand-sub{ color:var(--text-muted); }
+body.tema-claro #sidebar .nav-link:hover{ background:var(--accent-soft); color:var(--text); }
+body.tema-claro #sidebar .nav-link.active{ background:var(--accent-soft); color:var(--accent); box-shadow:none; }
+body.tema-claro #sidebar .nav-section-label{ color:#9CA3AF; }
+body.tema-claro #sidebar .sidebar-footer{ border-top-color:var(--border); color:var(--text-muted); }
 .text-muted{color:var(--text-muted) !important;}
 .text-dark{color:var(--text) !important;}
 .table{color:var(--text);--bs-table-color:var(--text);--bs-table-bg:transparent;--bs-table-striped-bg:rgba(255,255,255,.03);--bs-table-hover-bg:rgba(255,255,255,.05);--bs-table-hover-color:var(--text);--bs-table-striped-color:var(--text);--bs-table-active-color:var(--text);--bs-table-active-bg:rgba(255,255,255,.06);border-color:var(--border);}
