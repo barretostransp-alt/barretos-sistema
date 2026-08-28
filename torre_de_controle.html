@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Torre de Controle — Grupo Barreto's</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
+  --gold:#F5B800;--gold2:#FFD54F;--txt:#E8EAF0;--txt-dim:#6B7280;--txt-mid:#9CA3AF;
+  --green:#22C55E;--red:#EF4444;--blue:#3B82F6;--orange:#F97316;
+  --teal:#14B8A6;--purple:#A855F7;--r:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font-family:'DM Sans',sans-serif}
+::-webkit-scrollbar{display:none}
+
+/* ── LOGIN ── */
+#login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
+.login-box{width:340px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:32px}
+.login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;letter-spacing:.02em;margin-bottom:4px}
+.login-logo span{color:var(--gold)}
+.login-sub{font-size:12px;color:var(--txt-dim);margin-bottom:24px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:11px;color:var(--txt-mid);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.login-field input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--txt);font-size:14px;outline:none}
+.login-field input:focus{border-color:var(--gold)}
+.login-btn{width:100%;margin-top:8px;padding:11px;background:var(--gold);color:#111;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-err{color:var(--red);font-size:12px;margin-top:10px;min-height:16px}
+
+/* ── TV SHELL ── */
+#tv{display:none;height:100vh;flex-direction:column;padding:22px 28px}
+.tv-hd{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-shrink:0}
+.tv-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:.02em}
+.tv-logo span{color:var(--gold)}
+.tv-panel-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;margin-left:6px;padding-left:16px;border-left:1px solid var(--border);color:var(--txt-mid)}
+.tv-right{margin-left:auto;text-align:right}
+.tv-clock{font-family:'DM Mono',monospace;font-size:22px;font-weight:500}
+.tv-date{font-size:12px;color:var(--txt-dim);text-transform:capitalize}
+
+.tv-grid{flex:1;display:grid;grid-template-columns:1.1fr 1fr;grid-template-rows:auto 1fr;gap:16px;min-height:0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;min-height:0}
+.card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* KPI strip (status dos cards) */
+.kpi-row{grid-column:1/3;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden}
+.kpi-tile::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent,var(--gold))}
+.kpi-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.kpi-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
+
+/* SLA gauge */
+.sla-wrap{display:flex;align-items:center;justify-content:center;gap:24px;flex:1}
+.sla-ring{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.sla-ring::before{content:'';position:absolute;inset:12px;background:var(--card);border-radius:50%}
+.sla-num{position:relative;font-family:'Syne',sans-serif;font-size:34px;font-weight:800}
+.sla-info{font-size:12px;color:var(--txt-dim);line-height:1.6}
+.sla-info b{color:var(--txt)}
+
+.chart-wrap{flex:1;position:relative;min-height:0}
+
+.legend-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt-mid)}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+#conn-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;margin-right:5px}
+#conn-dot.on{background:var(--green)}
+</style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">BARRETO<span>'S</span></div>
+    <div class="login-sub">Torre de Controle — acesso da TV</div>
+    <div class="login-field"><label>Usuário</label><input id="lg-login" type="text" autocomplete="username"></div>
+    <div class="login-field"><label>Senha</label><input id="lg-senha" type="password" autocomplete="current-password"></div>
+    <button class="login-btn" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div class="login-err" id="lg-err"></div>
+  </div>
+</div>
+
+<div id="tv">
+  <div class="tv-hd">
+    <div class="tv-logo">BARRETO<span>'S</span></div>
+    <div class="tv-panel-title">Torre de Controle</div>
+    <div class="tv-right">
+      <div class="tv-clock" id="tv-clock">--:--</div>
+      <div class="tv-date" id="tv-date"><span id="conn-dot"></span>--</div>
+    </div>
+  </div>
+
+  <div class="tv-grid">
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-gauge"></i> SLA — Entregas no Prazo (mês)</div>
+      <div class="sla-wrap" id="sla-wrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-chart-donut"></i> Cards por Status</div>
+      <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-building-bank"></i> Faturamento por Empresa (mês)</div>
+      <div class="chart-wrap"><canvas id="chart-empresa"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-truck"></i> Frete por Tipo de Veículo (mês)</div>
+      <div class="chart-wrap"><canvas id="chart-veiculo"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+var REFRESH_MS = 60000; // recarrega os dados a cada 1 minuto
+
+function loginParaEmail(login){
+  if(login.indexOf('@')!==-1) return login;
+  var normalizado = login.toLowerCase().trim()
+    .normalize('NFD').replace(/\p{M}/gu,'')
+    .replace(/\s+/g,'.').replace(/[^a-z0-9.]/g,'');
+  return normalizado + '@barretos.sistema';
+}
+
+function getAuthToken()    { return localStorage.getItem('tv_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('tv_auth_refresh'); }
+
+async function tentarRenovarToken(){
+  var refresh = getRefreshToken();
+  if(!refresh) return false;
+  try{
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY},
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if(!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('tv_auth_token', j.access_token);
+    localStorage.setItem('tv_auth_refresh', j.refresh_token);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function apiFetch(url, options){
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if(res.status === 401){
+    if(await tentarRenovarToken()){
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+  }
+  return res;
+}
+
+async function fazerLogin(){
+  var login = document.getElementById('lg-login').value.trim();
+  var senha = document.getElementById('lg-senha').value;
+  var erroEl = document.getElementById('lg-err');
+  var btn = document.getElementById('btn-login');
+  erroEl.textContent = '';
+  if(!login || !senha){ erroEl.textContent = 'Preencha usuário e senha.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try{
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY},
+      body: JSON.stringify({ email: loginParaEmail(login), password: senha }),
+    });
+    var j = await r.json();
+    if(!r.ok || !j.access_token){
+      erroEl.textContent = 'Usuário ou senha inválidos.';
+      btn.disabled = false; btn.textContent = 'Entrar';
+      return;
+    }
+    localStorage.setItem('tv_auth_token', j.access_token);
+    localStorage.setItem('tv_auth_refresh', j.refresh_token);
+    iniciarTV();
+  }catch(e){
+    erroEl.textContent = 'Erro de conexão. Tente novamente.';
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+function iniciarTV(){
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('tv').style.display = 'flex';
+  atualizarRelogio();
+  setInterval(atualizarRelogio, 1000);
+  carregarDados();
+  setInterval(carregarDados, REFRESH_MS);
+}
+
+function atualizarRelogio(){
+  var d = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  document.getElementById('tv-clock').textContent = pad(d.getHours())+':'+pad(d.getMinutes());
+  document.getElementById('tv-date').innerHTML = '<span id="conn-dot" class="on"></span>' +
+    d.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
+}
+
+var CH = {};
+function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
+
+var CORES_STATUS = { OPERACIONAL:'#F97316', COLETA:'#F5B800', FATURADO:'#3B82F6', FINALIZADO:'#22C55E' };
+var NOMES_CURTOS_EMPRESA = {
+  "Barreto's Transportes e Serviços": "Barreto's",
+  "Barreto's Transportes Sites e Infraestrutura": 'Infra',
+  'Gonçalves Soluções em Logística': 'Gonçalves',
+  'Pinheiro Transportes e Serviços': 'Pinheiro',
+};
+
+function fmtMoeda(v){
+  return (v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
+}
+
+async function carregarDados(){
+  try{
+    var r = await apiFetch(API_BASE + '/torre-de-controle');
+    if(!r.ok) return;
+    var d = await r.json();
+    renderKpis(d);
+    renderSla(d);
+    renderStatusChart(d);
+    renderEmpresaChart(d);
+    renderVeiculoChart(d);
+    var dot = document.getElementById('conn-dot'); if(dot) dot.className = 'on';
+  }catch(e){
+    var dot = document.getElementById('conn-dot'); if(dot) dot.className = '';
+  }
+}
+
+function renderKpis(d){
+  var ordem = ['OPERACIONAL','COLETA','FATURADO','FINALIZADO'];
+  var html = ordem.map(function(st){
+    return '<div class="kpi-tile" style="--accent:'+CORES_STATUS[st]+'">' +
+      '<div class="kpi-lbl">'+st+'</div>' +
+      '<div class="kpi-val">'+ (d.status[st]||0) +'</div>' +
+    '</div>';
+  }).join('');
+  html += '<div class="kpi-tile" style="--accent:var(--gold)">' +
+    '<div class="kpi-lbl">Total de Cards</div>' +
+    '<div class="kpi-val">'+ d.totalCards +'</div>' +
+  '</div>';
+  document.getElementById('kpi-row').innerHTML = html;
+}
+
+function renderSla(d){
+  var el = document.getElementById('sla-wrap');
+  if(d.sla === null){
+    el.innerHTML = '<div style="color:var(--txt-dim);font-size:13px;text-align:center">Sem entregas com previsão registrada neste mês ainda.</div>';
+    return;
+  }
+  var cor = d.sla >= 90 ? 'var(--green)' : d.sla >= 75 ? 'var(--gold)' : 'var(--red)';
+  el.innerHTML =
+    '<div class="sla-ring" style="background:conic-gradient('+cor+' '+(d.sla*3.6)+'deg, var(--border) 0deg)">' +
+      '<div class="sla-num" style="color:'+cor+'">'+d.sla.toFixed(1)+'%</div>' +
+    '</div>' +
+    '<div class="sla-info">' +
+      '<div><b>'+d.entregasConsideradasSla+'</b> entregas com previsão no mês</div>' +
+      '<div style="margin-top:6px">Meta: <b>90%+</b> no prazo</div>' +
+    '</div>';
+}
+
+function renderStatusChart(d){
+  destroyChart('status');
+  var ordem = ['FINALIZADO','FATURADO','COLETA','OPERACIONAL'];
+  var ctx = document.getElementById('chart-status').getContext('2d');
+  CH.status = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ordem,
+      datasets: [{ data: ordem.map(function(s){ return d.status[s]||0; }), backgroundColor: ordem.map(function(s){ return CORES_STATUS[s]; }), borderWidth: 0 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'68%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#9CA3AF', font:{ size:11 }, padding:14, boxWidth:9 } } }
+    }
+  });
+}
+
+function renderEmpresaChart(d){
+  destroyChart('empresa');
+  var linhas = (d.faturamentoPorEmpresa||[]).slice().sort(function(a,b){ return b.faturamento-a.faturamento; });
+  var labels = linhas.map(function(l){ return NOMES_CURTOS_EMPRESA[l.empresa] || l.empresa; });
+  var ctx = document.getElementById('chart-empresa').getContext('2d');
+  CH.empresa = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: labels, datasets:[{ label:'Faturamento', data: linhas.map(function(l){ return l.faturamento; }), backgroundColor:'#F5B800', borderRadius:6, maxBarThickness:46 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x); } } } },
+      scales:{
+        x:{ ticks:{ color:'#6B7280', callback:function(v){ return fmtMoeda(v); } }, grid:{ color:'#1E2130' } },
+        y:{ ticks:{ color:'#E8EAF0', font:{ size:12 } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+function renderVeiculoChart(d){
+  destroyChart('veiculo');
+  var linhas = (d.fretePorVeiculo||[]).slice(0,8);
+  var ctx = document.getElementById('chart-veiculo').getContext('2d');
+  CH.veiculo = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: linhas.map(function(l){ return l.tipo; }), datasets:[{ label:'Frete', data: linhas.map(function(l){ return l.frete; }), backgroundColor:'#3B82F6', borderRadius:6, maxBarThickness:36 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x) + ' · ' + linhas[c.dataIndex].qtd + ' frete(s)'; } } } },
+      scales:{
+        x:{ ticks:{ color:'#6B7280', callback:function(v){ return fmtMoeda(v); } }, grid:{ color:'#1E2130' } },
+        y:{ ticks:{ color:'#E8EAF0', font:{ size:11 } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if(getAuthToken()){ iniciarTV(); }
+});
+</script>
+</body>
+</html>
