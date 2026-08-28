@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
 <style>
 :root{
   --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
@@ -14,15 +15,26 @@
   --green:#22C55E;--red:#EF4444;--blue:#3B82F6;--orange:#F97316;
   --teal:#14B8A6;--purple:#A855F7;--r:14px;
 }
+body.tema-claro{
+  --bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--border:#E2E6ED;
+  --gold:#D97706;--gold2:#F59E0B;--txt:#111827;--txt-dim:#6B7280;--txt-mid:#4B5563;
+  --green:#059669;--red:#DC2626;--blue:#2563EB;--orange:#EA580C;--teal:#0D9488;--purple:#7C3AED;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font-family:'DM Sans',sans-serif}
+html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;transition:background .15s,color .15s}
 ::-webkit-scrollbar{display:none}
+.logo-escuro{display:block}
+.logo-claro{display:none}
+body.tema-claro .logo-escuro{display:none}
+body.tema-claro .logo-claro{display:block}
+.theme-toggle{width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--txt-mid);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;flex-shrink:0}
+.theme-toggle:hover{color:var(--gold);border-color:var(--gold)}
 
 /* ── LOGIN ── */
 #login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
 .login-box{width:340px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:32px}
-.login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;letter-spacing:.02em;margin-bottom:4px}
-.login-logo span{color:var(--gold)}
+.login-logo{margin-bottom:14px}
+.login-logo img{height:44px;width:auto}
 .login-sub{font-size:12px;color:var(--txt-dim);margin-bottom:24px}
 .login-field{margin-bottom:14px}
 .login-field label{display:block;font-size:11px;color:var(--txt-mid);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
@@ -35,8 +47,7 @@ html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font
 /* ── TV SHELL ── */
 #tv{display:none;height:100vh;flex-direction:column;padding:22px 28px}
 .tv-hd{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-shrink:0}
-.tv-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:.02em}
-.tv-logo span{color:var(--gold)}
+.tv-logo img{height:36px;width:auto;display:block}
 .tv-panel-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;margin-left:6px;padding-left:16px;border-left:1px solid var(--border);color:var(--txt-mid)}
 .tv-right{margin-left:auto;text-align:right}
 .tv-clock{font-family:'DM Mono',monospace;font-size:22px;font-weight:500}
@@ -53,13 +64,17 @@ html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font
 .kpi-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .kpi-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
 
-/* SLA gauge */
-.sla-wrap{display:flex;align-items:center;justify-content:center;gap:24px;flex:1}
-.sla-ring{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
-.sla-ring::before{content:'';position:absolute;inset:12px;background:var(--card);border-radius:50%}
-.sla-num{position:relative;font-family:'Syne',sans-serif;font-size:34px;font-weight:800}
-.sla-info{font-size:12px;color:var(--txt-dim);line-height:1.6}
+/* SLA gauge — dois indicadores lado a lado dentro do mesmo card */
+.sla-wrap{display:flex;align-items:center;justify-content:space-evenly;gap:12px;flex:1}
+.sla-ring{width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.sla-ring::before{content:'';position:absolute;inset:10px;background:var(--card);border-radius:50%}
+.sla-num{position:relative;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;white-space:nowrap}
+.sla-info{font-size:12px;color:var(--txt-dim);line-height:1.7}
 .sla-info b{color:var(--txt)}
+.sla-divider{width:1px;align-self:stretch;background:var(--border);flex-shrink:0}
+.sla-second{text-align:center}
+.sla-second-val{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;line-height:1}
+.sla-second-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
 
 .chart-wrap{flex:1;position:relative;min-height:0}
 
@@ -75,7 +90,10 @@ html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font
 
 <div id="login-overlay">
   <div class="login-box">
-    <div class="login-logo">BARRETO<span>'S</span></div>
+    <div class="login-logo">
+      <img class="logo-escuro" src="assets/logo-escuro.png" alt="Barreto's Transportes">
+      <img class="logo-claro" src="assets/logo-claro.png" alt="Barreto's Transportes">
+    </div>
     <div class="login-sub">Torre de Controle — acesso da TV</div>
     <div class="login-field"><label>Usuário</label><input id="lg-login" type="text" autocomplete="username"></div>
     <div class="login-field"><label>Senha</label><input id="lg-senha" type="password" autocomplete="current-password"></div>
@@ -86,11 +104,19 @@ html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font
 
 <div id="tv">
   <div class="tv-hd">
-    <div class="tv-logo">BARRETO<span>'S</span></div>
+    <div class="tv-logo">
+      <img class="logo-escuro" src="assets/logo-escuro.png" alt="Barreto's Transportes">
+      <img class="logo-claro" src="assets/logo-claro.png" alt="Barreto's Transportes">
+    </div>
     <div class="tv-panel-title">Torre de Controle</div>
-    <div class="tv-right">
-      <div class="tv-clock" id="tv-clock">--:--</div>
-      <div class="tv-date" id="tv-date"><span id="conn-dot"></span>--</div>
+    <div class="tv-right" style="display:flex;align-items:center;gap:14px">
+      <div>
+        <div class="tv-clock" id="tv-clock">--:--</div>
+        <div class="tv-date" id="tv-date"><span id="conn-dot"></span>--</div>
+      </div>
+      <div class="theme-toggle" id="theme-toggle" onclick="alternarTema()" title="Alternar tema claro/escuro">
+        <i class="ti ti-moon" id="theme-icon"></i>
+      </div>
     </div>
   </div>
 
@@ -108,12 +134,12 @@ html,body{background:var(--bg);color:var(--txt);height:100%;overflow:hidden;font
     </div>
 
     <div class="card">
-      <div class="card-title"><i class="ti ti-building-bank"></i> Faturamento por Empresa (mês)</div>
+      <div class="card-title"><i class="ti ti-building-bank"></i> Faturamento Operacional por Empresa (mês)</div>
       <div class="chart-wrap"><canvas id="chart-empresa"></canvas></div>
     </div>
 
     <div class="card">
-      <div class="card-title"><i class="ti ti-truck"></i> Frete por Tipo de Veículo (mês)</div>
+      <div class="card-title"><i class="ti ti-truck"></i> Frete por Tipo de Veículo — Qtd. no Mês</div>
       <div class="chart-wrap"><canvas id="chart-veiculo"></canvas></div>
     </div>
   </div>
@@ -193,9 +219,24 @@ async function fazerLogin(){
   }
 }
 
+function aplicarTema(t){
+  document.body.classList.toggle('tema-claro', t === 'claro');
+  var icon = document.getElementById('theme-icon');
+  if(icon) icon.className = 'ti ' + (t === 'claro' ? 'ti-sun' : 'ti-moon');
+}
+function alternarTema(){
+  var atual = localStorage.getItem('barretos_tema') === 'claro' ? 'escuro' : 'claro';
+  localStorage.setItem('barretos_tema', atual);
+  aplicarTema(atual);
+  // Recria os gráficos: as cores dos eixos/legendas são fixas no momento
+  // da criação, não reagem sozinhas a variável CSS.
+  if(ultimoDado) { renderStatusChart(ultimoDado); renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); }
+}
+
 function iniciarTV(){
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('tv').style.display = 'flex';
+  aplicarTema(localStorage.getItem('barretos_tema') || 'escuro');
   atualizarRelogio();
   setInterval(atualizarRelogio, 1000);
   carregarDados();
@@ -211,15 +252,11 @@ function atualizarRelogio(){
 }
 
 var CH = {};
+var ultimoDado = null;
 function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
+function cssVar(nome){ return getComputedStyle(document.body).getPropertyValue(nome).trim(); }
 
 var CORES_STATUS = { OPERACIONAL:'#F97316', COLETA:'#F5B800', FATURADO:'#3B82F6', FINALIZADO:'#22C55E' };
-var NOMES_CURTOS_EMPRESA = {
-  "Barreto's Transportes e Serviços": "Barreto's",
-  "Barreto's Transportes Sites e Infraestrutura": 'Infra',
-  'Gonçalves Soluções em Logística': 'Gonçalves',
-  'Pinheiro Transportes e Serviços': 'Pinheiro',
-};
 
 function fmtMoeda(v){
   return (v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
@@ -230,6 +267,7 @@ async function carregarDados(){
     var r = await apiFetch(API_BASE + '/torre-de-controle');
     if(!r.ok) return;
     var d = await r.json();
+    ultimoDado = d;
     renderKpis(d);
     renderSla(d);
     renderStatusChart(d);
@@ -263,13 +301,21 @@ function renderSla(d){
     return;
   }
   var cor = d.sla >= 90 ? 'var(--green)' : d.sla >= 75 ? 'var(--gold)' : 'var(--red)';
+  var corAtraso = d.entregasAtrasadas > 0 ? 'var(--red)' : 'var(--green)';
   el.innerHTML =
-    '<div class="sla-ring" style="background:conic-gradient('+cor+' '+(d.sla*3.6)+'deg, var(--border) 0deg)">' +
-      '<div class="sla-num" style="color:'+cor+'">'+d.sla.toFixed(1)+'%</div>' +
+    '<div style="display:flex;align-items:center;gap:14px">' +
+      '<div class="sla-ring" style="background:conic-gradient('+cor+' '+(d.sla*3.6)+'deg, var(--border) 0deg)">' +
+        '<div class="sla-num" style="color:'+cor+'">'+d.sla.toFixed(1)+'%</div>' +
+      '</div>' +
+      '<div class="sla-info">' +
+        '<div><b>'+d.entregasConsideradasSla+'</b> entregas com previsão no mês</div>' +
+        '<div style="margin-top:6px">Meta: <b>90%+</b> no prazo</div>' +
+      '</div>' +
     '</div>' +
-    '<div class="sla-info">' +
-      '<div><b>'+d.entregasConsideradasSla+'</b> entregas com previsão no mês</div>' +
-      '<div style="margin-top:6px">Meta: <b>90%+</b> no prazo</div>' +
+    '<div class="sla-divider"></div>' +
+    '<div class="sla-second">' +
+      '<div class="sla-second-val" style="color:'+corAtraso+'">'+d.entregasAtrasadas+'</div>' +
+      '<div class="sla-second-lbl">Atrasada'+(d.entregasAtrasadas===1?'':'s')+' no mês</div>' +
     '</div>';
 }
 
@@ -285,43 +331,70 @@ function renderStatusChart(d){
     },
     options: {
       responsive:true, maintainAspectRatio:false, cutout:'68%',
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#9CA3AF', font:{ size:11 }, padding:14, boxWidth:9 } } }
+      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, padding:14, boxWidth:9 } } }
     }
   });
 }
 
+// Faturamento OPERACIONAL (Frete Cobrado dos cards com coleta no mês) —
+// não é o Faturamento oficial (CT-e emitido), que tem atraso
+// administrativo e mostraria quase todo mês só 1 empresa com valor.
 function renderEmpresaChart(d){
   destroyChart('empresa');
-  var linhas = (d.faturamentoPorEmpresa||[]).slice().sort(function(a,b){ return b.faturamento-a.faturamento; });
-  var labels = linhas.map(function(l){ return NOMES_CURTOS_EMPRESA[l.empresa] || l.empresa; });
+  var linhas = (d.faturamentoOperacionalPorEmpresa||[]).slice().sort(function(a,b){ return b.faturamento-a.faturamento; });
   var ctx = document.getElementById('chart-empresa').getContext('2d');
   CH.empresa = new Chart(ctx, {
     type:'bar',
-    data:{ labels: labels, datasets:[{ label:'Faturamento', data: linhas.map(function(l){ return l.faturamento; }), backgroundColor:'#F5B800', borderRadius:6, maxBarThickness:46 }] },
+    data:{ labels: linhas.map(function(l){ return l.empresa; }), datasets:[{ label:'Faturamento', data: linhas.map(function(l){ return l.faturamento; }), backgroundColor:'#F5B800', borderRadius:6, maxBarThickness:46 }] },
     options:{
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x); } } } },
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x) + ' · ' + linhas[c.dataIndex].qtd + ' frete(s)'; } } } },
       scales:{
-        x:{ ticks:{ color:'#6B7280', callback:function(v){ return fmtMoeda(v); } }, grid:{ color:'#1E2130' } },
-        y:{ ticks:{ color:'#E8EAF0', font:{ size:12 } }, grid:{ display:false } }
+        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return fmtMoeda(v); } }, grid:{ color: cssVar('--border') } },
+        y:{ ticks:{ color: cssVar('--txt'), font:{ size:12 } }, grid:{ display:false } }
       }
     }
   });
 }
 
+// Mapa de árvore — tamanho de cada bloco é a QUANTIDADE de fretes no mês
+// (não o valor faturado).
+var CORES_TREEMAP = ['#3B82F6','#F5B800','#22C55E','#A855F7','#14B8A6','#F97316','#EF4444','#6366F1','#EC4899'];
 function renderVeiculoChart(d){
   destroyChart('veiculo');
-  var linhas = (d.fretePorVeiculo||[]).slice(0,8);
+  var linhas = (d.fretePorVeiculo||[]).filter(function(l){ return l.qtd > 0; });
   var ctx = document.getElementById('chart-veiculo').getContext('2d');
   CH.veiculo = new Chart(ctx, {
-    type:'bar',
-    data:{ labels: linhas.map(function(l){ return l.tipo; }), datasets:[{ label:'Frete', data: linhas.map(function(l){ return l.frete; }), backgroundColor:'#3B82F6', borderRadius:6, maxBarThickness:36 }] },
+    type:'treemap',
+    data:{
+      datasets:[{
+        tree: linhas,
+        key: 'qtd',
+        groups: ['tipo'],
+        spacing: 2,
+        borderWidth: 2,
+        borderColor: cssVar('--card'),
+        backgroundColor: function(ctx2){
+          if(!ctx2.raw || !ctx2.raw._data) return CORES_TREEMAP[0];
+          var i = linhas.findIndex(function(l){ return l.tipo === ctx2.raw._data.tipo; });
+          return CORES_TREEMAP[i % CORES_TREEMAP.length];
+        },
+        labels:{
+          display:true,
+          color:'#fff',
+          font:{ size:12, weight:'700' },
+          formatter:function(ctx2){
+            var item = ctx2.raw._data;
+            return [item.tipo, item.qtd + (item.qtd===1?' frete':' fretes')];
+          }
+        }
+      }]
+    },
     options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x) + ' · ' + linhas[c.dataIndex].qtd + ' frete(s)'; } } } },
-      scales:{
-        x:{ ticks:{ color:'#6B7280', callback:function(v){ return fmtMoeda(v); } }, grid:{ color:'#1E2130' } },
-        y:{ ticks:{ color:'#E8EAF0', font:{ size:11 } }, grid:{ display:false } }
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(c){ var it=c.raw._data; return it.tipo+': '+it.qtd+' frete(s) · '+fmtMoeda(it.frete); } } }
       }
     }
   });
