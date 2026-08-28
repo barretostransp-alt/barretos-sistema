@@ -4,10 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Torre de Controle — Grupo Barreto's</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
 :root{
   --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
@@ -79,7 +80,7 @@ body.tema-claro .logo-claro{display:block}
 .kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden}
 .kpi-tile::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent,var(--gold))}
 .kpi-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.kpi-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
+.kpi-val{font-family:'Montserrat',sans-serif;font-size:30px;font-weight:800;line-height:1}
 
 .chart-wrap{flex:1;position:relative;min-height:0}
 
@@ -350,6 +351,11 @@ function atualizarRelogio(){
     d.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
 }
 
+// O plugin de datalabels se registra global assim que carrega (igual o
+// treemap) — desliga por padrão em todo gráfico e liga só onde for
+// pedido explicitamente (pizza de clientes), senão poluía os outros.
+if(typeof ChartDataLabels !== 'undefined'){ Chart.defaults.set('plugins.datalabels', { display:false }); }
+
 var CH = {};
 var ultimoDado = null;
 var dadosVendedor = null;
@@ -402,6 +408,10 @@ function renderKpisClientes(d){
     '<div class="kpi-tile" style="--accent:var(--blue)">'+
       '<div class="kpi-lbl">Qtd. Clientes</div>'+
       '<div class="kpi-val">'+d.qtdClientes+'</div>'+
+    '</div>'+
+    '<div class="kpi-tile" style="--accent:var(--green);grid-column:1/3">'+
+      '<div class="kpi-lbl">Clientes Novos no Mês</div>'+
+      '<div class="kpi-val">'+d.qtdClientesNovos+'</div>'+
     '</div>';
   document.getElementById('kpi-clientes').innerHTML = html;
 }
@@ -421,9 +431,17 @@ function renderPizzaClientes(d){
       responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, padding:12, boxWidth:9 } },
-        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+fmtMoeda(c.parsed); } } }
+        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+fmtMoeda(c.parsed); } } },
+        datalabels:{
+          display:true, color:'#111', font:{ weight:'800', size:13, family:"'Montserrat',sans-serif" },
+          formatter:function(valor, ctx){
+            var total = ctx.chart.data.datasets[0].data.reduce(function(a,b){ return a+b; }, 0);
+            return total ? (Math.round(valor/total*1000)/10).toFixed(1)+'%' : '';
+          }
+        }
       }
-    }
+    },
+    plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []
   });
 }
 
