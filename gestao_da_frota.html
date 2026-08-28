@@ -2037,12 +2037,12 @@ async function saveVeiculo() {
 }
 
 /* ── CRLV: calcula vencimento pelo último dígito da placa (regra DETRAN) ── */
-const DETRAN_MES = {'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'0':10};
+const DETRAN_MES = {'1':9,'2':9,'3':10,'4':10,'5':10,'6':11,'7':11,'8':11,'9':12,'0':12};
 function calcCRLVVencimento(placa, ano) {
   if(!placa||!ano) return null;
   const anoNum = parseInt(ano); if(isNaN(anoNum)||anoNum<2020) return null;
   const lastDigit = placa.replace(/[^0-9a-zA-Z]/g,'').slice(-1);
-  const mes = DETRAN_MES[lastDigit] || DETRAN_MES[lastDigit?.toUpperCase().charCodeAt(0)%10] || 10;
+  const mes = DETRAN_MES[lastDigit] || DETRAN_MES[lastDigit?.toUpperCase().charCodeAt(0)%10] || 12;
   // Last day of the expiry month
   return new Date(anoNum, mes, 0).toISOString().split('T')[0];
 }
