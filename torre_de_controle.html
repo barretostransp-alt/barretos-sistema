@@ -385,8 +385,9 @@ function renderTabelaVendedores(d){
   var tbl = document.getElementById('tabela-vendedores');
   var linhas = d.vendedores || [];
   var head = '<thead><tr>'+
-    '<th>Vendedor</th><th>Empresa</th>'+
+    '<th>Vendedor</th>'+
     '<th style="text-align:right">Faturamento</th><th style="text-align:right">Operacional</th>'+
+    '<th style="text-align:right">Margem Líquida</th>'+
     '<th style="text-align:right">% Empresa</th><th style="text-align:right">Proporção</th>'+
     '<th style="text-align:right">Qtd Frete</th><th style="text-align:right">Frete Médio</th>'+
     '<th style="text-align:right">Qtd Cliente</th>'+
@@ -394,9 +395,9 @@ function renderTabelaVendedores(d){
   var body = '<tbody>' + linhas.map(function(v){
     return '<tr>'+
       '<td class="venc">'+v.vendedor+'</td>'+
-      '<td>'+v.empresa+'</td>'+
       '<td class="num">'+fmtMoeda(v.faturamento)+'</td>'+
       '<td class="num">'+fmtMoeda(v.operacional)+'</td>'+
+      '<td class="num">'+fmtMoeda(v.margemLiquida)+'</td>'+
       '<td class="num">'+v.pctDaEmpresa.toFixed(1)+'%</td>'+
       '<td class="num">'+v.proporcao.toFixed(1)+'%</td>'+
       '<td class="num">'+v.qtdFrete+'</td>'+
