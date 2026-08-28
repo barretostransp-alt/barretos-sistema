@@ -60,7 +60,7 @@ body.tema-claro .logo-claro{display:block}
 .tv-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-dim);padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
 .tv-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--txt)}
 .tv-table tr:last-child td{border-bottom:none}
-.tv-table td.num{text-align:right;font-family:'DM Mono',monospace}
+.tv-table td.num{text-align:center;font-family:'DM Mono',monospace}
 .tv-table td.venc{font-family:'Syne',sans-serif;font-weight:700}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;min-height:0}
 .card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -386,11 +386,11 @@ function renderTabelaVendedores(d){
   var linhas = d.vendedores || [];
   var head = '<thead><tr>'+
     '<th>Vendedor</th>'+
-    '<th style="text-align:right">Faturamento</th><th style="text-align:right">Operacional</th>'+
-    '<th style="text-align:right">Margem Líquida</th>'+
-    '<th style="text-align:right">% Empresa</th><th style="text-align:right">Proporção</th>'+
-    '<th style="text-align:right">Qtd Frete</th><th style="text-align:right">Frete Médio</th>'+
-    '<th style="text-align:right">Qtd Cliente</th>'+
+    '<th style="text-align:center">Faturamento</th><th style="text-align:center">Operacional</th>'+
+    '<th style="text-align:center">Margem Líquida</th>'+
+    '<th style="text-align:center">% Empresa</th><th style="text-align:center">Proporção</th>'+
+    '<th style="text-align:center">Qtd Frete</th><th style="text-align:center">Frete Médio</th>'+
+    '<th style="text-align:center">Qtd Cliente</th>'+
   '</tr></thead>';
   var body = '<tbody>' + linhas.map(function(v){
     return '<tr>'+
