@@ -34,7 +34,7 @@ body.tema-claro .logo-claro{display:block}
 #login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
 .login-box{width:340px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:32px}
 .login-logo{margin-bottom:14px}
-.login-logo img{height:44px;width:auto}
+.login-logo img{height:64px;width:auto}
 .login-sub{font-size:12px;color:var(--txt-dim);margin-bottom:24px}
 .login-field{margin-bottom:14px}
 .login-field label{display:block;font-size:11px;color:var(--txt-mid);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
@@ -47,15 +47,24 @@ body.tema-claro .logo-claro{display:block}
 /* ── TV SHELL ── */
 #tv{display:none;height:100vh;flex-direction:column;padding:22px 28px}
 .tv-hd{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-shrink:0}
-.tv-logo img{height:36px;width:auto;display:block}
+.tv-logo img{height:52px;width:auto}
 .tv-panel-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;margin-left:6px;padding-left:16px;border-left:1px solid var(--border);color:var(--txt-mid)}
 .tv-right{margin-left:auto;text-align:right}
 .tv-clock{font-family:'DM Mono',monospace;font-size:22px;font-weight:500}
 .tv-date{font-size:12px;color:var(--txt-dim);text-transform:capitalize}
 
-.tv-grid{flex:1;display:grid;grid-template-columns:1.1fr 1fr;grid-template-rows:auto 1fr;gap:16px;min-height:0}
+.tv-grid{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:auto 1fr 1fr auto;gap:16px;min-height:0}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;min-height:0}
 .card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-sub{font-size:12px;color:var(--txt-dim);margin:-8px 0 12px}
+.card-sub b{font-family:'Syne',sans-serif;font-size:15px}
+
+/* Meta de faturamento — barra full-width abaixo da grade de gráficos */
+.meta-row{grid-column:1/3;flex-direction:row;align-items:center;gap:20px;padding:16px 22px}
+.meta-row .card-title{margin:0;white-space:nowrap}
+.meta-bar-track{flex:1;height:14px;background:var(--border);border-radius:7px;overflow:hidden}
+.meta-bar-fill{height:100%;border-radius:7px;transition:width .5s ease;background:var(--gold)}
+.meta-pct{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;min-width:72px;text-align:right}
 
 /* KPI strip (status dos cards) */
 .kpi-row{grid-column:1/3;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
@@ -63,18 +72,6 @@ body.tema-claro .logo-claro{display:block}
 .kpi-tile::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--accent,var(--gold))}
 .kpi-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .kpi-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1}
-
-/* SLA gauge — dois indicadores lado a lado dentro do mesmo card */
-.sla-wrap{display:flex;align-items:center;justify-content:space-evenly;gap:12px;flex:1}
-.sla-ring{width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
-.sla-ring::before{content:'';position:absolute;inset:10px;background:var(--card);border-radius:50%}
-.sla-num{position:relative;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;white-space:nowrap}
-.sla-info{font-size:12px;color:var(--txt-dim);line-height:1.7}
-.sla-info b{color:var(--txt)}
-.sla-divider{width:1px;align-self:stretch;background:var(--border);flex-shrink:0}
-.sla-second{text-align:center}
-.sla-second-val{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;line-height:1}
-.sla-second-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
 
 .chart-wrap{flex:1;position:relative;min-height:0}
 
@@ -125,7 +122,8 @@ body.tema-claro .logo-claro{display:block}
 
     <div class="card">
       <div class="card-title"><i class="ti ti-gauge"></i> SLA — Entregas no Prazo (mês)</div>
-      <div class="sla-wrap" id="sla-wrap"></div>
+      <div class="card-sub" id="sla-sub">&nbsp;</div>
+      <div class="chart-wrap"><canvas id="chart-sla"></canvas></div>
     </div>
 
     <div class="card">
@@ -141,6 +139,12 @@ body.tema-claro .logo-claro{display:block}
     <div class="card">
       <div class="card-title"><i class="ti ti-truck"></i> Frete por Tipo de Veículo — Qtd. no Mês</div>
       <div class="chart-wrap"><canvas id="chart-veiculo"></canvas></div>
+    </div>
+
+    <div class="card meta-row">
+      <div class="card-title"><i class="ti ti-target-arrow"></i> Meta de Faturamento (mês)</div>
+      <div class="meta-bar-track"><div class="meta-bar-fill" id="meta-bar-fill" style="width:0%"></div></div>
+      <div class="meta-pct" id="meta-pct">--%</div>
     </div>
   </div>
 </div>
@@ -230,7 +234,7 @@ function alternarTema(){
   aplicarTema(atual);
   // Recria os gráficos: as cores dos eixos/legendas são fixas no momento
   // da criação, não reagem sozinhas a variável CSS.
-  if(ultimoDado) { renderStatusChart(ultimoDado); renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); }
+  if(ultimoDado) { renderSlaChart(ultimoDado); renderStatusChart(ultimoDado); renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); }
 }
 
 function iniciarTV(){
@@ -269,10 +273,11 @@ async function carregarDados(){
     var d = await r.json();
     ultimoDado = d;
     renderKpis(d);
-    renderSla(d);
+    renderSlaChart(d);
     renderStatusChart(d);
     renderEmpresaChart(d);
     renderVeiculoChart(d);
+    renderMeta(d);
     var dot = document.getElementById('conn-dot'); if(dot) dot.className = 'on';
   }catch(e){
     var dot = document.getElementById('conn-dot'); if(dot) dot.className = '';
@@ -294,29 +299,45 @@ function renderKpis(d){
   document.getElementById('kpi-row').innerHTML = html;
 }
 
-function renderSla(d){
-  var el = document.getElementById('sla-wrap');
+function renderSlaChart(d){
+  destroyChart('sla');
+  var sub = document.getElementById('sla-sub');
   if(d.sla === null){
-    el.innerHTML = '<div style="color:var(--txt-dim);font-size:13px;text-align:center">Sem entregas com previsão registrada neste mês ainda.</div>';
+    sub.innerHTML = 'Sem entregas com previsão registrada neste mês ainda.';
     return;
   }
   var cor = d.sla >= 90 ? 'var(--green)' : d.sla >= 75 ? 'var(--gold)' : 'var(--red)';
-  var corAtraso = d.entregasAtrasadas > 0 ? 'var(--red)' : 'var(--green)';
-  el.innerHTML =
-    '<div style="display:flex;align-items:center;gap:14px">' +
-      '<div class="sla-ring" style="background:conic-gradient('+cor+' '+(d.sla*3.6)+'deg, var(--border) 0deg)">' +
-        '<div class="sla-num" style="color:'+cor+'">'+d.sla.toFixed(1)+'%</div>' +
-      '</div>' +
-      '<div class="sla-info">' +
-        '<div><b>'+d.entregasConsideradasSla+'</b> entregas com previsão no mês</div>' +
-        '<div style="margin-top:6px">Meta: <b>90%+</b> no prazo</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="sla-divider"></div>' +
-    '<div class="sla-second">' +
-      '<div class="sla-second-val" style="color:'+corAtraso+'">'+d.entregasAtrasadas+'</div>' +
-      '<div class="sla-second-lbl">Atrasada'+(d.entregasAtrasadas===1?'':'s')+' no mês</div>' +
-    '</div>';
+  sub.innerHTML = '<b style="color:'+cor+'">'+d.sla.toFixed(1)+'%</b> no prazo · '+d.entregasConsideradasSla+' entrega'+(d.entregasConsideradasSla===1?'':'s')+' no mês · meta 90%+';
+  var ctx = document.getElementById('chart-sla').getContext('2d');
+  CH.sla = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['No Prazo','Atrasada'],
+      datasets:[{ data:[d.entregasNoPrazo, d.entregasAtrasadas], backgroundColor:[getComputedStyle(document.body).getPropertyValue('--green').trim(), getComputedStyle(document.body).getPropertyValue('--red').trim()], borderWidth:0 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'68%',
+      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, padding:14, boxWidth:9 } } }
+    }
+  });
+}
+
+function renderMeta(d){
+  var fill = document.getElementById('meta-bar-fill');
+  var label = document.getElementById('meta-pct');
+  if(d.metaPct === null){
+    fill.style.width = '0%';
+    fill.style.background = cssVar('--border');
+    label.textContent = 'sem meta';
+    label.style.color = cssVar('--txt-dim');
+    return;
+  }
+  var pct = d.metaPct;
+  var cor = pct >= 100 ? 'var(--green)' : pct >= 70 ? 'var(--gold)' : 'var(--red)';
+  fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  fill.style.background = cor;
+  label.textContent = pct.toFixed(1) + '%';
+  label.style.color = cor;
 }
 
 function renderStatusChart(d){
