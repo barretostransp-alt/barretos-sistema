@@ -1556,6 +1556,12 @@ async function renderDashboard() {
       <div class="kpi-lbl">Pedágio — mês atual</div>
       <div class="kpi-delta">${dash.viagens} viagens</div>
     </div>
+    <div class="kpi-card red">
+      <i class="ti ti-receipt-tax kpi-icon red"></i>
+      <div class="kpi-val txt-red">${fmtBRL(dash.icms)}</div>
+      <div class="kpi-lbl">ICMS — mês atual</div>
+      <div class="kpi-delta">5% do faturamento</div>
+    </div>
 `;
 
   const ALERTA_ICONE = { crlv:'ti-file-text', cnh:'ti-id-badge', multa:'ti-alert-octagon', despesa:'ti-receipt', manutencao:'ti-tool' };
