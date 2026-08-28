@@ -523,7 +523,7 @@ function renderStatusChart(d){
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false } },
       scales:{
-        x:{ ticks:{ color: cssVar('--txt-dim'), precision:0 }, grid:{ color: cssVar('--border') } },
+        x:{ ticks:{ color: cssVar('--txt-dim'), precision:0 }, grid:{ display:false } },
         y:{ ticks:{ color: cssVar('--txt'), font:{ size:12 } }, grid:{ display:false } }
       }
     }
@@ -544,7 +544,7 @@ function renderEmpresaChart(d){
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x) + ' · ' + linhas[c.dataIndex].qtd + ' frete(s)'; } } } },
       scales:{
-        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ color: cssVar('--border') } },
+        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } },
         y:{ ticks:{ color: cssVar('--txt'), font:{ size:12 } }, grid:{ display:false } }
       }
     }
