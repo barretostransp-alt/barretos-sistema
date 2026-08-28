@@ -53,7 +53,15 @@ body.tema-claro .logo-claro{display:block}
 .tv-clock{font-family:'DM Mono',monospace;font-size:22px;font-weight:500}
 .tv-date{font-size:12px;color:var(--txt-dim);text-transform:capitalize}
 
+.tv-view{flex:1;display:flex;flex-direction:column;min-height:0}
 .tv-grid{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:auto 1fr 1fr auto;gap:16px;min-height:0}
+
+.tv-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tv-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-dim);padding:8px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
+.tv-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--txt)}
+.tv-table tr:last-child td{border-bottom:none}
+.tv-table td.num{text-align:right;font-family:'DM Mono',monospace}
+.tv-table td.venc{font-family:'Syne',sans-serif;font-weight:700}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;min-height:0}
 .card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .card-sub{font-size:12px;color:var(--txt-dim);margin:-8px 0 12px}
@@ -119,7 +127,7 @@ body.tema-claro .logo-claro{display:block}
       <img class="logo-escuro" src="assets/logo-escuro.png" alt="Barreto's Transportes">
       <img class="logo-claro" src="assets/logo-claro.png" alt="Barreto's Transportes">
     </div>
-    <div class="tv-panel-title">Torre de Controle</div>
+    <div class="tv-panel-title" id="tv-panel-title">Torre de Controle</div>
     <div class="tv-right" style="display:flex;align-items:center;gap:14px">
       <div>
         <div class="tv-clock" id="tv-clock">--:--</div>
@@ -131,6 +139,7 @@ body.tema-claro .logo-claro{display:block}
     </div>
   </div>
 
+  <div class="tv-view" id="view-torre">
   <div class="tv-grid">
     <div class="kpi-row" id="kpi-row"></div>
 
@@ -167,6 +176,20 @@ body.tema-claro .logo-claro{display:block}
       <div class="card-title"><i class="ti ti-target-arrow"></i> Meta de Faturamento (mês)</div>
       <div class="meta-bar-track"><div class="meta-bar-fill" id="meta-bar-fill" style="width:0%"></div></div>
       <div class="meta-pct" id="meta-pct">--%</div>
+    </div>
+  </div>
+  </div>
+
+  <div class="tv-view" id="view-vendedor" style="display:none">
+    <div class="card" style="flex:0 0 260px;margin-bottom:16px">
+      <div class="card-title"><i class="ti ti-chart-line"></i> Faturamento Por Dia (mês)</div>
+      <div class="chart-wrap"><canvas id="chart-diario"></canvas></div>
+    </div>
+    <div class="card" style="flex:1;min-height:0">
+      <div class="card-title"><i class="ti ti-users"></i> Resultados Por Vendedor</div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+        <table class="tv-table" id="tabela-vendedores"></table>
+      </div>
     </div>
   </div>
 </div>
@@ -254,10 +277,33 @@ function alternarTema(){
   var atual = localStorage.getItem('barretos_tema') === 'claro' ? 'escuro' : 'claro';
   localStorage.setItem('barretos_tema', atual);
   aplicarTema(atual);
-  // Recria os gráficos: as cores dos eixos/legendas são fixas no momento
-  // da criação, não reagem sozinhas a variável CSS.
-  if(ultimoDado) { renderSlaChart(ultimoDado); renderStatusChart(ultimoDado); renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); }
+  // Recria os gráficos do painel visível: as cores dos eixos/legendas são
+  // fixas no momento da criação, não reagem sozinhas a variável CSS.
+  mostrarPainel(painelAtual);
 }
+
+// ── Rotação entre painéis (loop de TV) ──
+var PAINEIS = [
+  { key:'torre',    label:'Torre de Controle' },
+  { key:'vendedor', label:'Faturamento Por Vendedor' },
+];
+var painelAtual = 0;
+var ROTATE_MS = 30000; // troca de painel a cada 30s
+
+function mostrarPainel(idx){
+  painelAtual = idx;
+  document.getElementById('tv-panel-title').textContent = PAINEIS[idx].label;
+  document.getElementById('view-torre').style.display    = idx===0 ? 'flex' : 'none';
+  document.getElementById('view-vendedor').style.display = idx===1 ? 'flex' : 'none';
+  if(idx===0 && ultimoDado){
+    renderKpis(ultimoDado); renderSlaChart(ultimoDado); renderStatusChart(ultimoDado);
+    renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); renderMeta(ultimoDado);
+  }
+  if(idx===1 && dadosVendedor){
+    renderChartDiario(dadosVendedor); renderTabelaVendedores(dadosVendedor);
+  }
+}
+function rotacionar(){ mostrarPainel((painelAtual+1) % PAINEIS.length); }
 
 function iniciarTV(){
   document.getElementById('login-overlay').style.display = 'none';
@@ -265,8 +311,12 @@ function iniciarTV(){
   aplicarTema(localStorage.getItem('barretos_tema') || 'escuro');
   atualizarRelogio();
   setInterval(atualizarRelogio, 1000);
+  mostrarPainel(0);
   carregarDados();
+  carregarVendedor();
   setInterval(carregarDados, REFRESH_MS);
+  setInterval(carregarVendedor, REFRESH_MS);
+  setInterval(rotacionar, ROTATE_MS);
 }
 
 function atualizarRelogio(){
@@ -279,6 +329,7 @@ function atualizarRelogio(){
 
 var CH = {};
 var ultimoDado = null;
+var dadosVendedor = null;
 function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
 function cssVar(nome){ return getComputedStyle(document.body).getPropertyValue(nome).trim(); }
 
@@ -292,18 +343,68 @@ async function carregarDados(){
   try{
     var r = await apiFetch(API_BASE + '/torre-de-controle');
     if(!r.ok) return;
-    var d = await r.json();
-    ultimoDado = d;
-    renderKpis(d);
-    renderSlaChart(d);
-    renderStatusChart(d);
-    renderEmpresaChart(d);
-    renderVeiculoChart(d);
-    renderMeta(d);
+    ultimoDado = await r.json();
+    if(painelAtual===0) mostrarPainel(0);
     var dot = document.getElementById('conn-dot'); if(dot) dot.className = 'on';
   }catch(e){
     var dot = document.getElementById('conn-dot'); if(dot) dot.className = '';
   }
+}
+
+async function carregarVendedor(){
+  try{
+    var r = await apiFetch(API_BASE + '/torre-de-controle/vendedores');
+    if(!r.ok) return;
+    dadosVendedor = await r.json();
+    if(painelAtual===1) mostrarPainel(1);
+  }catch(e){}
+}
+
+function renderChartDiario(d){
+  destroyChart('diario');
+  var ctx = document.getElementById('chart-diario').getContext('2d');
+  var serie = d.serieDiaria || [];
+  CH.diario = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: serie.map(function(p){ return p.dia.slice(8,10); }),
+      datasets:[{ label:'Faturamento', data: serie.map(function(p){ return p.valor; }), borderColor:'#F5B800', backgroundColor:'rgba(245,184,0,.15)', fill:true, tension:.3, pointRadius:2, borderWidth:2 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.y); } } } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim'), font:{ size:10 }, maxRotation:0 }, grid:{ display:false } },
+        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ color: cssVar('--border') } }
+      }
+    }
+  });
+}
+
+function renderTabelaVendedores(d){
+  var tbl = document.getElementById('tabela-vendedores');
+  var linhas = d.vendedores || [];
+  var head = '<thead><tr>'+
+    '<th>Vendedor</th><th>Empresa</th>'+
+    '<th style="text-align:right">Faturamento</th><th style="text-align:right">Operacional</th>'+
+    '<th style="text-align:right">% Empresa</th><th style="text-align:right">Proporção</th>'+
+    '<th style="text-align:right">Qtd Frete</th><th style="text-align:right">Frete Médio</th>'+
+    '<th style="text-align:right">Qtd Cliente</th>'+
+  '</tr></thead>';
+  var body = '<tbody>' + linhas.map(function(v){
+    return '<tr>'+
+      '<td class="venc">'+v.vendedor+'</td>'+
+      '<td>'+v.empresa+'</td>'+
+      '<td class="num">'+fmtMoeda(v.faturamento)+'</td>'+
+      '<td class="num">'+fmtMoeda(v.operacional)+'</td>'+
+      '<td class="num">'+v.pctDaEmpresa.toFixed(1)+'%</td>'+
+      '<td class="num">'+v.proporcao.toFixed(1)+'%</td>'+
+      '<td class="num">'+v.qtdFrete+'</td>'+
+      '<td class="num">'+fmtMoeda(v.freteMedio)+'</td>'+
+      '<td class="num">'+v.qtdCliente+'</td>'+
+    '</tr>';
+  }).join('') + '</tbody>';
+  tbl.innerHTML = head + body;
 }
 
 function renderKpis(d){
