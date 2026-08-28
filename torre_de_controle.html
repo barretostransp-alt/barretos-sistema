@@ -81,13 +81,12 @@ body.tema-claro .logo-claro{display:block}
 .sla-gauge-col svg{width:100%;max-width:280px;height:auto}
 .sla-pct{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;margin-top:-14px}
 .sla-sub{font-size:11px;color:var(--txt-dim);text-align:center;margin-top:2px}
-.sla-list-col{flex:1;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--border);padding-left:18px}
+.sla-list-col{flex:1.4;display:flex;flex-direction:row;align-items:stretch;gap:16px;min-height:0;border-left:1px solid var(--border);padding-left:18px}
+.sla-atrasadas-summary{flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:64px}
 .sla-atrasadas-num{font-family:'Syne',sans-serif;font-weight:800;font-size:40px;line-height:1;color:var(--red)}
-.sla-atrasadas-lbl{font-size:11px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:4px;margin-bottom:10px}
-.sla-codigos-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:0}
-.sla-codigo-item{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 9px;background:var(--surface);border-radius:6px;font-size:11.5px}
-.sla-codigo-item b{color:var(--txt);font-family:'DM Mono',monospace;flex-shrink:0}
-.sla-codigo-item span{color:var(--txt-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sla-atrasadas-lbl{font-size:10.5px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.04em;margin-top:4px;text-align:center}
+.sla-codigos-list{flex:1;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;min-height:0}
+.sla-codigo-chip{background:var(--surface);border-radius:6px;padding:5px 9px;font-size:11.5px;font-family:'DM Mono',monospace;color:var(--txt)}
 .sla-sem-atraso{color:var(--txt-dim);font-size:12px;margin:auto}
 
 .legend-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;justify-content:center}
@@ -140,8 +139,10 @@ body.tema-claro .logo-claro{display:block}
       <div class="sla-body">
         <div class="sla-gauge-col" id="sla-gauge-col"></div>
         <div class="sla-list-col">
-          <div class="sla-atrasadas-num" id="sla-atrasadas-num">--</div>
-          <div class="sla-atrasadas-lbl" id="sla-atrasadas-lbl">Atrasadas no mês</div>
+          <div class="sla-atrasadas-summary">
+            <div class="sla-atrasadas-num" id="sla-atrasadas-num">--</div>
+            <div class="sla-atrasadas-lbl" id="sla-atrasadas-lbl">Atrasadas no mês</div>
+          </div>
           <div class="sla-codigos-list" id="sla-codigos-list"></div>
         </div>
       </div>
@@ -383,7 +384,7 @@ function renderSlaChart(d){
     listEl.innerHTML = '<div class="sla-sem-atraso">Nenhum atraso no mês 🎉</div>';
   } else {
     listEl.innerHTML = codigos.map(function(c){
-      return '<div class="sla-codigo-item"><b>'+c.codigo+'</b><span>'+(c.cliente||c.empresa||'')+'</span></div>';
+      return '<span class="sla-codigo-chip">'+c.codigo+'</span>';
     }).join('');
   }
 }
@@ -411,14 +412,18 @@ function renderStatusChart(d){
   var ordem = ['FINALIZADO','FATURADO','COLETA','OPERACIONAL'];
   var ctx = document.getElementById('chart-status').getContext('2d');
   CH.status = new Chart(ctx, {
-    type: 'doughnut',
+    type: 'bar',
     data: {
       labels: ordem,
-      datasets: [{ data: ordem.map(function(s){ return d.status[s]||0; }), backgroundColor: ordem.map(function(s){ return CORES_STATUS[s]; }), borderWidth: 0 }]
+      datasets: [{ data: ordem.map(function(s){ return d.status[s]||0; }), backgroundColor: ordem.map(function(s){ return CORES_STATUS[s]; }), borderRadius:6, maxBarThickness:46 }]
     },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'68%',
-      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, padding:14, boxWidth:9 } } }
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim'), precision:0 }, grid:{ color: cssVar('--border') } },
+        y:{ ticks:{ color: cssVar('--txt'), font:{ size:12 } }, grid:{ display:false } }
+      }
     }
   });
 }
@@ -437,7 +442,7 @@ function renderEmpresaChart(d){
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return fmtMoeda(c.parsed.x) + ' · ' + linhas[c.dataIndex].qtd + ' frete(s)'; } } } },
       scales:{
-        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return fmtMoeda(v); } }, grid:{ color: cssVar('--border') } },
+        x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ color: cssVar('--border') } },
         y:{ ticks:{ color: cssVar('--txt'), font:{ size:12 } }, grid:{ display:false } }
       }
     }
