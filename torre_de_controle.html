@@ -226,6 +226,27 @@ body.tema-claro .logo-claro{display:block}
       </div>
     </div>
   </div>
+
+  <div class="tv-view" id="view-indicadores" style="display:none">
+    <div class="tv-grid" style="grid-template-rows:1fr 1fr">
+      <div class="card">
+        <div class="card-title"><i class="ti ti-target-arrow"></i> % da Meta Mensal — Últimos 6 Meses</div>
+        <div class="chart-wrap"><canvas id="chart-meta"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-truck"></i> Faturamento Frota — Bruto x Líquido</div>
+        <div class="chart-wrap"><canvas id="chart-frota-meses"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-users"></i> Faturamento por Vendedor</div>
+        <div class="chart-wrap"><canvas id="chart-vendedor-meses"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-building-bank"></i> Faturamento por Empresa</div>
+        <div class="chart-wrap"><canvas id="chart-empresa-meses"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -322,6 +343,7 @@ var PAINEIS = [
   { key:'vendedor', label:'Faturamento Por Vendedor' },
   { key:'clientes', label:'Painel de Clientes' },
   { key:'frota',    label:'Gestão da Frota' },
+  { key:'indicadores', label:'Indicadores' },
 ];
 var painelAtual = 0;
 var ROTATE_MS = 30000; // troca de painel a cada 30s
@@ -329,10 +351,11 @@ var ROTATE_MS = 30000; // troca de painel a cada 30s
 function mostrarPainel(idx){
   painelAtual = idx;
   document.getElementById('tv-panel-title').textContent = PAINEIS[idx].label;
-  document.getElementById('view-torre').style.display    = idx===0 ? 'flex' : 'none';
-  document.getElementById('view-vendedor').style.display = idx===1 ? 'flex' : 'none';
-  document.getElementById('view-clientes').style.display = idx===2 ? 'flex' : 'none';
-  document.getElementById('view-frota').style.display    = idx===3 ? 'flex' : 'none';
+  document.getElementById('view-torre').style.display       = idx===0 ? 'flex' : 'none';
+  document.getElementById('view-vendedor').style.display    = idx===1 ? 'flex' : 'none';
+  document.getElementById('view-clientes').style.display    = idx===2 ? 'flex' : 'none';
+  document.getElementById('view-frota').style.display       = idx===3 ? 'flex' : 'none';
+  document.getElementById('view-indicadores').style.display = idx===4 ? 'flex' : 'none';
   if(idx===0 && ultimoDado){
     renderKpis(ultimoDado); renderSlaChart(ultimoDado); renderStatusChart(ultimoDado);
     renderEmpresaChart(ultimoDado); renderVeiculoChart(ultimoDado); renderMeta(ultimoDado);
@@ -345,6 +368,10 @@ function mostrarPainel(idx){
   }
   if(idx===3 && dadosFrota){
     renderKpisFrota(dadosFrota); renderTabelaFrota(dadosFrota); renderChartFrotaCliente(dadosFrota);
+  }
+  if(idx===4 && dadosIndicadores){
+    renderChartMeta(dadosIndicadores); renderChartFrotaMeses(dadosIndicadores);
+    renderChartVendedorMeses(dadosIndicadores); renderChartEmpresaMeses(dadosIndicadores);
   }
 }
 function rotacionar(){ mostrarPainel((painelAtual+1) % PAINEIS.length); }
@@ -360,10 +387,12 @@ function iniciarTV(){
   carregarVendedor();
   carregarClientes();
   carregarFrota();
+  carregarIndicadores();
   setInterval(carregarDados, REFRESH_MS);
   setInterval(carregarVendedor, REFRESH_MS);
   setInterval(carregarClientes, REFRESH_MS);
   setInterval(carregarFrota, REFRESH_MS);
+  setInterval(carregarIndicadores, REFRESH_MS);
   setInterval(rotacionar, ROTATE_MS);
 }
 
@@ -385,6 +414,7 @@ var ultimoDado = null;
 var dadosVendedor = null;
 var dadosClientes = null;
 var dadosFrota = null;
+var dadosIndicadores = null;
 function destroyChart(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
 function cssVar(nome){ return getComputedStyle(document.body).getPropertyValue(nome).trim(); }
 
@@ -431,6 +461,21 @@ async function carregarFrota(){
     dadosFrota = await r.json();
     if(painelAtual===3) mostrarPainel(3);
   }catch(e){}
+}
+
+async function carregarIndicadores(){
+  try{
+    var r = await apiFetch(API_BASE + '/torre-de-controle/indicadores');
+    if(!r.ok) return;
+    dadosIndicadores = await r.json();
+    if(painelAtual===4) mostrarPainel(4);
+  }catch(e){}
+}
+
+function labelMes(mesChave){
+  var NOMES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  var partes = mesChave.split('-');
+  return NOMES[Number(partes[1])-1]+'/'+partes[0].slice(2);
 }
 
 function renderKpisFrota(d){
@@ -484,6 +529,115 @@ function renderChartFrotaCliente(d){
       scales:{
         x:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } },
         y:{ ticks:{ color: cssVar('--txt'), font:{ size:11 } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+function renderChartMeta(d){
+  destroyChart('meta');
+  var linhas = d.metaPorMes || [];
+  var cores = linhas.map(function(l){
+    if(l.pct===null) return cssVar('--border');
+    return l.pct>=100 ? '#22C55E' : l.pct>=70 ? '#F5B800' : '#EF4444';
+  });
+  var ctx = document.getElementById('chart-meta').getContext('2d');
+  CH.meta = new Chart(ctx, {
+    data:{
+      labels: linhas.map(function(l){ return labelMes(l.mes); }),
+      datasets:[
+        { type:'bar', label:'% da Meta', data: linhas.map(function(l){ return l.pct; }), backgroundColor: cores, borderRadius:6, maxBarThickness:40 },
+        { type:'line', label:'Meta (100%)', data: linhas.map(function(){ return 100; }), borderColor: cssVar('--txt-dim'), borderDash:[5,5], borderWidth:1.5, pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+(c.parsed.y===null?'sem meta':c.parsed.y.toFixed(1)+'%'); } } } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim') }, grid:{ display:false } },
+        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return v+'%'; } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+function renderChartFrotaMeses(d){
+  destroyChart('frotaMeses');
+  var linhas = d.frotaPorMes || [];
+  var ctx = document.getElementById('chart-frota-meses').getContext('2d');
+  CH.frotaMeses = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: linhas.map(function(l){ return labelMes(l.mes); }),
+      datasets:[
+        { label:'Bruto', data: linhas.map(function(l){ return l.bruto; }), backgroundColor:'#3B82F6', borderRadius:4, maxBarThickness:26 },
+        { label:'Líquido', data: linhas.map(function(l){ return l.liquido; }), backgroundColor:'#F5B800', borderRadius:4, maxBarThickness:26 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:11 }, boxWidth:9 } }, tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+fmtMoeda(c.parsed.y); } } } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim') }, grid:{ display:false } },
+        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+var CORES_VENDEDOR_MESES = ['#3B82F6','#F5B800','#22C55E','#A855F7','#F97316','#14B8A6'];
+function renderChartVendedorMeses(d){
+  destroyChart('vendedorMeses');
+  var meses = d.vendedorPorMes || [];
+  var nomes = meses.length ? meses[0].vendedores.map(function(v){ return v.vendedor; }) : [];
+  var ctx = document.getElementById('chart-vendedor-meses').getContext('2d');
+  CH.vendedorMeses = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: meses.map(function(m){ return labelMes(m.mes); }),
+      datasets: nomes.map(function(nome, i){
+        return {
+          label: nome,
+          data: meses.map(function(m){ var v = m.vendedores.find(function(x){ return x.vendedor===nome; }); return v ? v.valor : 0; }),
+          backgroundColor: CORES_VENDEDOR_MESES[i % CORES_VENDEDOR_MESES.length], borderRadius:3, maxBarThickness:14
+        };
+      })
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:10 }, boxWidth:8, padding:8 } }, tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+fmtMoeda(c.parsed.y); } } } },
+      scales:{
+        x:{ ticks:{ color: cssVar('--txt-dim') }, grid:{ display:false } },
+        y:{ ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+var CORES_EMPRESA_MESES = { Infra:'#3B82F6', "Barreto's":'#F5B800', 'Gonçalves':'#22C55E', Pinheiro:'#A855F7' };
+function renderChartEmpresaMeses(d){
+  destroyChart('empresaMeses');
+  var meses = d.empresaPorMes || [];
+  var nomes = ['Infra',"Barreto's",'Gonçalves','Pinheiro'];
+  var ctx = document.getElementById('chart-empresa-meses').getContext('2d');
+  CH.empresaMeses = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: meses.map(function(m){ return labelMes(m.mes); }),
+      datasets: nomes.map(function(nome){
+        return {
+          label: nome,
+          data: meses.map(function(m){ var e = m.porEmpresa.find(function(x){ return x.empresa===nome; }); return e ? e.valor : 0; }),
+          backgroundColor: CORES_EMPRESA_MESES[nome], borderRadius:3
+        };
+      })
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{ color: cssVar('--txt-mid'), font:{ size:10 }, boxWidth:8, padding:8 } }, tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+fmtMoeda(c.parsed.y); } } } },
+      scales:{
+        x:{ stacked:true, ticks:{ color: cssVar('--txt-dim') }, grid:{ display:false } },
+        y:{ stacked:true, ticks:{ color: cssVar('--txt-dim'), callback:function(v){ return Math.round(v/1000).toLocaleString('pt-BR'); } }, grid:{ display:false } }
       }
     }
   });
