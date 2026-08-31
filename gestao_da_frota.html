@@ -527,6 +527,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <option value="em_andamento">Em Andamento</option>
           <option value="concluida">Concluída</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="abrirHistoricoGeral()" style="white-space:nowrap">
+          <i class="ti ti-history" style="font-size:13px"></i> Histórico de Checklists
+        </button>
       </div>
       <div class="panel">
         <div class="panel-body" style="padding:0;overflow-x:auto">
@@ -1078,6 +1081,17 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       <button class="modal-close" onclick="document.getElementById('modal-historico-checklist').classList.remove('open')">×</button>
     </div>
     <div id="historico-checklist-body" style="padding:4px 2px"></div>
+  </div>
+</div>
+
+<!-- Histórico geral de checklists (lista completa) -->
+<div id="modal-historico-lista" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-history" style="color:var(--gold);margin-right:6px"></i>Histórico de Checklists</div>
+      <button class="modal-close" onclick="document.getElementById('modal-historico-lista').classList.remove('open')">×</button>
+    </div>
+    <div id="historico-lista-body" style="padding:4px 2px;max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -3384,6 +3398,18 @@ function filterMultas() {
 let editingOs = null;
 const OS_STATUS_LABEL = { aberta:'Aberta', em_andamento:'Em Andamento', concluida:'Concluída' };
 const OS_STATUS_CLASS = { aberta:'badge-red', em_andamento:'badge-orange', concluida:'badge-green' };
+const CHECKLIST_ITEM_LABEL = { ok:'OK', bad:'REPROVADO', na:'N/A' };
+const CHECKLIST_ITEM_COLOR = { ok:'var(--green)', bad:'var(--red)', na:'var(--txt-dim)' };
+function renderChecklistItens(itens) {
+  return (itens||[]).map(it=>`
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px">
+        <span>${it.item||'—'}</span>
+        <span style="font-weight:700;color:${CHECKLIST_ITEM_COLOR[it.status]||'var(--txt-dim)'}">${CHECKLIST_ITEM_LABEL[it.status]||it.status||'—'}</span>
+      </div>
+      ${it.status==='bad'&&it.obs?`<div style="margin-top:4px;color:var(--txt-dim)">${it.obs}${it.qtdFotos?` · ${it.qtdFotos} foto(s)`:''}</div>`:''}
+    </div>`).join('') || '<div class="tbl-empty">Sem itens</div>';
+}
 
 function renderOs() { filterOs(); }
 
@@ -3481,23 +3507,54 @@ function abrirHistoricoChecklist(checklistId) {
   const c=(db.checklists||[]).find(x=>x.id===checklistId);
   const body=document.getElementById('historico-checklist-body');
   if(!c){ body.innerHTML='<div class="tbl-empty">Checklist não encontrado.</div>'; document.getElementById('modal-historico-checklist').classList.add('open'); return; }
-  const ITEM_LABEL = { ok:'OK', bad:'REPROVADO', na:'N/A' };
-  const ITEM_COLOR = { ok:'var(--green)', bad:'var(--red)', na:'var(--txt-dim)' };
-  const itens=(c.itens||[]).map(it=>`
-    <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
-      <div style="display:flex;justify-content:space-between;gap:10px">
-        <span>${it.item||'—'}</span>
-        <span style="font-weight:700;color:${ITEM_COLOR[it.status]||'var(--txt-dim)'}">${ITEM_LABEL[it.status]||it.status||'—'}</span>
-      </div>
-      ${it.status==='bad'&&it.obs?`<div style="margin-top:4px;color:var(--txt-dim)">${it.obs}${it.qtdFotos?` · ${it.qtdFotos} foto(s)`:''}</div>`:''}
-    </div>`).join('');
   body.innerHTML = `
     <div style="font-size:12px;color:var(--txt-dim);margin-bottom:10px">
       <strong>${c.motorista||'—'}</strong> · <span class="placa">${c.placa||'—'}</span> · ${fmtDate(c.dataHora||'')}
     </div>
     ${c.observacaoGeral?`<div style="font-size:12px;margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:8px">${c.observacaoGeral}</div>`:''}
-    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">${itens||'<div class="tbl-empty">Sem itens</div>'}</div>`;
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">${renderChecklistItens(c.itens)}</div>`;
   document.getElementById('modal-historico-checklist').classList.add('open');
+}
+
+async function abrirHistoricoGeral() {
+  document.getElementById('modal-historico-lista').classList.add('open');
+  try {
+    const res = await apiFetch(`${API_BASE}/frota-os/checklists`);
+    if(res.ok) db.checklists = (await res.json()).map(adaptarChecklist);
+  } catch(e) { console.error(e); }
+  renderHistoricoGeral();
+}
+
+function toggleHistCardDesktop(el) {
+  const body = el.parentElement.querySelector('.hist-body-desktop');
+  const chev = el.querySelector('.hist-chev-desktop');
+  const aberto = body.style.display==='block';
+  body.style.display = aberto ? 'none' : 'block';
+  if(chev) chev.style.transform = aberto ? '' : 'rotate(180deg)';
+}
+
+function renderHistoricoGeral() {
+  const body=document.getElementById('historico-lista-body');
+  const lista=(db.checklists||[]).slice().sort((a,b)=>new Date(b.dataHora||0)-new Date(a.dataHora||0));
+  if(!lista.length){ body.innerHTML='<div class="tbl-empty">Nenhum checklist enviado ainda.</div>'; return; }
+  body.innerHTML = lista.map(c=>{
+    const reprovados=c.totalReprovados||0;
+    return `<div class="hist-card-desktop" style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer" onclick="toggleHistCardDesktop(this)">
+        <span class="placa">${c.placa||'—'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${c.motorista||'—'}</div>
+          <div style="font-size:10px;color:var(--txt-dim)">${fmtDate(c.dataHora||'')}</div>
+        </div>
+        <span class="badge ${reprovados>0?'badge-red':'badge-green'}" style="font-size:9px">${reprovados>0?reprovados+' reprovado(s)':'Tudo OK'}</span>
+        <i class="ti ti-chevron-down hist-chev-desktop" style="font-size:14px;color:var(--txt-dim)"></i>
+      </div>
+      <div class="hist-body-desktop" style="display:none;border-top:1px solid var(--border)">
+        ${c.observacaoGeral?`<div style="font-size:12px;padding:8px 10px;background:var(--surface2)">${c.observacaoGeral}</div>`:''}
+        ${renderChecklistItens(c.itens)}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ═══════════════════════════════════════
