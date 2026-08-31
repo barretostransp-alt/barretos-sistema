@@ -535,9 +535,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl">
             <thead><tr>
-              <th>Abertura</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Problema</th><th>Mecânico</th><th>Fotos</th><th>Status</th><th></th>
+              <th>Abertura</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Problema</th><th>Prioridade</th><th>Mecânico</th><th>Fotos</th><th>Status</th><th></th>
             </tr></thead>
-            <tbody id="tbody-os"><tr><td colspan="9" class="tbl-empty">
+            <tbody id="tbody-os"><tr><td colspan="10" class="tbl-empty">
               <div class="loading-row"><span class="spinner"></span> Carregando…</div>
             </td></tr></tbody>
           </table>
@@ -1033,6 +1033,13 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
         <input class="form-input" id="os-motorista" placeholder="Nome do motorista"></div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Problema <span class="req">*</span></label>
         <textarea class="form-input" id="os-problema" rows="3" placeholder="Descrição do problema"></textarea></div>
+      <div class="form-group"><label class="form-label">Prioridade</label>
+        <select class="form-input" id="os-prioridade">
+          <option value="baixa">Baixa</option>
+          <option value="media" selected>Média</option>
+          <option value="alta">Alta</option>
+        </select>
+      </div>
       <div class="form-group" id="os-mecanico-row"><label class="form-label">Mecânico</label>
         <input class="form-input" id="os-mecanico" placeholder="Responsável pelo reparo"></div>
       <div class="form-group" id="os-status-row"><label class="form-label">Status</label>
@@ -1325,6 +1332,7 @@ function openAddModal() {
     document.getElementById('modal-os-title').innerHTML='<i class="ti ti-tool" style="color:var(--gold);margin-right:6px"></i>Nova OS';
     ['os-placa','os-motorista','os-problema','os-mecanico'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.disabled=false;}});
     document.getElementById('os-status').value='aberta';
+    document.getElementById('os-prioridade').value='media';
     document.getElementById('os-status-row').style.display='none';
     document.getElementById('os-mecanico-row').style.display='none';
     document.getElementById('os-checklist-row').innerHTML='';
@@ -1536,7 +1544,8 @@ function adaptarMulta(m) {
 function adaptarOs(o) {
   return { id:o.id, checklistId:o.checklist_id, placa:o.placa, motorista:o.motorista,
     item:o.item, problema:o.problema, qtdFotos:o.qtd_fotos, status:o.status,
-    mecanico:o.mecanico, notas:o.notas||[], dataAbertura:o.data_abertura, dataConclusao:o.data_conclusao };
+    mecanico:o.mecanico, notas:o.notas||[], dataAbertura:o.data_abertura, dataConclusao:o.data_conclusao,
+    prioridade:o.prioridade||'media' };
 }
 function adaptarChecklist(c) {
   return { id:c.id, motorista:c.motorista, placa:c.placa, dataHora:c.data_hora,
@@ -3398,6 +3407,8 @@ function filterMultas() {
 let editingOs = null;
 const OS_STATUS_LABEL = { aberta:'Aberta', em_andamento:'Em Andamento', concluida:'Concluída' };
 const OS_STATUS_CLASS = { aberta:'badge-red', em_andamento:'badge-orange', concluida:'badge-green' };
+const OS_PRIORIDADE_LABEL = { baixa:'Baixa', media:'Média', alta:'Alta' };
+const OS_PRIORIDADE_CLASS = { baixa:'status-pg', media:'status-av', alta:'status-vd' };
 const CHECKLIST_ITEM_LABEL = { ok:'OK', bad:'REPROVADO', na:'N/A' };
 const CHECKLIST_ITEM_COLOR = { ok:'var(--green)', bad:'var(--red)', na:'var(--txt-dim)' };
 function renderChecklistItens(itens) {
@@ -3438,7 +3449,7 @@ function filterOs() {
       <div class="kpi-val txt-green">${concluidas}</div><div class="kpi-lbl">Concluídas</div></div>`;
 
   if(!rows.length){
-    tb.innerHTML=`<tr><td colspan="9" class="tbl-empty">${(db.os||[]).length?'Nenhuma OS encontrada':'Nenhuma OS cadastrada'}</td></tr>`;
+    tb.innerHTML=`<tr><td colspan="10" class="tbl-empty">${(db.os||[]).length?'Nenhuma OS encontrada':'Nenhuma OS cadastrada'}</td></tr>`;
   } else {
     tb.innerHTML=rows.map(o=>{
       const st=o.status||'aberta';
@@ -3448,6 +3459,11 @@ function filterOs() {
         <td style="font-size:11px">${o.motorista||'—'}</td>
         <td style="font-size:11px">${o.item||'—'}</td>
         <td style="max-width:220px;font-size:11px">${o.problema||'—'}</td>
+        <td><select class="status-sel ${OS_PRIORIDADE_CLASS[o.prioridade]||'status-av'}" onclick="event.stopPropagation()" onchange="event.stopPropagation();alterarPrioridadeInline('${o.id}',this)">
+          <option value="baixa"${o.prioridade==='baixa'?' selected':''}>Baixa</option>
+          <option value="media"${(!o.prioridade||o.prioridade==='media')?' selected':''}>Média</option>
+          <option value="alta"${o.prioridade==='alta'?' selected':''}>Alta</option>
+        </select></td>
         <td style="font-size:11px">${o.mecanico||'—'}</td>
         <td style="font-size:11px;text-align:center">${o.checklistId?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirHistoricoChecklist('${o.checklistId}')" title="Ver checklist"><i class="ti ti-photo" style="font-size:12px"></i> ${o.qtdFotos||0}</button>`:(o.qtdFotos||'—')}</td>
         <td><span class="badge ${OS_STATUS_CLASS[st]||''}" style="font-size:9px">${OS_STATUS_LABEL[st]||st}</span></td>
@@ -3460,6 +3476,15 @@ function filterOs() {
   if(badge){badge.textContent=abertas||'';badge.style.display=abertas?'inline':'none';}
 }
 
+async function alterarPrioridadeInline(id, sel) {
+  const prioridade=sel.value;
+  sel.className = 'status-sel ' + (OS_PRIORIDADE_CLASS[prioridade]||'status-av');
+  try {
+    await apiFetch(`${API_BASE}/frota-os/${id}/prioridade`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({prioridade})});
+    const o=(db.os||[]).find(x=>x.id===id); if(o) o.prioridade=prioridade;
+  } catch(e){ console.error(e); alert('Erro ao alterar prioridade.'); }
+}
+
 function openEditOs(id) {
   const o=(db.os||[]).find(x=>x.id===id);
   if(!o) return;
@@ -3470,6 +3495,7 @@ function openEditOs(id) {
   document.getElementById('os-problema').value=o.problema||'';
   document.getElementById('os-mecanico').value=o.mecanico||'';
   document.getElementById('os-status').value=o.status||'aberta';
+  document.getElementById('os-prioridade').value=o.prioridade||'media';
   document.getElementById('os-status-row').style.display='';
   document.getElementById('os-mecanico-row').style.display='';
   document.getElementById('os-placa').disabled=true;
@@ -3486,14 +3512,16 @@ async function saveOs() {
   const problema=document.getElementById('os-problema').value.trim();
   if(!editingOs && (!placa||!problema)){ alert('Informe placa e problema.'); return; }
   try {
+    const prioridade=document.getElementById('os-prioridade').value;
     if(editingOs){
       const mecanico=document.getElementById('os-mecanico').value.trim();
       const status=document.getElementById('os-status').value;
       if(mecanico!==(editingOs.mecanico||'')) await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/mecanico`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({mecanico})});
       if(status!==editingOs.status) await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+      if(prioridade!==(editingOs.prioridade||'media')) await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/prioridade`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({prioridade})});
     } else {
       const motorista=document.getElementById('os-motorista').value.trim();
-      await apiFetch(`${API_BASE}/frota-os`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({placa,motorista,problema})});
+      await apiFetch(`${API_BASE}/frota-os`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({placa,motorista,problema,prioridade})});
     }
     document.getElementById('modal-os').classList.remove('open');
     document.getElementById('os-placa').disabled=false;
