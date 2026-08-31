@@ -1050,6 +1050,14 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
         </select>
       </div>
       <div class="form-group" style="grid-column:1/-1" id="os-checklist-row"></div>
+      <div class="form-group" style="grid-column:1/-1" id="os-notas-row">
+        <label class="form-label">Observações</label>
+        <div id="os-notas-lista" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="os-nova-nota" placeholder="Adicionar observação..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarNotaOsDesktop();}">
+          <button class="btn btn-ghost btn-sm" onclick="adicionarNotaOsDesktop()"><i class="ti ti-send" style="font-size:13px"></i></button>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-os').classList.remove('open')">Cancelar</button>
@@ -1336,6 +1344,7 @@ function openAddModal() {
     document.getElementById('os-status-row').style.display='none';
     document.getElementById('os-mecanico-row').style.display='none';
     document.getElementById('os-checklist-row').innerHTML='';
+    document.getElementById('os-notas-row').style.display='none';
   }
   if(currentView==='loginMotorista'){
     ['ml-nome','ml-login','ml-senha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -3513,7 +3522,36 @@ function openEditOs(id) {
   cRow.innerHTML = o.checklistId
     ? `<button class="btn btn-ghost btn-sm" onclick="abrirHistoricoChecklist('${o.checklistId}')"><i class="ti ti-clipboard-check" style="font-size:13px"></i> Ver histórico do checklist</button>`
     : '';
+  document.getElementById('os-notas-row').style.display='';
+  document.getElementById('os-nova-nota').value='';
+  renderNotasOsDesktop(o.notas);
   document.getElementById('modal-os').classList.add('open');
+}
+
+function renderNotasOsDesktop(notas) {
+  const el=document.getElementById('os-notas-lista');
+  if(!notas||!notas.length){ el.innerHTML='<div class="tbl-empty" style="padding:8px 0">Nenhuma observação ainda</div>'; return; }
+  el.innerHTML = notas.map(n=>`
+    <div style="background:var(--surface2);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+      ${n.texto}
+      <div style="font-size:10px;color:var(--txt-dim);margin-top:3px">${fmtDate(n.data||'')}</div>
+    </div>`).join('');
+}
+
+async function adicionarNotaOsDesktop() {
+  if(!editingOs) return;
+  const input=document.getElementById('os-nova-nota');
+  const texto=input.value.trim();
+  if(!texto) return;
+  try {
+    const res=await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/notas`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto})});
+    if(!res.ok) throw new Error();
+    const atualizada=await res.json();
+    editingOs.notas=atualizada.notas||[];
+    const o=(db.os||[]).find(x=>x.id===editingOs.id); if(o) o.notas=editingOs.notas;
+    input.value='';
+    renderNotasOsDesktop(editingOs.notas);
+  } catch(e){ console.error(e); alert('Erro ao adicionar observação.'); }
 }
 
 async function saveOs() {
