@@ -1028,9 +1028,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     </div>
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">Placa <span class="req">*</span></label>
-        <input class="form-input" id="os-placa" placeholder="AAA0A00"></div>
+        <select class="form-input" id="os-placa"><option value="">Selecione...</option></select></div>
       <div class="form-group"><label class="form-label">Motorista</label>
-        <input class="form-input" id="os-motorista" placeholder="Nome do motorista"></div>
+        <select class="form-input" id="os-motorista"><option value="">Selecione...</option></select></div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Problema <span class="req">*</span></label>
         <textarea class="form-input" id="os-problema" rows="3" placeholder="Descrição do problema"></textarea></div>
       <div class="form-group"><label class="form-label">Prioridade</label>
@@ -2421,14 +2421,15 @@ function updateBadges() {
 function populateSelects() {
   const placas=db.veiculos.map(v=>v['Placa']).filter(Boolean);
   const motoristas=db.motoristas.map(m=>m['Nome']).filter(Boolean);
-  ['vg-placa','c-placa','d-placa','mn-placa'].forEach(id=>{
+  ['vg-placa','c-placa','d-placa','mn-placa','os-placa'].forEach(id=>{
     const el=document.getElementById(id); if(!el)return;
     const cur=el.value;
     el.innerHTML='<option value="">Selecione...</option>'+placas.map(p=>`<option ${p===cur?'selected':''}>${p}</option>`).join('');
   });
-  ['vg-motorista','c-motorista'].forEach(id=>{
+  ['vg-motorista','c-motorista','os-motorista'].forEach(id=>{
     const el=document.getElementById(id); if(!el)return;
-    el.innerHTML='<option value="">Selecione...</option>'+motoristas.map(m=>`<option>${m}</option>`).join('');
+    const cur=el.value;
+    el.innerHTML='<option value="">Selecione...</option>'+motoristas.map(m=>`<option ${m===cur?'selected':''}>${m}</option>`).join('');
   });
   // Motorista vinculado no modal de veículo
   const vMot=document.getElementById('v-motorista');
@@ -3485,13 +3486,21 @@ async function alterarPrioridadeInline(id, sel) {
   } catch(e){ console.error(e); alert('Erro ao alterar prioridade.'); }
 }
 
+function selecionarOuAdicionarOpcao(selectId, valor) {
+  const sel=document.getElementById(selectId); if(!sel) return;
+  valor=valor||'';
+  if([...sel.options].some(o=>o.value===valor)){ sel.value=valor; return; }
+  if(valor){ const o=document.createElement('option'); o.value=valor; o.textContent=valor; sel.appendChild(o); sel.value=valor; }
+}
+
 function openEditOs(id) {
   const o=(db.os||[]).find(x=>x.id===id);
   if(!o) return;
   editingOs=o;
+  populateSelects();
   document.getElementById('modal-os-title').innerHTML='<i class="ti ti-tool" style="color:var(--gold);margin-right:6px"></i>Editar OS';
-  document.getElementById('os-placa').value=o.placa||'';
-  document.getElementById('os-motorista').value=o.motorista||'';
+  selecionarOuAdicionarOpcao('os-placa', o.placa);
+  selecionarOuAdicionarOpcao('os-motorista', o.motorista);
   document.getElementById('os-problema').value=o.problema||'';
   document.getElementById('os-mecanico').value=o.mecanico||'';
   document.getElementById('os-status').value=o.status||'aberta';
