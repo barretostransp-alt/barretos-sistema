@@ -4444,6 +4444,22 @@ function swapAddr() {
   if (addrState.origem.lat && addrState.destino.lat) calcRoute();
 }
 
+// Geocodifica um endereço já digitado (ex.: ao carregar uma cotação
+// salva) sem mexer no dropdown de sugestões — só resolve lat/lon pra
+// permitir recalcular a rota sozinho. Falha em silêncio: se o Nominatim
+// não achar nada, o KM salvo manualmente continua valendo.
+async function geocodeSilencioso(side, texto) {
+  if (!texto) return;
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(texto)}&format=json&addressdetails=1&limit=1&countrycodes=br&accept-language=pt-BR`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+    const data = await res.json();
+    if (data && data.length) {
+      addrState[side] = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), label: texto };
+    }
+  } catch(e) { /* silencioso */ }
+}
+
 async function calcRoute() {
   const o = addrState.origem;
   const d = addrState.destino;
@@ -4757,6 +4773,18 @@ async function loadRefazer() {
       const clr = document.getElementById('clear-destino');
       if (clr) clr.style.display = 'flex';
     }
+    // Geocodifica as duas pontas em segundo plano pra recalcular o KM
+    // automaticamente ao abrir uma cotação existente pra editar — antes
+    // só recalculava se o usuário apagasse e redigitasse o endereço
+    // (escolher de novo pelo autocomplete era o único jeito de preencher
+    // as coordenadas). O KM salvo continua aparecendo até a geocodificação
+    // terminar, e é substituído pelo recalculado assim que resolver.
+    Promise.all([
+      geocodeSilencioso('origem', row['Cidade Origem']),
+      geocodeSilencioso('destino', row['Cidade Destino']),
+    ]).then(() => {
+      if (addrState.origem.lat && addrState.destino.lat) calcRoute();
+    });
     // Empresa emissora + CNPJ Emit
     if (row['Empresa']) {
       setVal('empresa-emit', row['Empresa']);
