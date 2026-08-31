@@ -290,6 +290,10 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   <div class="nav-item" onclick="showView('combustivel')">
     <i class="ti ti-gas-station"></i>Combustível
   </div>
+  <div class="nav-item" onclick="showView('os')">
+    <i class="ti ti-tool"></i>OS
+    <span class="nav-badge warn" id="badge-os" style="display:none"></span>
+  </div>
 
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">Financeiro</div>
@@ -302,6 +306,11 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <span class="nav-badge warn" id="badge-multas" style="display:none"></span>
   </div>
 
+  <div class="sidebar-divider" id="divider-acesso" style="display:none"></div>
+  <div class="sidebar-section" id="section-acesso" style="display:none">Acesso</div>
+  <div class="nav-item" id="nav-login-motorista" onclick="showView('loginMotorista')" style="display:none">
+    <i class="ti ti-key"></i>Login Motorista
+  </div>
 
   <div class="sidebar-footer">
     <button class="sidebar-config" onclick="openConfig()">
@@ -507,6 +516,32 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       </div>
     </div>
 
+    <!-- ─── OS (ORDENS DE SERVIÇO) ─── -->
+    <div id="view-os" class="view">
+      <div class="kpi-grid" id="os-kpis"></div>
+      <div class="filter-bar">
+        <input class="filter-input" placeholder="Buscar por placa ou mecânico…" id="f-os-busca" oninput="filterOs()">
+        <select class="filter-input" id="f-os-status" onchange="filterOs()">
+          <option value="">Todos status</option>
+          <option value="aberta">Aberta</option>
+          <option value="em_andamento">Em Andamento</option>
+          <option value="concluida">Concluída</option>
+        </select>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0;overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>Abertura</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Problema</th><th>Mecânico</th><th>Fotos</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-os"><tr><td colspan="9" class="tbl-empty">
+              <div class="loading-row"><span class="spinner"></span> Carregando…</div>
+            </td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── DESPESAS ─── -->
     <div id="view-despesas" class="view">
       <div class="kpi-grid" id="desp-kpis"></div>
@@ -614,6 +649,24 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
                   <th>Responsabilidade</th><th>Status</th><th></th>
                 </tr></thead>
                 <tbody id="tbody-multas"><tr><td colspan="13" class="tbl-empty">
+                  <div class="loading-row"><span class="spinner"></span> Carregando…</div>
+                </td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── LOGIN MOTORISTA ─── -->
+        <div id="view-loginMotorista" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <i class="ti ti-key" style="color:var(--gold)"></i>
+              <span class="panel-title">Login dos Motoristas (Mobile Frota)</span>
+            </div>
+            <div class="panel-body" style="padding:0;overflow-x:auto">
+              <table class="tbl">
+                <thead><tr><th>Nome</th><th>Login</th><th></th></tr></thead>
+                <tbody id="tbody-login-motorista"><tr><td colspan="3" class="tbl-empty">
                   <div class="loading-row"><span class="spinner"></span> Carregando…</div>
                 </td></tr></tbody>
               </table>
@@ -963,6 +1016,71 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   </div>
 </div>
 
+<!-- OS -->
+<div id="modal-os" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-os-title"><i class="ti ti-tool" style="color:var(--gold);margin-right:6px"></i>Nova OS</div>
+      <button class="modal-close" onclick="document.getElementById('modal-os').classList.remove('open')">×</button>
+    </div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group"><label class="form-label">Placa <span class="req">*</span></label>
+        <input class="form-input" id="os-placa" placeholder="AAA0A00"></div>
+      <div class="form-group"><label class="form-label">Motorista</label>
+        <input class="form-input" id="os-motorista" placeholder="Nome do motorista"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Problema <span class="req">*</span></label>
+        <textarea class="form-input" id="os-problema" rows="3" placeholder="Descrição do problema"></textarea></div>
+      <div class="form-group" id="os-mecanico-row"><label class="form-label">Mecânico</label>
+        <input class="form-input" id="os-mecanico" placeholder="Responsável pelo reparo"></div>
+      <div class="form-group" id="os-status-row"><label class="form-label">Status</label>
+        <select class="form-input" id="os-status">
+          <option value="aberta">Aberta</option>
+          <option value="em_andamento">Em Andamento</option>
+          <option value="concluida">Concluída</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1" id="os-checklist-row"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-os').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveOs()"><i class="ti ti-check" style="font-size:14px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login Motorista -->
+<div id="modal-motorista-login" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-key" style="color:var(--gold);margin-right:6px"></i>Novo Login de Motorista</div>
+      <button class="modal-close" onclick="document.getElementById('modal-motorista-login').classList.remove('open')">×</button>
+    </div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Nome Completo <span class="req">*</span></label>
+        <input class="form-input" id="ml-nome" placeholder="Nome do motorista"></div>
+      <div class="form-group"><label class="form-label">Login <span class="req">*</span></label>
+        <input class="form-input" id="ml-login" placeholder="login de acesso"></div>
+      <div class="form-group"><label class="form-label">Senha <span class="req">*</span></label>
+        <input class="form-input" id="ml-senha" type="text" placeholder="senha inicial"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-motorista-login').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMotoristaLogin()"><i class="ti ti-check" style="font-size:14px"></i> Criar Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- Histórico de Checklist (dentro da OS) -->
+<div id="modal-historico-checklist" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-clipboard-check" style="color:var(--gold);margin-right:6px"></i>Checklist</div>
+      <button class="modal-close" onclick="document.getElementById('modal-historico-checklist').classList.remove('open')">×</button>
+    </div>
+    <div id="historico-checklist-body" style="padding:4px 2px"></div>
+  </div>
+</div>
+
 <!-- Manutenção -->
 <div id="modal-manutencao" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
@@ -1141,7 +1259,7 @@ function mostrarTelaSemAcesso() {
 }
 
 let currentView = 'dashboard';
-let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[] };
+let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[], os:[], checklists:[], motoristasLogin:[] };
 
 const VIEWS = {
   dashboard:   { title:'Dashboard',       icon:'ti-layout-dashboard', sub:'' },
@@ -1149,8 +1267,10 @@ const VIEWS = {
   motoristas:  { title:'Motoristas',      icon:'ti-id-badge',         sub:'Frota', add:'Novo Motorista' },
   viagens:     { title:'Viagens',         icon:'ti-route',            sub:'Operacional', add:'Lançar Viagem' },
   combustivel: { title:'Combustível',     icon:'ti-gas-station',      sub:'Operacional', add:'Abastecimento' },
+  os:          { title:'Ordens de Serviço', icon:'ti-tool',           sub:'Operacional', add:'Nova OS' },
   multas:      { title:'Multas',         icon:'ti-alert-octagon',    sub:'Financeiro', add:'Nova Multa' },
   despesas:    { title:'Despesas',        icon:'ti-receipt',          sub:'Financeiro', add:'Nova Despesa' },
+  loginMotorista: { title:'Login Motorista', icon:'ti-key',           sub:'Acesso', add:'Novo Motorista' },
 };
 
 /* ═══════════════════════════════════════
@@ -1164,6 +1284,7 @@ function showView(v) {
     if(el.getAttribute('onclick')===`showView('${v}')`) el.classList.add('active');
   });
   currentView = v;
+  if(v==='loginMotorista' && !db.motoristasLoginCarregado) { db.motoristasLoginCarregado = true; carregarMotoristasLogin(); }
   const cfg = VIEWS[v];
   if(!cfg) return;
   document.getElementById('topbar-title').textContent = cfg.title;
@@ -1182,8 +1303,21 @@ function showView(v) {
 
 function openAddModal() {
   const modals = { veiculos:'modal-veiculo', motoristas:'modal-motorista', viagens:'modal-viagem',
-    combustivel:'modal-combustivel', despesas:'modal-despesa', multas:'modal-multa' };
+    combustivel:'modal-combustivel', despesas:'modal-despesa', multas:'modal-multa',
+    os:'modal-os', loginMotorista:'modal-motorista-login' };
   const m = modals[currentView];
+  if(currentView==='os'){
+    editingOs=null;
+    document.getElementById('modal-os-title').innerHTML='<i class="ti ti-tool" style="color:var(--gold);margin-right:6px"></i>Nova OS';
+    ['os-placa','os-motorista','os-problema','os-mecanico'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.disabled=false;}});
+    document.getElementById('os-status').value='aberta';
+    document.getElementById('os-status-row').style.display='none';
+    document.getElementById('os-mecanico-row').style.display='none';
+    document.getElementById('os-checklist-row').innerHTML='';
+  }
+  if(currentView==='loginMotorista'){
+    ['ml-nome','ml-login','ml-senha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }
   if(m){
     if(currentView==='veiculos'){
       editingVeiculo=null;
@@ -1385,9 +1519,19 @@ function adaptarMulta(m) {
   };
 }
 
+function adaptarOs(o) {
+  return { id:o.id, checklistId:o.checklist_id, placa:o.placa, motorista:o.motorista,
+    item:o.item, problema:o.problema, qtdFotos:o.qtd_fotos, status:o.status,
+    mecanico:o.mecanico, notas:o.notas||[], dataAbertura:o.data_abertura, dataConclusao:o.data_conclusao };
+}
+function adaptarChecklist(c) {
+  return { id:c.id, motorista:c.motorista, placa:c.placa, dataHora:c.data_hora,
+    observacaoGeral:c.observacao_geral, itens:c.itens||[], totalReprovados:c.total_reprovados };
+}
+
 async function apiGet() {
   try {
-    const [veiculos, motoristas, viagens, combustivel, despesas, manutencoes, multas] = await Promise.all([
+    const [veiculos, motoristas, viagens, combustivel, despesas, manutencoes, multas, os, checklists] = await Promise.all([
       apiFetch(`${API_BASE}/veiculos`).then(r=>r.json()),
       apiFetch(`${API_BASE}/motoristas`).then(r=>r.json()),
       apiFetch(`${API_BASE}/viagens`).then(r=>r.json()),
@@ -1395,6 +1539,8 @@ async function apiGet() {
       apiFetch(`${API_BASE}/despesas`).then(r=>r.json()),
       apiFetch(`${API_BASE}/manutencoes`).then(r=>r.json()),
       apiFetch(`${API_BASE}/multas`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/frota-os`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/frota-os/checklists`).then(r=>r.json()),
     ]);
     return {
       status: 'ok',
@@ -1405,6 +1551,8 @@ async function apiGet() {
       despesas: (despesas||[]).map(adaptarDespesa),
       manutencao: (manutencoes||[]).map(adaptarManutencao),
       multas: (multas||[]).map(adaptarMulta),
+      os: (os||[]).map(adaptarOs),
+      checklists: (checklists||[]).map(adaptarChecklist),
     };
   } catch(e) { console.error(e); return null; }
 }
@@ -1420,6 +1568,8 @@ async function loadAllData() {
     db.despesas    = res.despesas    || [];
     db.manutencao  = res.manutencao  || [];
     db.multas      = res.multas      || [];
+    db.os          = res.os          || [];
+    db.checklists  = res.checklists  || [];
     renderAll();
   } else {
     showNoConfig();
@@ -1435,6 +1585,7 @@ function renderAll() {
   renderCombustivel();
   renderDespesas();
   renderMultas();
+  renderOs();
   updateBadges();
   // Populate selects after data is loaded so dropdowns have content
   populateSelects();
@@ -3227,6 +3378,189 @@ function filterMultas() {
   if(badge){badge.textContent=pend||'';badge.style.display=pend?'inline':'none';}
 }
 
+/* ═══════════════════════════════════════
+   OS (ORDENS DE SERVIÇO)
+════════════════════════════════════════ */
+let editingOs = null;
+const OS_STATUS_LABEL = { aberta:'Aberta', em_andamento:'Em Andamento', concluida:'Concluída' };
+const OS_STATUS_CLASS = { aberta:'badge-red', em_andamento:'badge-orange', concluida:'badge-green' };
+
+function renderOs() { filterOs(); }
+
+function filterOs() {
+  const tb=document.getElementById('tbody-os'); if(!tb)return;
+  const q=(document.getElementById('f-os-busca')?.value||'').toLowerCase();
+  const qSt=document.getElementById('f-os-status')?.value||'';
+
+  const rows=(db.os||[]).filter(o=>{
+    return (!q||(o.placa||'').toLowerCase().includes(q)||(o.mecanico||'').toLowerCase().includes(q))
+      &&(!qSt||o.status===qSt);
+  }).sort((a,b)=>new Date(b.dataAbertura||0)-new Date(a.dataAbertura||0));
+
+  window.filteredOs=rows;
+
+  const abertas=(db.os||[]).filter(o=>o.status==='aberta').length;
+  const andamento=(db.os||[]).filter(o=>o.status==='em_andamento').length;
+  const concluidas=(db.os||[]).filter(o=>o.status==='concluida').length;
+  const kpis=document.getElementById('os-kpis');
+  if(kpis) kpis.innerHTML=`
+    <div class="kpi-card red"><i class="ti ti-alert-triangle kpi-icon red"></i>
+      <div class="kpi-val txt-red">${abertas}</div><div class="kpi-lbl">Abertas</div></div>
+    <div class="kpi-card orange"><i class="ti ti-clock kpi-icon orange"></i>
+      <div class="kpi-val" style="color:var(--orange)">${andamento}</div><div class="kpi-lbl">Em Andamento</div></div>
+    <div class="kpi-card green"><i class="ti ti-check kpi-icon green"></i>
+      <div class="kpi-val txt-green">${concluidas}</div><div class="kpi-lbl">Concluídas</div></div>`;
+
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="9" class="tbl-empty">${(db.os||[]).length?'Nenhuma OS encontrada':'Nenhuma OS cadastrada'}</td></tr>`;
+  } else {
+    tb.innerHTML=rows.map(o=>{
+      const st=o.status||'aberta';
+      return `<tr style="cursor:pointer" onclick="openEditOs('${o.id}')">
+        <td style="white-space:nowrap;font-size:11px">${fmtDate(o.dataAbertura||'')}</td>
+        <td><span class="placa">${o.placa||'—'}</span></td>
+        <td style="font-size:11px">${o.motorista||'—'}</td>
+        <td style="font-size:11px">${o.item||'—'}</td>
+        <td style="max-width:220px;font-size:11px">${o.problema||'—'}</td>
+        <td style="font-size:11px">${o.mecanico||'—'}</td>
+        <td style="font-size:11px;text-align:center">${o.checklistId?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirHistoricoChecklist('${o.checklistId}')" title="Ver checklist"><i class="ti ti-photo" style="font-size:12px"></i> ${o.qtdFotos||0}</button>`:(o.qtdFotos||'—')}</td>
+        <td><span class="badge ${OS_STATUS_CLASS[st]||''}" style="font-size:9px">${OS_STATUS_LABEL[st]||st}</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openEditOs('${o.id}')" title="Editar"><i class="ti ti-pencil" style="font-size:12px"></i></button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const badge=document.getElementById('badge-os');
+  if(badge){badge.textContent=abertas||'';badge.style.display=abertas?'inline':'none';}
+}
+
+function openEditOs(id) {
+  const o=(db.os||[]).find(x=>x.id===id);
+  if(!o) return;
+  editingOs=o;
+  document.getElementById('modal-os-title').innerHTML='<i class="ti ti-tool" style="color:var(--gold);margin-right:6px"></i>Editar OS';
+  document.getElementById('os-placa').value=o.placa||'';
+  document.getElementById('os-motorista').value=o.motorista||'';
+  document.getElementById('os-problema').value=o.problema||'';
+  document.getElementById('os-mecanico').value=o.mecanico||'';
+  document.getElementById('os-status').value=o.status||'aberta';
+  document.getElementById('os-status-row').style.display='';
+  document.getElementById('os-mecanico-row').style.display='';
+  document.getElementById('os-placa').disabled=true;
+  document.getElementById('os-problema').disabled=true;
+  const cRow=document.getElementById('os-checklist-row');
+  cRow.innerHTML = o.checklistId
+    ? `<button class="btn btn-ghost btn-sm" onclick="abrirHistoricoChecklist('${o.checklistId}')"><i class="ti ti-clipboard-check" style="font-size:13px"></i> Ver histórico do checklist</button>`
+    : '';
+  document.getElementById('modal-os').classList.add('open');
+}
+
+async function saveOs() {
+  const placa=document.getElementById('os-placa').value.trim();
+  const problema=document.getElementById('os-problema').value.trim();
+  if(!editingOs && (!placa||!problema)){ alert('Informe placa e problema.'); return; }
+  try {
+    if(editingOs){
+      const mecanico=document.getElementById('os-mecanico').value.trim();
+      const status=document.getElementById('os-status').value;
+      if(mecanico!==(editingOs.mecanico||'')) await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/mecanico`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({mecanico})});
+      if(status!==editingOs.status) await apiFetch(`${API_BASE}/frota-os/${editingOs.id}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    } else {
+      const motorista=document.getElementById('os-motorista').value.trim();
+      await apiFetch(`${API_BASE}/frota-os`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({placa,motorista,problema})});
+    }
+    document.getElementById('modal-os').classList.remove('open');
+    document.getElementById('os-placa').disabled=false;
+    document.getElementById('os-problema').disabled=false;
+    await loadAllData();
+    showView('os');
+  } catch(e){ console.error(e); alert('Erro ao salvar OS.'); }
+}
+
+function abrirHistoricoChecklist(checklistId) {
+  const c=(db.checklists||[]).find(x=>x.id===checklistId);
+  const body=document.getElementById('historico-checklist-body');
+  if(!c){ body.innerHTML='<div class="tbl-empty">Checklist não encontrado.</div>'; document.getElementById('modal-historico-checklist').classList.add('open'); return; }
+  const ITEM_LABEL = { ok:'OK', bad:'REPROVADO', na:'N/A' };
+  const ITEM_COLOR = { ok:'var(--green)', bad:'var(--red)', na:'var(--txt-dim)' };
+  const itens=(c.itens||[]).map(it=>`
+    <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px">
+        <span>${it.item||'—'}</span>
+        <span style="font-weight:700;color:${ITEM_COLOR[it.status]||'var(--txt-dim)'}">${ITEM_LABEL[it.status]||it.status||'—'}</span>
+      </div>
+      ${it.status==='bad'&&it.obs?`<div style="margin-top:4px;color:var(--txt-dim)">${it.obs}${it.qtdFotos?` · ${it.qtdFotos} foto(s)`:''}</div>`:''}
+    </div>`).join('');
+  body.innerHTML = `
+    <div style="font-size:12px;color:var(--txt-dim);margin-bottom:10px">
+      <strong>${c.motorista||'—'}</strong> · <span class="placa">${c.placa||'—'}</span> · ${fmtDate(c.dataHora||'')}
+    </div>
+    ${c.observacaoGeral?`<div style="font-size:12px;margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:8px">${c.observacaoGeral}</div>`:''}
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">${itens||'<div class="tbl-empty">Sem itens</div>'}</div>`;
+  document.getElementById('modal-historico-checklist').classList.add('open');
+}
+
+/* ═══════════════════════════════════════
+   LOGIN MOTORISTA (Mobile Frota)
+════════════════════════════════════════ */
+async function carregarMotoristasLogin() {
+  const tb=document.getElementById('tbody-login-motorista'); if(!tb) return;
+  try {
+    const res = await apiFetch(`${API_BASE}/frota/motoristas-login`);
+    if(!res.ok){
+      tb.innerHTML = `<tr><td colspan="3" class="tbl-empty">Sem permissão para gerenciar logins de motorista.</td></tr>`;
+      return;
+    }
+    db.motoristasLogin = await res.json();
+    renderLoginMotoristas();
+  } catch(e){ console.error(e); tb.innerHTML=`<tr><td colspan="3" class="tbl-empty">Erro ao carregar.</td></tr>`; }
+}
+
+function renderLoginMotoristas() {
+  const tb=document.getElementById('tbody-login-motorista'); if(!tb) return;
+  const rows=db.motoristasLogin||[];
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="3" class="tbl-empty">Nenhum login de motorista cadastrado</td></tr>'; return; }
+  tb.innerHTML = rows.map(m=>`
+    <tr>
+      <td style="font-size:12px">${m.nome||'—'}</td>
+      <td class="txt-mono" style="font-size:12px">${m.login||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="resetarSenhaMotoristaLogin('${m.id}')" title="Resetar senha"><i class="ti ti-key" style="font-size:12px"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="excluirMotoristaLogin('${m.id}')" title="Excluir"><i class="ti ti-trash" style="font-size:12px;color:var(--red)"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+async function saveMotoristaLogin() {
+  const nome=document.getElementById('ml-nome').value.trim();
+  const login=document.getElementById('ml-login').value.trim();
+  const senha=document.getElementById('ml-senha').value;
+  if(!nome||!login||!senha){ alert('Preencha nome, login e senha.'); return; }
+  try {
+    const res = await apiFetch(`${API_BASE}/frota/motoristas-login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,login,senha})});
+    if(!res.ok){ const err=await res.json().catch(()=>({})); alert(err.error||'Erro ao criar login.'); return; }
+    document.getElementById('modal-motorista-login').classList.remove('open');
+    await carregarMotoristasLogin();
+  } catch(e){ console.error(e); alert('Erro ao criar login.'); }
+}
+
+async function resetarSenhaMotoristaLogin(id) {
+  const senha=prompt('Nova senha para este motorista:');
+  if(!senha) return;
+  try {
+    await apiFetch(`${API_BASE}/frota/motoristas-login/${id}/resetar-senha`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha})});
+    alert('Senha atualizada.');
+  } catch(e){ console.error(e); alert('Erro ao resetar senha.'); }
+}
+
+async function excluirMotoristaLogin(id) {
+  if(!confirm('Excluir o login deste motorista? Ele não poderá mais acessar o Mobile Frota.')) return;
+  try {
+    await apiFetch(`${API_BASE}/frota/motoristas-login/${id}`,{method:'DELETE'});
+    await carregarMotoristasLogin();
+  } catch(e){ console.error(e); alert('Erro ao excluir login.'); }
+}
+
 /* ── Auto-fill motorista ao selecionar placa ── */
 function multaAutoFill(sel) {
   const v=db.veiculos.find(x=>(x['Placa']||'')===sel.value);
@@ -3391,6 +3725,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('config-dot').style.background='var(--green)';
   document.getElementById('config-label').textContent='API conectada';
   if (!getAuthToken()) { mostrarTelaSemAcesso(); } else { loadAllData(); }
+  const perfil = localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';
+  if(perfil==='gestor'){
+    ['divider-acesso','section-acesso','nav-login-motorista'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.style.display='';
+    });
+  }
   const mes=new Date().toISOString().slice(0,7);
   // Set date range for viagens to current month
   const firstDay=mes+'-01', lastDay=new Date(parseInt(mes.split('-')[0]),parseInt(mes.split('-')[1]),0).toISOString().split('T')[0];
