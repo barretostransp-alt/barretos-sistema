@@ -299,7 +299,26 @@ var FM={
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
-function fset(k,v){var e=document.getElementById(fid(k));if(e){if(e.type==="date")e.value=toBR_inv(v);else e.value=v||"";}}
+// Campos de texto livre do card — só maiúsculas (pedido do Alex: consistência
+// visual e de busca). Fora dessa lista: selects, datas, valores em R$/%,
+// DT CODIGO/Chave (já forçados em outro lugar) e VENDEDOR (nome próprio,
+// usado com acento/maiúscula certa nos relatórios — não force aqui).
+var CAMPOS_MAIUSCULOS={"CLIENTE":1,"CONTATO CLIENTE":1,"CNPJ TOMADOR":1,"CTE":1,"MDF":1,"NF":1,
+  "CIDADE ORIGEM":1,"CIDADE DESTINO":1,"TITULAR DA CONTA":1,"CHAVE PIX":1,"BANCO":1,
+  "TELEFONE MOTORISTA":1,"TITULO":1,"OBSERVACAO":1,"VALE PEDAGIO":1,"TIPO DE VEICULO":1,
+  "MOTORISTA":1,"GERENCIAMENTO":1};
+function fset(k,v){var e=document.getElementById(fid(k));if(e){if(e.type==="date")e.value=toBR_inv(v);else e.value=CAMPOS_MAIUSCULOS[k]?String(v||"").toUpperCase():(v||"");}}
+// Força maiúsculas em tempo real enquanto o usuário digita — delegado no
+// document pra funcionar mesmo com o form sendo reconstruído (innerHTML)
+// toda vez que o modal abre.
+var CAMPOS_MAIUSCULOS_IDS=Object.keys(CAMPOS_MAIUSCULOS).map(fid);
+document.addEventListener("input",function(ev){
+  var t=ev.target;
+  if(!t||!t.id||CAMPOS_MAIUSCULOS_IDS.indexOf(t.id)===-1)return;
+  var pos=t.selectionStart,posEnd=t.selectionEnd;
+  t.value=t.value.toUpperCase();
+  if(t.setSelectionRange)t.setSelectionRange(pos,posEnd);
+});
 
 // Date helpers: sheet = dd/MM/yyyy, input[type=date] = yyyy-MM-dd
 function toBR_inv(s){
@@ -911,6 +930,7 @@ function getFormData(){
     if(!el)return;
     if(el.type==="date")dados[k]=fromDateInp(el.value);
     else dados[k]=el.value.trim();
+    if(CAMPOS_MAIUSCULOS[k]&&dados[k])dados[k]=dados[k].toUpperCase();
   });
   // Garante fallback de custo
   if(!dados["CUSTO OPERACIONAL TOTAL"]&&dados["FRETE PAGO"])
