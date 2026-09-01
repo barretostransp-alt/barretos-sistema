@@ -125,12 +125,6 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 .pct-w{position:relative;}
 .pct-w input{padding-right:26px;}
 .pct-s{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--txt-dim);pointer-events:none;}
-.ped-toggle-wrap{display:flex;align-items:center;gap:9px;height:34px;cursor:pointer;user-select:none;}
-.ped-toggle{width:42px;height:23px;border-radius:12px;background:var(--border);position:relative;flex-shrink:0;transition:background .18s;}
-.ped-toggle .knob{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.35);}
-.ped-toggle.on{background:var(--gold);}
-.ped-toggle.on .knob{left:21px;}
-.ped-toggle-label{font-size:12px;font-weight:600;color:var(--txt-dim);min-width:26px;}
 .az{border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;margin-top:4px;}
 .az:hover,.az.dov{border-color:var(--gold);background:var(--gold-dim);}
 .az p{font-size:11px;color:var(--txt-dim);margin-top:4px;}
@@ -302,8 +296,7 @@ var FM={
   "TITULO":             "fi_titulo",
   "OBSERVACAO":         "fi_obs",
   "VALE PEDAGIO":     "fi_vale_pedagio",
-  "PEDAGIO":            "fi_pedagio",
-  "PEDAGIO INCLUSO":    "fi_pedagio_incluso"
+  "PEDAGIO":            "fi_pedagio"
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
@@ -421,14 +414,13 @@ function mostrarTelaSemAcesso() {
 // planilha antiga devolvia) pro formato da API (snake_case, datas ISO).
 function mapearParaApi_(dados){
   var camposData = {"DATA DA COLETA":1,"PREVISÃO DE ENTREGA":1,"DATA DA ENTREGA":1};
-  var camposBool = {"PEDAGIO INCLUSO":1};
   var mapa = {
     "DT CODIGO":"codigo","Resumo":"resumo","TITULO":"titulo","Status":"status","ACOMPANHAMENTO":"acompanhamento",
     "CLIENTE":"cliente","CONTATO CLIENTE":"contato_cliente","CNPJ TOMADOR":"cnpj_tomador","VENDEDOR":"vendedor",
     "DATA DA COLETA":"data_coleta","PREVISÃO DE ENTREGA":"previsao_entrega","MODALIDADE":"modalidade","TIPO DE MATERIAL":"tipo_material",
     "CTE":"cte","MDF":"mdf","NF":"nf","DATA DA ENTREGA":"data_entrega",
     "CIDADE ORIGEM":"cidade_origem","UF ORIGEM":"uf_origem","CIDADE DESTINO":"cidade_destino","UF DESTINO":"uf_destino",
-    "FRETE COBRADO":"frete_cobrado","FRETE PAGO":"frete_pago","PEDAGIO":"pedagio_valor","PEDAGIO INCLUSO":"pedagio_incluso","CUSTO OPERACIONAL TOTAL":"custo_operacional_total","ADIANTAMENTO":"adiantamento",
+    "FRETE COBRADO":"frete_cobrado","FRETE PAGO":"frete_pago","PEDAGIO":"pedagio_valor","CUSTO OPERACIONAL TOTAL":"custo_operacional_total","ADIANTAMENTO":"adiantamento",
     "TIPO DE VEICULO":"tipo_veiculo","MOTORISTA":"motorista","TELEFONE MOTORISTA":"telefone_motorista","GERENCIAMENTO":"gerenciamento",
     "TITULAR DA CONTA":"titular_conta","TIPO CHAVE PIX":"tipo_chave_pix","CHAVE PIX":"chave_pix","BANCO":"banco",
     "OBSERVACAO":"observacao","COTAÇÃO":"cotacao_numero","VALE PEDAGIO":"vale_pedagio"
@@ -436,7 +428,7 @@ function mapearParaApi_(dados){
   var out = {};
   Object.keys(mapa).forEach(function(k){
     if(dados[k]===undefined) return;
-    out[mapa[k]] = camposBool[k] ? (dados[k]==="SIM") : (camposData[k] ? toBR_inv(dados[k]) : dados[k]);
+    out[mapa[k]] = camposData[k] ? toBR_inv(dados[k]) : dados[k];
   });
   return out;
 }
@@ -450,18 +442,17 @@ function mapearDoApi_(row){
     data_coleta:"DATA DA COLETA", previsao_entrega:"PREVISÃO DE ENTREGA", modalidade:"MODALIDADE", tipo_material:"TIPO DE MATERIAL",
     cte:"CTE", mdf:"MDF", nf:"NF", data_entrega:"DATA DA ENTREGA",
     cidade_origem:"CIDADE ORIGEM", uf_origem:"UF ORIGEM", cidade_destino:"CIDADE DESTINO", uf_destino:"UF DESTINO",
-    frete_cobrado:"FRETE COBRADO", frete_pago:"FRETE PAGO", pedagio_valor:"PEDAGIO", pedagio_incluso:"PEDAGIO INCLUSO", custo_operacional_total:"CUSTO OPERACIONAL TOTAL", adiantamento:"ADIANTAMENTO",
+    frete_cobrado:"FRETE COBRADO", frete_pago:"FRETE PAGO", pedagio_valor:"PEDAGIO", custo_operacional_total:"CUSTO OPERACIONAL TOTAL", adiantamento:"ADIANTAMENTO",
     tipo_veiculo:"TIPO DE VEICULO", motorista:"MOTORISTA", telefone_motorista:"TELEFONE MOTORISTA", gerenciamento:"GERENCIAMENTO",
     titular_conta:"TITULAR DA CONTA", tipo_chave_pix:"TIPO CHAVE PIX", chave_pix:"CHAVE PIX", banco:"BANCO",
     observacao:"OBSERVACAO", cotacao_numero:"COTAÇÃO", vale_pedagio:"VALE PEDAGIO"
   };
   var camposData = {data_coleta:1, previsao_entrega:1, data_entrega:1};
-  var camposBool = {pedagio_incluso:1};
   var out = {};
   Object.keys(mapaInverso).forEach(function(campo){
     var chave = mapaInverso[campo];
     var v = row[campo];
-    out[chave] = camposBool[campo] ? (v ? "SIM" : "NAO") : (camposData[campo] ? fromDateInp(v||'') : (v||''));
+    out[chave] = camposData[campo] ? fromDateInp(v||'') : (v||'');
   });
   out["Chave"] = out["DT CODIGO"];
   return out;
@@ -892,13 +883,6 @@ function buildForm(data,isNew){
     "<div class=\"fg\"><label>Adiantamento (%)</label><div class=\"pct-w\">"+
       "<input id=\""+fid("ADIANTAMENTO")+"\" value=\""+e(data["ADIANTAMENTO"]||"")+"\" placeholder=\"0\" oninput=\"this.value=this.value.replace(/[^0-9.,]/g,'')\">"+
       "<span class=\"pct-s\">%</span></div></div>"+
-    "<div class=\"fg\"><label>Pedágio Incluso no Frete?</label>"+
-      "<div class=\"ped-toggle-wrap\" onclick=\"togglePedagioIncluso()\">"+
-        "<div class=\"ped-toggle"+((data["PEDAGIO INCLUSO"]==="SIM")?" on":"")+"\" id=\""+fid("PEDAGIO INCLUSO")+"_sw\"><div class=\"knob\"></div></div>"+
-        "<span class=\"ped-toggle-label\" id=\""+fid("PEDAGIO INCLUSO")+"_lbl\" style=\""+((data["PEDAGIO INCLUSO"]==="SIM")?"color:var(--gold)":"")+"\">"+((data["PEDAGIO INCLUSO"]==="SIM")?"Sim":"Não")+"</span>"+
-      "</div>"+
-      "<input type=\"hidden\" id=\""+fid("PEDAGIO INCLUSO")+"\" value=\""+((data["PEDAGIO INCLUSO"]==="SIM")?"SIM":"NAO")+"\">"+
-    "</div>"+
   "</div></div>"+
 
   // ── TRANSPORTE
@@ -1376,34 +1360,6 @@ function onFretMotBlur(){
   if(soma>0)ct.value=String(soma);
 }
 
-// ── Pedágio Incluso no Frete Pago ──
-// "Sim": o valor digitado em Frete Pago já vinha com o pedágio embutido
-// (ex: motorista negociado por 11.000 incluindo pedágio) — ao ligar o
-// toggle, tira o pedágio de dentro do Frete Pago (fica só o frete puro),
-// e o Custo Operacional Total continua sendo Frete Pago + Pedágio de
-// sempre, então bate de novo com os 11.000 originais.
-// "Não": pedágio é pago à parte — Frete Pago nunca é alterado por causa
-// dele, só entra na soma do Custo Operacional Total (regra que já existia).
-// Esse ajuste só acontece na hora de ligar o toggle (uma vez só); desligar
-// não devolve o valor pro Frete Pago — se precisar corrigir, digita nele
-// direto. Por isso: preencha Frete Pago e Pedágio ANTES de marcar "Sim".
-function togglePedagioIncluso(){
-  var hid=document.getElementById(fid("PEDAGIO INCLUSO"));
-  var sw=document.getElementById(fid("PEDAGIO INCLUSO")+"_sw");
-  var lbl=document.getElementById(fid("PEDAGIO INCLUSO")+"_lbl");
-  var fm=document.getElementById(fid("FRETE PAGO"));
-  var ped=document.getElementById(fid("PEDAGIO"));
-  if(!hid||!fm||!ped)return;
-  var ligando=hid.value!=="SIM";
-  if(ligando){
-    var novoFrete=parseValorBR_(fm.value)-parseValorBR_(ped.value);
-    fm.value=String(novoFrete);
-  }
-  hid.value=ligando?"SIM":"NAO";
-  if(sw)sw.classList.toggle("on",ligando);
-  if(lbl){lbl.textContent=ligando?"Sim":"Não";lbl.style.color=ligando?"var(--gold)":"";}
-  onFretMotBlur();
-}
 </script>
 
 <script>
