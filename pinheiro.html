@@ -957,6 +957,7 @@ async function saveCard(){
   var dados=getFormData();
   if(!dados["DT CODIGO"]){msg.textContent="DT Código obrigatório.";msg.className="mmsg err";return;}
   if(!dados["CLIENTE"]){msg.textContent="Cliente obrigatório.";msg.className="mmsg err";return;}
+  if(!editKey&&!dados["VENDEDOR"]){msg.textContent="Vendedor obrigatório.";msg.className="mmsg err";return;}
   if(isUsed(dados["DT CODIGO"])){msg.textContent="Código já utilizado!";msg.className="mmsg err";return;}
 
   // Chave e Resumo (colunas A e B da planilha)
