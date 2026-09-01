@@ -1920,6 +1920,7 @@ function mapearCotacaoDoApi_(row) {
     Revisoes: row.revisoes || 0,
     KanbanCardCodigo: row.kanban_card_codigo || '', KanbanCardEmpresa: row.kanban_card_empresa || '',
     Observacao: formatarNotasComoBlob_(row.notas), 'Observação': formatarNotasComoBlob_(row.notas),
+    ObservacaoInterna: row.observacao_interna || '',
   };
 }
 // As notas agora vêm de uma tabela própria (cotacao_notas), mas o resto
@@ -4170,6 +4171,39 @@ function buildObsCell(r, rowKey) {
   return `<td class="obs-cell"><button onclick="abrirDetalheCotacao('${rowKey}')" style="background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:4px 10px;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:5px"><i class="ti ti-message-circle" style="font-size:12px"></i>${label}</button></td>`;
 }
 
+// Observação livre da própria linha — diferente do histórico de notas
+// (buildObsCell/abrirDetalheCotacao, que registra movimentações com
+// autor e data). Essa aqui é só um texto simples, visível de cara pra
+// quem olhar a tabela, sem precisar abrir nada. Salva ao sair do campo.
+function buildObsInternaCell(r, rowKey) {
+  const valor = String(r['ObservacaoInterna']||'').replace(/"/g,'&quot;');
+  return `<td class="obsint-cell"><input type="text" value="${valor}" placeholder="Anotação visível pra todos..."
+    style="width:160px;background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:inherit;padding:5px 8px;font-size:11px"
+    onblur="salvarObservacaoInterna('${rowKey}', this)"
+    onkeydown="if(event.key==='Enter'){this.blur();}"></td>`;
+}
+
+async function salvarObservacaoInterna(rowKey, inputEl) {
+  const novoValor = inputEl.value.trim();
+  const row = histData.find(r => String(r.Numero) === String(rowKey));
+  if (row && row.ObservacaoInterna === novoValor) return; // nada mudou
+  const id = idPorNumero_(rowKey);
+  if (!id) { console.warn('[salvarObservacaoInterna] cotação não encontrada:', rowKey); return; }
+  showSaveBadge(inputEl, 'saving');
+  try {
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ observacao_interna: novoValor }),
+    });
+    showSaveBadge(inputEl, res.ok ? 'saved' : 'error');
+    if (res.ok && row) row.ObservacaoInterna = novoValor;
+    else if (!res.ok) console.error('[salvarObservacaoInterna] falha ao salvar');
+  } catch (e) {
+    showSaveBadge(inputEl, 'error');
+    console.error('[salvarObservacaoInterna]', e);
+  }
+}
+
 function renderHistory() {
   const el = document.getElementById('hist-content');
   const totalGeral = histData.length;
@@ -4204,21 +4238,21 @@ function renderHistory() {
   const nP = total - nA - nR - nD - nS;
   const isFiltered = (histFilter !== 'all' || histFilterVend !== 'all' || histFilterMes !== 'all' || !!buscaCliente);
 
-  // Ordem decrescente (mais recente primeiro)
-  const sortedData = filtered.slice().reverse();
+  // Ordem decrescente por número — da cotação mais nova (maior) pra mais antiga (menor)
+  const sortedData = filtered.slice().sort((a, b) => (parseInt(b.Numero, 10) || 0) - (parseInt(a.Numero, 10) || 0));
   const keys = histData.length ? Object.keys(histData[0]) : [];
   /* Inclui Cliente logo após Vendedor */
   const colsAll = ['Data','Numero','Vendedor','Cliente','Modalidade','Cidade Origem','Cidade Destino','Valor'];
   const cols = colsAll.filter(c => keys.includes(c));
   const tableHTML = filtered.length ? `<div style="overflow-x:auto">
     <table class="hist-table">
-      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Aprovação</th><th>Observação</th></tr></thead>
+      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>Status</th><th>Aprovação</th><th>Observação</th><th>Histórico</th></tr></thead>
       <tbody>${sortedData.map((r, i) => {
         const key = getLocalKey(r);
         return `<tr>${cols.map(c => {
           if (c === 'Data') { const pd = parseDateAny(r[c]); return `<td>${pd ? pd.fmt : (r[c]||'—')}</td>`; }
           return `<td>${r[c]||'—'}</td>`;
-        }).join('')}${buildStatusCell(r,key,i)}${buildAprovCell(r)}${buildObsCell(r,key)}</tr>`;
+        }).join('')}${buildStatusCell(r,key,i)}${buildAprovCell(r)}${buildObsInternaCell(r,key)}${buildObsCell(r,key)}</tr>`;
       }).join('')}</tbody>
     </table>
     <p style="font-size:11px;color:var(--txt-dim,#888);margin-top:10px;text-align:right">
