@@ -789,6 +789,8 @@ function applyUser(user){
   // sem Vale Pedágio (nunca antecipado pro dia anterior).
   iniciarAlertaColetaAmanha(user);
   iniciarAlertaValePedagioHoje(user);
+  // Alerta de novo chamado no Helpdesk (só pro Alex) — polling a cada 45s.
+  iniciarAlertaHelpdesk(user);
 }
 
 function aplicarMenuPermissoes(p){
@@ -1344,6 +1346,34 @@ async function salvarTrocaSenhaObrigatoria(){
   </div>
 </div>
 
+<!-- MODAL ALERTA — NOVO CHAMADO NO HELPDESK (só pro Alex) -->
+<div id="helpdesk-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="helpdesk-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎧</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="helpdesk-alerta-titulo">Novo chamado no Helpdesk</div>
+        <div style="font-size:11px;color:#6B7280" id="helpdesk-alerta-sub">Chamados em aberto</div>
+      </div>
+      <button onclick="fecharAlertaHelpdesk()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="helpdesk-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaHelpdesk()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaHelpdesk();navigate('helpdesk')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver no Helpdesk</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ALERTA — FILA DE FATURAMENTO (usuária Gisele Bonfim) -->
 <div id="fila-fat-alerta-overlay" style="
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
@@ -1676,6 +1706,76 @@ function mostrarAlertaFila(novos){
 
 function fecharAlertaFila(){
   document.getElementById('fila-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE NOVO CHAMADO NO HELPDESK (só pro Alex) ──
+   Mesmo esqueleto do alerta de fila do Financeiro (polling 45s, popup
+   com o que é novo desde a última checagem, guardado em localStorage). */
+var _alertaHelpdeskIntervalId = null;
+function iniciarAlertaHelpdesk(user){
+  if(_alertaHelpdeskIntervalId){ clearInterval(_alertaHelpdeskIntervalId); _alertaHelpdeskIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var ehAlex = nome.indexOf('alex')===0 || login.indexOf('alex')===0;
+  if(!ehAlex) return; // só pro Alex
+  setTimeout(verificarNovoChamadoHelpdesk, 3000); // dá um tempo pro login/permissões carregarem primeiro
+  _alertaHelpdeskIntervalId = setInterval(verificarNovoChamadoHelpdesk, 45000);
+}
+
+async function verificarNovoChamadoHelpdesk(){
+  try{
+    var r = await apiFetchShell(API_BASE + '/helpdesk');
+    if(!r.ok) return;
+    var chamados = await r.json();
+    if(!Array.isArray(chamados)) return;
+
+    var chaveVistos = 'helpdesk_chamados_vistos';
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+
+    var chavesAtuais = chamados.map(function(row){ return row.id; });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+      return;
+    }
+
+    var novos = chamados.filter(function(row){ return vistos.indexOf(row.id) === -1; });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+
+    if(novos.length > 0) mostrarAlertaHelpdesk(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function mostrarAlertaHelpdesk(novos){
+  var titulo = document.getElementById('helpdesk-alerta-titulo');
+  var sub = document.getElementById('helpdesk-alerta-sub');
+  var body = document.getElementById('helpdesk-alerta-body');
+
+  titulo.textContent = novos.length === 1
+    ? 'Novo chamado no Helpdesk'
+    : novos.length + ' novos chamados no Helpdesk';
+  sub.textContent = 'Chamados em aberto';
+
+  body.innerHTML = novos.map(function(row){
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">🎧</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(row.titulo||'Sem título')+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(row.categoria||'')+(row.solicitante?' · '+row.solicitante:'')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('helpdesk-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaHelpdesk(){
+  document.getElementById('helpdesk-alerta-overlay').style.display = 'none';
 }
 
 /* ── ALERTA DE FILA DE FATURAMENTO (usuária Gisele Bonfim) ──

@@ -557,38 +557,31 @@ async function carregarLab(user) {
 async function carregarHelpdesk(user) {
   var el = document.getElementById('hd-body');
   try {
-    var loginAtual = user && user.nome ? user.nome.trim().toLowerCase() : '';
     var r = await apiFetch(API_BASE + '/helpdesk');
     var rows = await r.json();
     if (!r.ok) throw new Error(rows.error || 'Erro ao carregar');
-    var items = (rows || []).filter(function(item) {
-      if (!loginAtual) return true;
-      var resp = String(item.Responsavel||item.responsavel||item.Atribuido||'').toLowerCase();
-      var cria = String(item.Criador||item.criador||item.Solicitante||'').toLowerCase();
-      return resp.includes(loginAtual.split(' ')[0]) || cria.includes(loginAtual.split(' ')[0]);
-    }).slice(-5).reverse();
 
-    var abertos = items.filter(function(i){
-      var s = String(i.Status||i.status||'').toLowerCase();
-      return !s.includes('conclu') && !s.includes('fechado') && !s.includes('resolvido');
-    });
+    // Em aberto = ainda precisa de alguém (Aberto ou Em Atendimento) —
+    // Resolvido/Fechado já saíram da fila de trabalho.
+    var abertos = (rows || []).filter(function(item) {
+      var s = String(item.status||'').toLowerCase();
+      return !s.includes('resolv') && !s.includes('fechado');
+    }).sort(function(a, b) { return new Date(b.criado_em||0) - new Date(a.criado_em||0); });
 
-    if (abertos.length) {
-      document.getElementById('hd-badge').style.display = 'inline';
-      document.getElementById('hd-badge').textContent = abertos.length;
-    }
+    var badge = document.getElementById('hd-badge');
+    if (abertos.length) { badge.style.display = 'inline'; badge.textContent = abertos.length; }
+    else { badge.style.display = 'none'; }
 
-    if (!items.length) { el.innerHTML = '<div class="side-empty">Nenhum chamado encontrado.</div>'; return; }
+    if (!abertos.length) { el.innerHTML = '<div class="side-empty">Nenhum chamado em aberto.</div>'; return; }
 
-    el.innerHTML = items.map(function(item) {
-      var status = item.Status||item.status||'';
-      var aberto = !status.toLowerCase().includes('conclu') && !status.toLowerCase().includes('fechado');
-      var cor = aberto ? 'var(--red)' : 'var(--green)';
+    el.innerHTML = abertos.slice(0, 5).map(function(item) {
+      var status = item.status||'';
+      var cor = status === 'Em Atendimento' ? 'var(--blue)' : 'var(--red)';
       return '<div class="feed-item">'+
         '<div class="feed-ico" style="background:rgba(239,68,68,.1);color:var(--red)">🎧</div>'+
         '<div class="feed-info">'+
-          '<div class="feed-titulo">'+esc(item.Titulo||item.titulo||item.Assunto||'Chamado')+'</div>'+
-          '<div class="feed-sub" style="color:'+cor+'">'+esc(status)+'</div>'+
+          '<div class="feed-titulo">'+esc(item.titulo||'Chamado')+'</div>'+
+          '<div class="feed-sub" style="color:'+cor+'">'+esc(status)+(item.solicitante?' · '+esc(item.solicitante):'')+'</div>'+
         '</div>'+
       '</div>';
     }).join('');
