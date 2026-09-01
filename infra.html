@@ -463,11 +463,23 @@ function mapearDoApi_(row){
    pendurado até travar (planilha ocupada por outra pessoa). Em vez de
    mostrar erro na hora, espera um pouco e tenta de novo sozinho — na
    prática, a maioria das vezes o usuário nem chega a perceber. */
-async function fetchComTentativas_(url, options, maxTentativas){
+async function fetchComTentativas_(url, options, maxTentativas, timeoutMs){
   maxTentativas = maxTentativas || 3;
   for(var tentativa = 1; tentativa <= maxTentativas; tentativa++){
     try{
-      var res = await fetch(url, options);
+      var res;
+      if(timeoutMs){
+        // Sem isso, um Apps Script "frio" (primeira chamada depois de um
+        // tempo parado) podia deixar o fetch pendurado por bem mais tempo
+        // do que o usuário espera, sem cair no catch/retry — parecia
+        // travado em vez de dar erro e tentar de novo.
+        var ctrl = new AbortController();
+        var timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
+        try{ res = await fetch(url, Object.assign({}, options, { signal: ctrl.signal })); }
+        finally{ clearTimeout(timer); }
+      } else {
+        res = await fetch(url, options);
+      }
       var json = await res.json();
       if(json && json.ocupado && tentativa < maxTentativas){
         await new Promise(function(r){ setTimeout(r, 2500); });
@@ -1013,17 +1025,40 @@ function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").re
 
 // ── ANEXOS VIA GOOGLE DRIVE ─────────────────────────────────
 
+// carregandoAnexos/erroAnexos existem pra distinguir "ainda buscando",
+// "deu erro" e "não tem anexo mesmo" — antes os três casos mostravam a
+// mesma tela vazia, então uma falha (comum no Apps Script compartilhado
+// pelos 4 quadros) parecia só "não tinha anexo", sem jeito de saber e
+// sem botão pra tentar de novo.
+var carregandoAnexos = false;
+var erroAnexos = false;
+
 function carregarAnexosDrive(chave) {
   if (!chave || !WEBAPP_URL) return;
-  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
+  carregandoAnexos = true; erroAnexos = false; renderAttList();
+  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave), null, 4, 15000)
     .then(function(j) {
-      if (j.success) { driveAtts = j.anexos || []; renderAttList();
-        try { localStorage.setItem("attcnt_"+chave, JSON.stringify(driveAtts)); } catch(e) {} }
-    }).catch(function() {});
+      carregandoAnexos = false;
+      if (j && j.success) {
+        driveAtts = j.anexos || [];
+        try { localStorage.setItem("attcnt_"+chave, JSON.stringify(driveAtts)); } catch(e) {}
+      } else {
+        erroAnexos = true;
+      }
+      renderAttList();
+    }).catch(function() {
+      carregandoAnexos = false; erroAnexos = true; renderAttList();
+    });
 }
 
 function renderAttList() {
   var l = document.getElementById("att-list"); if (!l) return;
+  if (carregandoAnexos) {
+    l.innerHTML = "<div style=\"display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:12px;padding:8px 0\"><span class=\"spinner\" style=\"width:12px;height:12px;border-width:2px\"></span> Carregando anexos…</div>";
+    var btnBaixarTudoL = document.getElementById("btn-baixar-tudo");
+    if (btnBaixarTudoL) btnBaixarTudoL.style.display = "none";
+    return;
+  }
   var out = "";
   // Mostra anexos do Drive
   for (var i = 0; i < driveAtts.length; i++) {
@@ -1053,7 +1088,11 @@ function renderAttList() {
          + "<button class=\"arm\" onclick=\"rmAtt("+i+")\" title=\"Remover\"><i class=\"ti ti-x\"></i></button>"
          + "</div>";
   }
-  if (!out) out = "<div style=\"color:var(--text-muted);font-size:12px;padding:8px 0\">Nenhum anexo</div>";
+  if (!out) {
+    out = erroAnexos
+      ? "<div style=\"display:flex;align-items:center;gap:10px;color:#EF4444;font-size:12px;padding:8px 0\">Erro ao carregar anexos.<button onclick=\"carregarAnexosDrive(editKey)\" style=\"background:none;border:1px solid #EF4444;color:#EF4444;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600\">Tentar de novo</button></div>"
+      : "<div style=\"color:var(--text-muted);font-size:12px;padding:8px 0\">Nenhum anexo</div>";
+  }
   l.innerHTML = out;
   var btnBaixarTudo = document.getElementById("btn-baixar-tudo");
   if (btnBaixarTudo) btnBaixarTudo.style.display = driveAtts.length ? "" : "none";
