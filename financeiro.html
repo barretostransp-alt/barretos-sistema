@@ -1948,10 +1948,12 @@ async function buscarCardKanban(){
     }
     document.getElementById('p-favorecido').value = card["TITULAR DA CONTA"]||card["CLIENTE"]||card["MOTORISTA"]||"";
     document.getElementById('p-descricao').value = "Referente ao card "+codigo+(card["TITULO"]?" — "+card["TITULO"]:"");
-    // Valor de referência para Adiantamento/Saldo/Total = Frete Pago menos
-    // o Pedágio (o pedágio é reembolso à parte, não entra nessa divisão).
+    // Valor de referência para Adiantamento/Saldo/Total = Frete Pago do
+    // card, direto — o próprio card já ajusta o Frete Pago quando o
+    // Pedágio está incluso nele (toggle "Pedágio Incluso"), então não se
+    // subtrai o Pedágio de novo aqui (senão descontava em dobro).
     if(card["FRETE PAGO"]){
-      var valorRef = Math.max(0, parseValorBR_(card["FRETE PAGO"]) - parseValorBR_(card["PEDAGIO"]));
+      var valorRef = parseValorBR_(card["FRETE PAGO"]);
       document.getElementById('p-valor').value = valorRef.toFixed(2);
     }else{
       document.getElementById('p-valor').value = card["FRETE COBRADO"]||"";
