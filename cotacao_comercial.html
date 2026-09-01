@@ -1689,7 +1689,7 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
         <div class="cnpj-result" id="cnpj-result-rem"></div>
         <div class="cnpj-error" id="cnpj-error-rem"></div>
       </div>
-      <div class="oc-field"><label class="oc-lbl" for="oc-rem-nome">Razão social / Nome</label><input type="text" id="oc-rem-nome" placeholder="Nome do remetente"></div>
+      <div class="oc-field"><label class="oc-lbl" for="oc-rem-nome">Razão social / Nome</label><input type="text" id="oc-rem-nome" placeholder="Nome do remetente" oninput="this.style.borderColor=''"></div>
       <div class="oc-grid-3">
         <div class="oc-field" style="grid-column:1/-1"><label class="oc-lbl" for="oc-rem-end">Endereço</label><input type="text" id="oc-rem-end" placeholder="Rua, Av..."></div>
         <div class="oc-field"><label class="oc-lbl" for="oc-rem-num">Número</label><input type="text" id="oc-rem-num" placeholder="Nº"></div>
@@ -3492,10 +3492,24 @@ async function gerarOCPDF() {
   const fmtDate=s=>{if(!s)return now.toLocaleDateString('pt-BR');const p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:s;};
   const ocPlacas=[document.getElementById('oc-placa')?.value?.trim()||'',
     ...[...document.querySelectorAll('.oc-placa-extra')].map(i=>i.value.trim())].filter(v=>v);
+
+  // O backend exige o nome do Remetente — checa aqui antes de chamar a API
+  // pra apontar exatamente o campo vazio (com CPF o "Buscar" não funciona,
+  // só busca CNPJ de 14 dígitos, então esse campo precisa ser digitado à
+  // mão e é fácil passar batido sem essa checagem).
+  if(!gv('oc-rem-nome')){
+    const remNomeInput=document.getElementById('oc-rem-nome');
+    remNomeInput.scrollIntoView({behavior:'smooth',block:'center'});
+    remNomeInput.focus();
+    remNomeInput.style.borderColor='#EF4444';
+    alert('Informe o nome do Remetente (Razão social / Nome) antes de gerar a Ordem de Coleta.\n\nSe o remetente tiver CPF (pessoa física), o botão "Buscar" não preenche — é preciso digitar o nome manualmente.');
+    return;
+  }
+
   let ocRegistro;
   try{
     const ocRes=await apiFetch(API_BASE+'/cotacoes/ordens-coleta',{
-      method:'POST',
+      method:'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         solicitante: gv('oc-solicitante'),
         cotacao_numero: (()=>{const n=parseInt(gv('oc-cotacao-ref').replace(/\D/g,''),10);return Number.isFinite(n)?n:null;})(),
