@@ -303,7 +303,8 @@ var FM={
   "OBSERVACAO":         "fi_obs",
   "VALE PEDAGIO":     "fi_vale_pedagio",
   "PEDAGIO":            "fi_pedagio",
-  "PEDAGIO INCLUSO":    "fi_pedagio_incluso"
+  "PEDAGIO INCLUSO":    "fi_pedagio_incluso",
+  "MODALIDADE":         "fi_modalidade"
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
@@ -974,6 +975,7 @@ async function saveCard(){
   var dados=getFormData();
   if(!dados["DT CODIGO"]){msg.textContent="DT Código obrigatório.";msg.className="mmsg err";return;}
   if(!dados["CLIENTE"]){msg.textContent="Cliente obrigatório.";msg.className="mmsg err";return;}
+  if(!dados["MODALIDADE"]){msg.textContent="Modalidade obrigatória.";msg.className="mmsg err";return;}
   if(!editKey&&!dados["VENDEDOR"]){msg.textContent="Vendedor obrigatório.";msg.className="mmsg err";return;}
   if(isUsed(dados["DT CODIGO"])){msg.textContent="Código já utilizado!";msg.className="mmsg err";return;}
 
