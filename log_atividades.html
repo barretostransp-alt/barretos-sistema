@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log de Atividades — Barreto's</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --gold:#F5B800; --gold-dim:rgba(245,184,0,.12); --gold-border:rgba(245,184,0,.3);
+  --bg:#0E0F12; --surface:#161820; --surface2:#1D1F27; --surface3:#252731;
+  --border:#2A2D38; --border2:#353848;
+  --txt:#E4E6F0; --txt-dim:#7B7F96; --txt-muted:#4A4E63;
+  --red:#E24B4A; --red-dim:rgba(226,75,74,.12); --red-border:rgba(226,75,74,.3);
+  --green:#2EBD85; --green-dim:rgba(46,189,133,.1); --green-border:rgba(46,189,133,.3);
+  --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --orange:#F5832A; --orange-dim:rgba(245,131,42,.12);
+  --purple:#8B6BE8; --purple-dim:rgba(139,107,232,.12);
+  --radius:8px; --radius-lg:12px;
+  font-family:'Barlow',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow',sans-serif}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+.page{max-width:1200px;margin:0 auto;padding:20px 24px 40px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.topbar-title{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800}
+.topbar-title i{color:var(--gold);font-size:20px}
+.topbar-sub{font-size:12px;color:var(--txt-dim);margin-bottom:18px}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--txt);padding:8px 14px;border-radius:var(--radius);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .15s;font-family:inherit}
+.btn:hover{background:var(--surface3);border-color:var(--gold-border)}
+.btn i{font-size:14px}
+
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px}
+.filters label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim);
+  display:block;margin-bottom:4px}
+.fgroup{display:flex;flex-direction:column}
+.finput{background:var(--surface2);border:1px solid var(--border2);color:var(--txt);border-radius:7px;
+  padding:7px 10px;font-size:12px;font-family:inherit;min-width:150px}
+.finput:focus{outline:none;border-color:var(--gold-border)}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--txt-dim);border-bottom:2px solid var(--border);
+  white-space:nowrap;background:var(--surface2)}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.tbl-empty{text-align:center;padding:40px;color:var(--txt-dim);font-size:13px}
+.data-cel{white-space:nowrap;color:var(--txt-dim);font-family:'JetBrains Mono',monospace;font-size:11px}
+.usuario-cel{font-weight:600;white-space:nowrap}
+.tabela-cel{color:var(--txt-dim);font-size:11px}
+.desc-cel{color:var(--txt)}
+
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;
+  font-size:10px;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+.pill-criar{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+.pill-editar{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-border,rgba(74,143,232,.3))}
+.pill-excluir{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+.pill-usuario{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
+.pill-sistema{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,107,232,.3)}
+
+.footer-load{display:flex;justify-content:center;padding:16px}
+.spinner{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-title"><i class="ti ti-history"></i> Log de Atividades</div>
+    <button class="btn" onclick="recarregar()"><i class="ti ti-refresh"></i> Atualizar</button>
+  </div>
+  <div class="topbar-sub">Quem mexeu em quê, em qualquer tela do sistema — inclusive movimentações automáticas. Serve pra achar a última pessoa que registrou algo em caso de dúvida ou perda de informação.</div>
+
+  <div class="filters">
+    <div class="fgroup">
+      <label>Tela</label>
+      <select class="finput" id="f-tabela" onchange="recarregar()"><option value="">Todas</option></select>
+    </div>
+    <div class="fgroup">
+      <label>Usuário</label>
+      <input class="finput" id="f-usuario" placeholder="Nome..." oninput="recarregarDebounced()">
+    </div>
+    <div class="fgroup">
+      <label>De</label>
+      <input class="finput" type="date" id="f-data-inicio" onchange="recarregar()">
+    </div>
+    <div class="fgroup">
+      <label>Até</label>
+      <input class="finput" type="date" id="f-data-fim" onchange="recarregar()">
+    </div>
+    <div class="fgroup" style="justify-content:flex-end">
+      <button class="btn" onclick="limparFiltros()"><i class="ti ti-x"></i> Limpar filtros</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <table class="tbl">
+      <thead><tr>
+        <th>Data/Hora</th><th>Usuário</th><th>Origem</th><th>Ação</th><th>Tela</th><th>Descrição</th>
+      </tr></thead>
+      <tbody id="tbody-log"><tr><td colspan="6" class="tbl-empty">Carregando…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="footer-load" id="footer-load"></div>
+</div>
+
+<script>
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+var SUPABASE_URL = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken(){ return localStorage.getItem('barretos_auth_token') || sessionStorage.getItem('barretos_auth_token'); }
+function getRefreshToken(){ return localStorage.getItem('barretos_auth_refresh') || sessionStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken(){
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try{
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  }catch(e){ return false; }
+}
+
+function mostrarTelaSemAcesso(){
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0E0F12;color:#E4E6F0;font-family:Barlow,sans-serif;flex-direction:column;gap:10px;text-align:center;padding:20px">'+
+    '<b style="font-size:16px">Sessão não encontrada</b>'+
+    '<span style="font-size:12px;color:#7B7F96">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</span></div>';
+}
+
+async function apiFetch(url, options){
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) { mostrarTelaSemAcesso(); throw new Error('Sessão expirada'); }
+  }
+  return res;
+}
+
+function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+function fmtDataHora(iso){
+  if(!iso) return '';
+  var d = new Date(iso);
+  var p = function(n){ return String(n).padStart(2,'0'); };
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+
+function acaoPill(acao){
+  var map = { criar:['Criar','criar'], editar:['Editar','editar'], excluir:['Excluir','excluir'] };
+  var m = map[acao] || [acao, ''];
+  return '<span class="pill pill-'+m[1]+'">'+e(m[0])+'</span>';
+}
+function origemPill(origem){
+  return origem==='sistema'
+    ? '<span class="pill pill-sistema"><i class="ti ti-robot" style="font-size:10px"></i> Sistema</span>'
+    : '<span class="pill pill-usuario"><i class="ti ti-user" style="font-size:10px"></i> Usuário</span>';
+}
+
+var linhas = [];
+var carregandoMais = false;
+var acabou = false;
+var debounceId = null;
+
+function recarregarDebounced(){
+  clearTimeout(debounceId);
+  debounceId = setTimeout(recarregar, 400);
+}
+
+function limparFiltros(){
+  document.getElementById('f-tabela').value = '';
+  document.getElementById('f-usuario').value = '';
+  document.getElementById('f-data-inicio').value = '';
+  document.getElementById('f-data-fim').value = '';
+  recarregar();
+}
+
+function montarQuery(cursor){
+  var params = new URLSearchParams();
+  var tabela = document.getElementById('f-tabela').value;
+  var usuario = document.getElementById('f-usuario').value.trim();
+  var dataInicio = document.getElementById('f-data-inicio').value;
+  var dataFim = document.getElementById('f-data-fim').value;
+  if(tabela) params.set('tabela', tabela);
+  if(usuario) params.set('usuario', usuario);
+  if(dataInicio) params.set('dataInicio', dataInicio+'T00:00:00.000Z');
+  if(dataFim) params.set('dataFim', dataFim+'T23:59:59.999Z');
+  if(cursor) params.set('cursor', cursor);
+  return params.toString();
+}
+
+async function recarregar(){
+  linhas = [];
+  acabou = false;
+  document.getElementById('tbody-log').innerHTML = '<tr><td colspan="6" class="tbl-empty"><span class="spinner"></span></td></tr>';
+  await carregarPagina();
+}
+
+async function carregarPagina(){
+  if(carregandoMais || acabou) return;
+  carregandoMais = true;
+  document.getElementById('footer-load').innerHTML = '<span class="spinner"></span>';
+  try{
+    var res = await apiFetch(API_BASE + '/log-atividades?' + montarQuery(linhas.length ? linhas[linhas.length-1].criado_em : null));
+    var nova = await res.json();
+    if(!res.ok) throw new Error(nova.error || 'Erro ao carregar');
+    linhas = linhas.concat(nova);
+    if(nova.length < 200) acabou = true;
+    renderTabela();
+  }catch(e){
+    document.getElementById('tbody-log').innerHTML = '<tr><td colspan="6" class="tbl-empty" style="color:var(--red)">Não foi possível carregar (' + (e.message||'erro de conexão') + ')</td></tr>';
+  }
+  carregandoMais = false;
+  document.getElementById('footer-load').innerHTML = acabou
+    ? (linhas.length ? '<span style="color:var(--txt-dim);font-size:11px">Fim do histórico</span>' : '')
+    : '<button class="btn" onclick="carregarPagina()"><i class="ti ti-chevron-down"></i> Carregar mais</button>';
+}
+
+function renderTabela(){
+  var tb = document.getElementById('tbody-log');
+  if(!linhas.length){
+    tb.innerHTML = '<tr><td colspan="6" class="tbl-empty">Nenhuma atividade encontrada com esses filtros</td></tr>';
+    return;
+  }
+  tb.innerHTML = linhas.map(function(l){
+    return '<tr>'+
+      '<td class="data-cel">'+e(fmtDataHora(l.criado_em))+'</td>'+
+      '<td class="usuario-cel">'+e(l.usuario || '—')+'</td>'+
+      '<td>'+origemPill(l.origem)+'</td>'+
+      '<td>'+acaoPill(l.acao)+'</td>'+
+      '<td class="tabela-cel">'+e(l.tabela)+'</td>'+
+      '<td class="desc-cel">'+e(l.descricao || '—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+async function carregarFiltroTabelas(){
+  try{
+    var res = await apiFetch(API_BASE + '/log-atividades/tabelas');
+    var tabelas = await res.json();
+    if(!res.ok) return;
+    var sel = document.getElementById('f-tabela');
+    tabelas.forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+  }catch(e){}
+}
+
+if(!getAuthToken()){
+  mostrarTelaSemAcesso();
+} else {
+  carregarFiltroTabelas();
+  recarregar();
+}
+</script>
+</body>
+</html>

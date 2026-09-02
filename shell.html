@@ -520,6 +520,9 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
     </nav>
     <div class="sb-footer">
 
+      <div class="sb-item" id="nav-log_atividades" onclick="navigate('log_atividades')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
+        <i class="ti ti-history"></i><span>Log de Atividades</span>
+      </div>
       <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
         <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
@@ -709,7 +712,8 @@ var TOOLS = {
   ideias:    { src:"laboratorio_de_ideias.html", cat:"Melhoria",    label:"Laboratório de Ideias", icon:"ti-bulb"             },
   helpdesk:  { src:"helpdesk.html",              cat:"Melhoria",    label:"Helpdesk",              icon:"ti-headset"          },
 
-  config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         }
+  config:    { src:"configuracoes.html",          cat:"Admin",       label:"Configurações",          icon:"ti-settings"         },
+  log_atividades: { src:"log_atividades.html",    cat:"Admin",       label:"Log de Atividades",     icon:"ti-history"          }
 };
 var currentTool = null;
 
@@ -743,6 +747,8 @@ function applyUser(user){
   // Esconde config/conexoes por padrão — aparecem só se tiver permissão
   var cn=document.getElementById("nav-config");
   if(cn) cn.style.display="none";
+  var cla=document.getElementById("nav-log_atividades");
+  if(cla) cla.style.display="none";
 
   // Aplica permissões (já vieram do banco no momento do login, salvas em
   // barretos_permissoes — nada de buscar isso de novo aqui)
@@ -802,12 +808,12 @@ function aplicarMenuPermissoes(p){
   // nunca deveria acessar. Se uma ferramenta nova precisar ser liberada
   // pra alguém, isso deve ser feito atualizando a permissão dela mesmo,
   // não escondendo o controle de acesso inteiro.)
-  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","log_atividades","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","crm","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config"]};
+  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","crm","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","log_atividades"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
