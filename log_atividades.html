@@ -15,13 +15,31 @@
   --txt:#E4E6F0; --txt-dim:#7B7F96; --txt-muted:#4A4E63;
   --red:#E24B4A; --red-dim:rgba(226,75,74,.12); --red-border:rgba(226,75,74,.3);
   --green:#2EBD85; --green-dim:rgba(46,189,133,.1); --green-border:rgba(46,189,133,.3);
-  --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --orange:#F5832A; --orange-dim:rgba(245,131,42,.12);
-  --purple:#8B6BE8; --purple-dim:rgba(139,107,232,.12);
+  --blue:#4A8FE8; --blue-dim:rgba(74,143,232,.1); --blue-border:rgba(74,143,232,.3);
+  --orange:#F5832A; --orange-dim:rgba(245,131,42,.12);
+  --purple:#8B6BE8; --purple-dim:rgba(139,107,232,.12); --purple-border:rgba(139,107,232,.3);
+  --hover-tint:rgba(255,255,255,.02);
   --radius:8px; --radius-lg:12px;
   font-family:'Barlow',sans-serif;
 }
+/* ── TEMA CLARO — mesma paleta usada no resto do sistema (ver
+   faturamento.html/helpdesk.html), acionado via body.tema-claro pelo
+   shell.html. Como aqui quase tudo já usa variável CSS, só remapear as
+   variáveis é suficiente (sem precisar de override por componente). ── */
+body.tema-claro{
+  --bg:#F0F2F5; --surface:#FFFFFF; --surface2:#F1F3F6; --surface3:#E7EAF0;
+  --border:#E2E6ED; --border2:#D8DCE6;
+  --txt:#111827; --txt-dim:#6B7280; --txt-muted:#9CA3AF;
+  --gold:#D97706; --gold-dim:rgba(217,119,6,.10); --gold-border:rgba(217,119,6,.3);
+  --red:#DC2626; --red-dim:rgba(220,38,38,.10); --red-border:rgba(220,38,38,.3);
+  --green:#059669; --green-dim:rgba(5,150,105,.10); --green-border:rgba(5,150,105,.3);
+  --blue:#2563EB; --blue-dim:rgba(37,99,235,.10); --blue-border:rgba(37,99,235,.3);
+  --orange:#EA580C; --orange-dim:rgba(234,88,12,.10);
+  --purple:#7C3AED; --purple-dim:rgba(124,58,237,.10); --purple-border:rgba(124,58,237,.3);
+  --hover-tint:rgba(0,0,0,.025);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow',sans-serif}
+body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow',sans-serif;transition:background .15s,color .15s}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
@@ -45,6 +63,7 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow'
 .finput{background:var(--surface2);border:1px solid var(--border2);color:var(--txt);border-radius:7px;
   padding:7px 10px;font-size:12px;font-family:inherit;min-width:150px}
 .finput:focus{outline:none;border-color:var(--gold-border)}
+select.finput option{background:var(--surface2);color:var(--txt)}
 
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
@@ -53,7 +72,7 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow'
   white-space:nowrap;background:var(--surface2)}
 .tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
 .tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.tbl tr:hover td{background:var(--hover-tint)}
 .tbl-empty{text-align:center;padding:40px;color:var(--txt-dim);font-size:13px}
 .data-cel{white-space:nowrap;color:var(--txt-dim);font-family:'JetBrains Mono',monospace;font-size:11px}
 .usuario-cel{font-weight:600;white-space:nowrap}
@@ -63,10 +82,10 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;font-family:'Barlow'
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;
   font-size:10px;font-weight:700;letter-spacing:.03em;white-space:nowrap}
 .pill-criar{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
-.pill-editar{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-border,rgba(74,143,232,.3))}
+.pill-editar{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-border)}
 .pill-excluir{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
 .pill-usuario{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-border)}
-.pill-sistema{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,107,232,.3)}
+.pill-sistema{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple-border)}
 
 .footer-load{display:flex;justify-content:center;padding:16px}
 .spinner{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--gold);
@@ -282,6 +301,27 @@ if(!getAuthToken()){
   carregarFiltroTabelas();
   recarregar();
 }
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
 </script>
 </body>
 </html>
