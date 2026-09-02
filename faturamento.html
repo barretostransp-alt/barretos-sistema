@@ -465,6 +465,14 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
     </div>
     <div id="r-status-pdf" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
 
+    <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-file-certificate" style="font-size:13px"></i> Anexar MDF (PDF)</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Arquivo PDF <span style="font-weight:400;color:var(--txt-dim)">(opcional — evita ter que voltar aqui depois só pra isso)</span></label>
+        <input class="form-input" type="file" id="r-mdf-arquivo" accept="application/pdf" style="padding:6px 8px" onchange="capturarArquivoMdfReg_(this)">
+      </div>
+    </div>
+
     <div class="modal-section-title"><i class="ti ti-link" style="font-size:13px"></i> Vincular Card do Kanban</div>
     <div class="form-grid form-grid-2">
       <div class="form-group">
@@ -902,6 +910,12 @@ var pendCteArquivoReg = null;
 function capturarArquivoCteReg_(input){
   pendCteArquivoReg = (input.files && input.files[0]) || null;
 }
+// Arquivo do MDF anexado direto na tela de Finalizar/Novo Registro —
+// evita ter que voltar depois só pra anexar o MDF (pedido do Alex).
+var pendMdfArquivoReg = null;
+function capturarArquivoMdfReg_(input){
+  pendMdfArquivoReg = (input.files && input.files[0]) || null;
+}
 
 function chaveAnexoFat_(cod, id){ return (cod||'SEM-COD') + '_' + String(id||'').slice(0,8); }
 
@@ -973,6 +987,15 @@ function renderAttListSol(){
 // lugares (pedido do Alex: "tudo registrado" no card também). A cópia do
 // card é melhor-esforço: se falhar, não trava o fluxo principal (o anexo
 // do faturamento já foi salvo, que é o que importa).
+function lerArquivoBase64_(file){
+  return new Promise(function(resolve, reject){
+    var reader = new FileReader();
+    reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+    reader.onerror = function(){ reject(new Error('Falha ao ler ' + file.name)); };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
   var j = await fetchComTentativas_(WEBAPP_URL, {
     method: 'POST',
@@ -1823,6 +1846,7 @@ function openModalRegistro(){
   document.getElementById('r-aviso-finalizacao').style.display = 'none';
   document.getElementById('r-att-list').innerHTML = '';
   pendCteArquivoReg = null;
+  pendMdfArquivoReg = null;
   document.getElementById('modal-registro-titulo').textContent = 'Novo Registro de Faturamento';
   document.getElementById('btn-salvar-registro-label').textContent = 'Salvar Registro';
   custoOperacionalCardAtualFat = null;
@@ -2016,20 +2040,25 @@ async function salvarRegistro(){
     salvo = await res.json();
   }catch(e){ alert('Erro de conexão ao salvar registro.'); btnSalvar.disabled=false; btnSalvar.innerHTML=textoOriginal; return; }
 
-  // Anexa de verdade o PDF do CT-e lido em "Anexar CT-e (PDF)" — antes ele
-  // só era usado pra ler o texto e depois descartado. Melhor-esforço: se
-  // falhar, não desfaz o registro que já foi salvo com sucesso.
+  // Anexa de verdade o PDF do CT-e (lido em "Anexar CT-e (PDF)" — antes ele
+  // só era usado pra ler o texto e depois descartado) e o PDF do MDF, se
+  // algum dos dois foi escolhido — assim os dois já ficam registrados no
+  // histórico sem precisar voltar aqui depois só pra anexar o MDF.
+  // Melhor-esforço: se falhar, não desfaz o registro que já foi salvo.
+  var chaveFatSalvo = chaveAnexoFat_(salvo.cod, salvo.id);
   if(pendCteArquivoReg){
     try{
-      var base64Cte = await new Promise(function(resolve, reject){
-        var reader = new FileReader();
-        reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
-        reader.onerror = function(){ reject(new Error('Falha ao ler ' + pendCteArquivoReg.name)); };
-        reader.readAsDataURL(pendCteArquivoReg);
-      });
-      await uploadAnexoFat_(chaveAnexoFat_(salvo.cod, salvo.id), salvo.cod, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
+      var base64Cte = await lerArquivoBase64_(pendCteArquivoReg);
+      await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
     }catch(errCte){ console.error('[salvarRegistro] falha ao anexar CT-e:', errCte); }
     pendCteArquivoReg = null;
+  }
+  if(pendMdfArquivoReg){
+    try{
+      var base64Mdf = await lerArquivoBase64_(pendMdfArquivoReg);
+      await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendMdfArquivoReg.name, base64Mdf, pendMdfArquivoReg.type || 'application/pdf');
+    }catch(errMdf){ console.error('[salvarRegistro] falha ao anexar MDF:', errMdf); }
+    pendMdfArquivoReg = null;
   }
 
   // Busca de novo em vez de só empurrar localmente — assim já vem com o
