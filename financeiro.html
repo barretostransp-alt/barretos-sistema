@@ -1848,6 +1848,7 @@ async function saveLancamento(){
 function atualizarAbaSugerida(){ /* reservado para lógica futura, se precisarmos mapear aba->empresa automaticamente */ }
 
 var custoOperacionalCardAtual = null; // Custo Operacional Total do card, vindo do kanban — usado como teto de segurança
+var cardModalidadeAtual = null, cardPedagioAtual = null; // Modalidade/Pedágio do card, vindos do kanban — travam a Solicitação Pix se Dedicado sem Pedágio informado
 
 function openModalPix(){
   ['p-codigo','p-favorecido','p-descricao','p-valor','p-adiantamento','p-titular','p-banco-favorecido','p-chave-pix','p-obs','p-vendedor','p-acrescimo'].forEach(id=>document.getElementById(id).value='');
@@ -1861,6 +1862,7 @@ function openModalPix(){
   document.getElementById('p-import-status').textContent='';
   document.getElementById('p-aviso-duplicidade').innerHTML='';
   custoOperacionalCardAtual = null;
+  cardModalidadeAtual = null; cardPedagioAtual = null;
   document.getElementById('modal-pix').classList.add('open');
   atualizarValorEnfasePix();
 }
@@ -1964,6 +1966,8 @@ async function buscarCardKanban(){
     document.getElementById('p-tipo-pix').value = card["TIPO CHAVE PIX"]||"";
     document.getElementById('p-chave-pix').value = card["CHAVE PIX"]||"";
     document.getElementById('p-vendedor').value = card["VENDEDOR"]||"";
+    cardModalidadeAtual = card["MODALIDADE"]||null;
+    cardPedagioAtual = card["PEDAGIO"]||null;
     var custoOperRaw = card["CUSTO OPERACIONAL TOTAL"] ?? card["CUSTO TOTAL OPERACIONAL"];
     custoOperacionalCardAtual = custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!=='' ? parseFloat(String(custoOperRaw).replace(',','.')) : null;
     statusEl.innerHTML = '<span class="txt-green">✓ Dados importados do card '+codigo+(card["VENDEDOR"]?' · Vendedor: '+card["VENDEDOR"]:'')+'.</span>'
@@ -1989,6 +1993,16 @@ async function savePix(){
   }
   if(!tipoValor){
     alert('Selecione o Tipo de Valor (Saldo, Adiantamento ou Total) antes de salvar.');
+    return;
+  }
+  // Trava: card Dedicado sem Pedágio (R$) informado não pode virar
+  // Solicitação Pix — evita pedir o pagamento antes do Pedágio (e do
+  // toggle "Pedágio Incluso?") serem decididos no card, quando o Frete
+  // Pago ainda não é o valor final. O servidor também checa isso (é a
+  // trava de verdade); aqui é só pra avisar na hora, sem esperar a busca
+  // no servidor — só funciona se o card já foi buscado ("Buscar" acima).
+  if(cardModalidadeAtual==='Dedicado' && !String(cardPedagioAtual||'').trim()){
+    alert('Pedágio (R$) não informado no card — preencha o Pedágio no card (mesmo que seja 0) antes de solicitar o pagamento.');
     return;
   }
   var cardCodigo = document.getElementById('p-codigo').value.trim();
