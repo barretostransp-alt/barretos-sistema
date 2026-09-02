@@ -134,7 +134,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
   background:var(--card);border:1px solid var(--border);border-radius:var(--r);
   padding:12px 16px;display:grid;gap:8px;cursor:pointer;
   transition:background .15s,border-color .15s;
-  grid-template-columns: 110px minmax(0,1fr) 120px 130px 110px 95px 130px 28px;
+  grid-template-columns: 110px minmax(0,1fr) 120px 130px 120px 110px 95px 130px 28px;
   align-items:center;min-width:0;
 }
 .chamado-row:hover{background:var(--card-hover);border-color:var(--border-light)}
@@ -166,6 +166,10 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .pill-urgente{background:rgba(226,75,74,.12);color:var(--red)}
 .pill-ti{background:rgba(139,92,246,.12);color:var(--purple)}
 .pill-manutencao{background:rgba(245,184,0,.12);color:var(--gold)}
+.pill-facil{background:rgba(46,189,133,.12);color:var(--green)}
+.pill-moderada{background:rgba(59,130,246,.12);color:var(--blue)}
+.pill-dificil{background:rgba(249,115,22,.12);color:var(--orange)}
+.pill-muitodificil{background:rgba(226,75,74,.12);color:var(--red)}
 .pill-empty{background:var(--border);color:var(--txt-dim)}
 
 /* ── EMPTY STATE ── */
@@ -331,6 +335,18 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         <option value="Alta">Alta</option>
         <option value="Urgente">Urgente</option>
       </select>
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)">Dificuldade</span>
+      <select class="fsel" id="flt-dificuldade" onchange="renderLista()">
+        <option value="">Todas</option>
+        <option value="Fácil">Fácil</option>
+        <option value="Moderada">Moderada</option>
+        <option value="Difícil">Difícil</option>
+        <option value="Muito Difícil">Muito Difícil</option>
+      </select>
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-dim)">Solicitante</span>
+      <select class="fsel" id="flt-solicitante" onchange="renderLista()">
+        <option value="">Todos</option>
+      </select>
     </div>
 
     <!-- STATS -->
@@ -413,6 +429,10 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         <div class="detail-item-val" id="d-status"></div>
       </div>
       <div class="detail-item">
+        <div class="detail-item-label">Dificuldade</div>
+        <div class="detail-item-val" id="d-dificuldade"></div>
+      </div>
+      <div class="detail-item">
         <div class="detail-item-label">Prioridade</div>
         <div class="detail-item-val" id="d-prior"></div>
       </div>
@@ -431,7 +451,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
     <div id="painel-atendente" style="display:none">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="ti ti-tools"></i> Painel de Atendimento</div>
       <div class="atendimento-box">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div class="mfield">
             <label>Status</label>
             <select id="at-status">
@@ -439,6 +459,16 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
               <option value="Em Atendimento">Em Atendimento</option>
               <option value="Resolvido">Resolvido</option>
               <option value="Fechado">Fechado</option>
+            </select>
+          </div>
+          <div class="mfield">
+            <label>Dificuldade</label>
+            <select id="at-dificuldade">
+              <option value="">— definir —</option>
+              <option value="Fácil">Fácil</option>
+              <option value="Moderada">Moderada</option>
+              <option value="Difícil">Difícil</option>
+              <option value="Muito Difícil">Muito Difícil</option>
             </select>
           </div>
           <div class="mfield">
@@ -560,6 +590,7 @@ function mapearDoApi_(row){
     Solicitante: row.solicitante||'',
     Status: row.status||'',
     Prioridade: row.prioridade||'',
+    Dificuldade: row.dificuldade||'',
     Atendente: row.atendente||'',
     Resposta: row.resposta||'',
     DataAbertura: fmtDataHora(row.criado_em),
@@ -656,6 +687,7 @@ async function carregarDados() {
     if (!res.ok) throw new Error(rows.error || 'Erro ao carregar');
     allData = (rows || []).map(mapearDoApi_); // já vem ordenado por criado_em (mais recente primeiro)
     loadEl.style.display = 'none';
+    popularFiltroSolicitantes();
     atualizarBadges();
     renderLista();
   } catch(e) {
@@ -698,14 +730,29 @@ function filtrarPorView() {
   return allData;
 }
 
+// Opções do filtro de Solicitante são dinâmicas (nomes de verdade, não uma
+// lista fixa) — monta a partir de quem já abriu chamado, em ordem alfabética.
+function popularFiltroSolicitantes() {
+  var sel = document.getElementById('flt-solicitante');
+  var atual = sel.value;
+  var nomes = Array.from(new Set(allData.map(function(r){ return r.Solicitante; }).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">Todos</option>' +
+    nomes.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join('');
+  if (nomes.indexOf(atual) !== -1) sel.value = atual;
+}
+
 function filtradoAtual() {
   var base = filtrarPorView();
   var cat  = document.getElementById('flt-cat').value;
   var prior = document.getElementById('flt-prior').value;
+  var dificuldade = document.getElementById('flt-dificuldade').value;
+  var solicitante = document.getElementById('flt-solicitante').value;
   return base.filter(function(r) {
     if (statusFilter && r.Status !== statusFilter) return false;
     if (cat && r.Categoria !== cat) return false;
     if (prior && r.Prioridade !== prior) return false;
+    if (dificuldade && r.Dificuldade !== dificuldade) return false;
+    if (solicitante && r.Solicitante !== solicitante) return false;
     return true;
   });
 }
@@ -728,6 +775,7 @@ function renderLista() {
     '<div class="col-label">Título</div>'+
     '<div class="col-label">Categoria</div>'+
     '<div class="col-label">Status</div>'+
+    '<div class="col-label">Dificuldade</div>'+
     '<div class="col-label">Prioridade</div>'+
     '<div class="col-label">Abertura</div>'+
     '<div class="col-label" style="text-align:center">Tempo de Atendimento</div>'+
@@ -743,6 +791,7 @@ function renderLista() {
     rowHtml += '</div>';
     rowHtml += '<div>' + catPill(r.Categoria) + '</div>';
     rowHtml += '<div>' + statusPill(r.Status) + '</div>';
+    rowHtml += '<div>' + dificuldadePill(r.Dificuldade) + '</div>';
     rowHtml += '<div>' + priorPill(r.Prioridade) + '</div>';
     rowHtml += '<div style="font-size:11px;color:var(--txt-dim);white-space:nowrap">' + esc(r.DataAbertura||'') + '</div>';
     rowHtml += '<div style="font-size:11px;font-weight:600;white-space:nowrap;text-align:center;color:' + (r.ResolvidoEmISO?'var(--txt-dim)':'var(--orange)') + '">' + esc(tempoAtendimento(r.CriadoEmISO, r.ResolvidoEmISO)) + '</div>';
@@ -769,6 +818,11 @@ function catPill(c) {
   if (!c) return '<span class="pill pill-empty">—</span>';
   var map = { 'TI':'ti','Manutenção':'manutencao' };
   return '<span class="pill pill-'+(map[c]||'empty')+'">'+esc(c)+'</span>';
+}
+function dificuldadePill(d) {
+  if (!d) return '<span class="pill pill-empty">—</span>';
+  var map = { 'Fácil':'facil','Moderada':'moderada','Difícil':'dificil','Muito Difícil':'muitodificil' };
+  return '<span class="pill pill-'+(map[d]||'empty')+'">'+esc(d)+'</span>';
 }
 
 // ── MODAL NOVO ───────────────────────────────────────────────
@@ -828,6 +882,7 @@ function abrirDetalhe(id) {
   document.getElementById('d-sol').textContent     = row.Solicitante;
   document.getElementById('d-data').textContent    = row.DataAbertura;
   document.getElementById('d-status').innerHTML    = statusPill(row.Status);
+  document.getElementById('d-dificuldade').innerHTML = dificuldadePill(row.Dificuldade);
   document.getElementById('d-prior').innerHTML     = priorPill(row.Prioridade);
   document.getElementById('d-desc').textContent    = row.Descricao || '(sem descrição)';
 
@@ -845,6 +900,7 @@ function abrirDetalhe(id) {
   var rodapeSol = document.getElementById('rodape-solicitante');
   if (IS_ATENDENTE) {
     document.getElementById('at-status').value = row.Status || 'Aberto';
+    document.getElementById('at-dificuldade').value = row.Dificuldade || '';
     document.getElementById('at-prior').value  = row.Prioridade || '';
     document.getElementById('at-resp').value   = row.Resposta || '';
     painelAt.style.display  = 'block';
@@ -860,12 +916,13 @@ function abrirDetalhe(id) {
 async function salvarAtendimento() {
   if (!detalheRow) return;
   var status = document.getElementById('at-status').value;
+  var dificuldade = document.getElementById('at-dificuldade').value;
   var prior  = document.getElementById('at-prior').value;
   var resp   = document.getElementById('at-resp').value.trim();
 
   try {
     var res  = await apiFetch(API_BASE + '/helpdesk/' + detalheRow.ID, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-      status: status, prioridade: prior, resposta: resp
+      status: status, dificuldade: dificuldade, prioridade: prior, resposta: resp
     })});
     var json = await res.json();
     if (res.ok) {
@@ -896,7 +953,7 @@ function exportarExcel() {
     return {
       'ID': r.ID, 'Título': r.Titulo, 'Categoria': r.Categoria,
       'Descrição': r.Descricao, 'Solicitante': r.Solicitante,
-      'Status': r.Status, 'Prioridade': r.Prioridade,
+      'Status': r.Status, 'Dificuldade': r.Dificuldade, 'Prioridade': r.Prioridade,
       'Atendente': r.Atendente, 'Resposta': r.Resposta,
       'Abertura': r.DataAbertura, 'Atualização': r.DataAtualizacao,
       'Tempo de Atendimento': tempoAtendimento(r.CriadoEmISO, r.ResolvidoEmISO)
