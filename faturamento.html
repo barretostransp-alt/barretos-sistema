@@ -458,7 +458,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
       <div class="form-group">
         <label class="form-label">Arquivo PDF</label>
         <div style="display:flex;gap:6px">
-          <input class="form-input" type="file" id="r-arquivo" accept="application/pdf" style="padding:6px 8px">
+          <input class="form-input" type="file" id="r-arquivo" accept="application/pdf" style="padding:6px 8px" onchange="capturarArquivoCteReg_(this)">
           <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="lerCtePdf()"><i class="ti ti-scan" style="font-size:13px"></i> Ler PDF</button>
         </div>
       </div>
@@ -895,6 +895,13 @@ var pendAttSol = [], driveAttsSol = [];
 // pra anexar de verdade junto quando o registro for salvo — antes esse
 // arquivo só era usado pra ler o texto e depois era descartado.
 var pendCteArquivoReg = null;
+// Captura o arquivo assim que é escolhido no input, mesmo que o usuário
+// NUNCA clique em "Ler PDF" (ex: já sabe o número do CT-e e prefere
+// digitar tudo na mão) — sem isso, o arquivo ficava selecionado mas era
+// descartado ao salvar, porque só era guardado dentro da leitura do PDF.
+function capturarArquivoCteReg_(input){
+  pendCteArquivoReg = (input.files && input.files[0]) || null;
+}
 
 function chaveAnexoFat_(cod, id){ return (cod||'SEM-COD') + '_' + String(id||'').slice(0,8); }
 
