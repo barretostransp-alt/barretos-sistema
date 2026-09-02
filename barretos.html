@@ -304,7 +304,8 @@ var FM={
   "VALE PEDAGIO":     "fi_vale_pedagio",
   "PEDAGIO":            "fi_pedagio",
   "PEDAGIO INCLUSO":    "fi_pedagio_incluso",
-  "MODALIDADE":         "fi_modalidade"
+  "MODALIDADE":         "fi_modalidade",
+  "TIPO DE MATERIAL":   "fi_tipo_de_material"
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
