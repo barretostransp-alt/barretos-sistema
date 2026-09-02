@@ -2168,6 +2168,7 @@ async function visualizarCardFat(){
         ${campo('Status', card.status)}${campo('Acompanhamento', card.acompanhamento)}
         ${campo('Cliente', card.cliente)}${campo('Contato Cliente', card.contato_cliente)}
         ${campo('CNPJ Tomador', card.cnpj_tomador)}${campo('Vendedor', card.vendedor)}
+        ${campo('Modalidade', card.modalidade)}${campo('Tipo de Material', card.tipo_material)}
       </div>
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-route" style="font-size:12px"></i> Rota</div>
       <div class="grid-2">
@@ -2184,6 +2185,7 @@ async function visualizarCardFat(){
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-cash" style="font-size:12px"></i> Financeiro</div>
       <div class="grid-2">
         ${campo('Frete Cobrado', card.frete_cobrado?fmtMoeda(card.frete_cobrado):'')}${campo('Frete Pago', card.frete_pago?fmtMoeda(card.frete_pago):'')}
+        ${campo('Pedágio', card.pedagio_valor?fmtMoeda(card.pedagio_valor):'')}${campo('Pedágio Incluso no Frete?', card.pedagio_incluso?'Sim':'Não')}
         ${campo('Custo Operacional Total', card.custo_operacional_total?fmtMoeda(card.custo_operacional_total):'')}${campo('Adiantamento', card.adiantamento)}
       </div>
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-building-bank" style="font-size:12px"></i> Dados Bancários</div>
@@ -2194,6 +2196,7 @@ async function visualizarCardFat(){
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-file-description" style="font-size:12px"></i> Documentos</div>
       <div class="grid-2">
         ${campo('CT-e', card.cte)}${campo('NF', card.nf)}
+        ${campo('MDF', card.mdf)}${campo('Vale Pedágio', card.vale_pedagio)}
         ${campo('Cotação vinculada', card.cotacao_numero?('#'+String(card.cotacao_numero).padStart(4,'0')):'')}
       </div>
       ${card.observacao?('<div class="modal-section-title" style="margin-top:14px"><i class="ti ti-note" style="font-size:12px"></i> Observação</div><p style="font-size:12px">'+e(card.observacao)+'</p>'):''}
