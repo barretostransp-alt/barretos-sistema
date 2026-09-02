@@ -1274,11 +1274,13 @@ async function finalizarCanhotoUI(){
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({mdf: mdf})
     });
     if(!res.ok){ var j = await res.json(); alert('Erro ao enviar canhoto: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+    var enviado = await res.json();
   }catch(e){ alert('Erro de conexão ao enviar canhoto.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
 
   btn.disabled = false; btn.innerHTML = textoOriginal;
   closeModalCanhoto();
   await loadAllData();
+  if(enviado.avisoKanban) alert('⚠ ' + enviado.avisoKanban);
 }
 
 // Chamado pelo painel lateral (Detalhes do Registro) — o responsável pelo
@@ -1294,9 +1296,11 @@ async function finalizarCanhotoAnalisado(){
   try{
     var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(currentSideId) + '/canhoto/finalizar', { method: 'POST' });
     if(!res.ok){ var j = await res.json(); alert('Erro ao finalizar: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+    var finalizado = await res.json();
   }catch(e){ alert('Erro de conexão ao finalizar.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
   closeSidePanel();
   await loadAllData();
+  if(finalizado.avisoKanban) alert('⚠ ' + finalizado.avisoKanban);
 }
 
 var registros = [];
@@ -2069,6 +2073,11 @@ async function salvarRegistro(){
   btnSalvar.disabled = false;
   btnSalvar.innerHTML = textoOriginal;
   closeModalRegistro();
+
+  // Servidor não achou o card no Kanban pra sincronizar (código errado,
+  // empresa errada, card excluído) — avisa em vez de deixar passar em
+  // silêncio (ver caso do card S26905).
+  if(salvo.avisoKanban) alert('⚠ ' + salvo.avisoKanban);
 }
 
 /* ── Busca do card no Kanban ──
