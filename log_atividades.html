@@ -112,6 +112,10 @@ select.finput option{background:var(--surface2);color:var(--txt)}
       <input class="finput" id="f-usuario" placeholder="Nome..." oninput="recarregarDebounced()">
     </div>
     <div class="fgroup">
+      <label>Buscar (código do card, descrição...)</label>
+      <input class="finput" id="f-busca" placeholder="Ex: S26905" style="min-width:220px" oninput="recarregarDebounced()">
+    </div>
+    <div class="fgroup">
       <label>De</label>
       <input class="finput" type="date" id="f-data-inicio" onchange="recarregar()">
     </div>
@@ -217,6 +221,7 @@ function recarregarDebounced(){
 function limparFiltros(){
   document.getElementById('f-tabela').value = '';
   document.getElementById('f-usuario').value = '';
+  document.getElementById('f-busca').value = '';
   document.getElementById('f-data-inicio').value = '';
   document.getElementById('f-data-fim').value = '';
   recarregar();
@@ -226,10 +231,12 @@ function montarQuery(cursor){
   var params = new URLSearchParams();
   var tabela = document.getElementById('f-tabela').value;
   var usuario = document.getElementById('f-usuario').value.trim();
+  var busca = document.getElementById('f-busca').value.trim();
   var dataInicio = document.getElementById('f-data-inicio').value;
   var dataFim = document.getElementById('f-data-fim').value;
   if(tabela) params.set('tabela', tabela);
   if(usuario) params.set('usuario', usuario);
+  if(busca) params.set('busca', busca);
   if(dataInicio) params.set('dataInicio', dataInicio+'T00:00:00.000Z');
   if(dataFim) params.set('dataFim', dataFim+'T23:59:59.999Z');
   if(cursor) params.set('cursor', cursor);
