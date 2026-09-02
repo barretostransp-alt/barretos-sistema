@@ -891,6 +891,10 @@ if (!getAuthToken()) { mostrarTelaSemAcesso(); }
    mesmo quando o mesmo card tem mais de um registro (rateio). */
 var WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
 var pendAttSol = [], driveAttsSol = [];
+// Guarda o arquivo do CT-e lido em "Anexar CT-e (PDF)" (modal de Registro)
+// pra anexar de verdade junto quando o registro for salvo — antes esse
+// arquivo só era usado pra ler o texto e depois era descartado.
+var pendCteArquivoReg = null;
 
 function chaveAnexoFat_(cod, id){ return (cod||'SEM-COD') + '_' + String(id||'').slice(0,8); }
 
@@ -956,9 +960,29 @@ function renderAttListSol(){
   l.innerHTML = out || '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Nenhum anexo</div>';
 }
 
+// Sobe um anexo pro Drive na "chave" do faturamento e, se tiver o código
+// do card, sobe a MESMA cópia de novo na "chave" do card (chave = código
+// puro, igual ao que o Kanban usa) — assim o anexo aparece nos dois
+// lugares (pedido do Alex: "tudo registrado" no card também). A cópia do
+// card é melhor-esforço: se falhar, não trava o fluxo principal (o anexo
+// do faturamento já foi salvo, que é o que importa).
+async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
+  var j = await fetchComTentativas_(WEBAPP_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action:'upload_anexo', chave: chaveFat, nome: nome, data: base64, mimeType: mimeType })
+  });
+  if(cod){
+    fetchComTentativas_(WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action:'upload_anexo', chave: cod, nome: nome, data: base64, mimeType: mimeType })
+    }).catch(function(err){ console.error('[uploadAnexoFat_] falha ao espelhar anexo no card:', err); });
+  }
+  return j;
+}
+
 // Envia os anexos pendentes pro Drive, agrupados pela "chave" (id real do
 // registro) — só existe DEPOIS que a solicitação já foi criada no banco.
-async function saveAttSol(chave){
+async function saveAttSol(chave, cod){
   if(!pendAttSol.length || !chave) return;
   for(var i=0; i<pendAttSol.length; i++){
     var f = pendAttSol[i];
@@ -969,10 +993,7 @@ async function saveAttSol(chave){
         reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
         reader.readAsDataURL(f);
       });
-      var j = await fetchComTentativas_(WEBAPP_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action:'upload_anexo', chave: chave, nome: f.name, data: base64, mimeType: f.type || 'application/octet-stream' })
-      });
+      var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsSol.push(j.anexo);
     }catch(err){ console.error('[saveAttSol] erro:', err); }
   }
@@ -999,6 +1020,64 @@ function carregarAnexosParaExibir_(elId, chave){
   fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
     .then(function(j){ if(j.success) renderAttListReadonly_(elId, j.anexos || []); })
     .catch(function(){});
+}
+
+/* ── Anexos EDITÁVEIS do painel "Detalhes do Registro" — igual ao
+   read-only acima, mas com botão de excluir e upload direto (o registro
+   já existe, então não precisa do fluxo de "pendente" das outras telas).
+   Nota: a cópia espelhada no card (ver uploadAnexoFat_) é um arquivo
+   independente no Drive — excluir aqui não remove a cópia do card. */
+function renderAttListEditavel_(elId, anexos, chaveFat){
+  var l = document.getElementById(elId); if(!l) return;
+  if(!anexos || !anexos.length){ l.innerHTML = '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Nenhum anexo</div>'; return; }
+  l.innerHTML = anexos.map(function(a){
+    var nm = a.nome || 'arquivo';
+    var ico = /\.(jpg|jpeg|png|gif|webp)$/i.test(nm) ? 'ti-photo' : /\.pdf$/i.test(nm) ? 'ti-file-type-pdf' : 'ti-file';
+    return '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span>'+
+      '<a href="https://drive.google.com/file/d/'+a.id+'/view" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
+      '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a>'+
+      '<button class="arm" onclick="rmAttDriveSp(\''+a.id+'\',\''+e(chaveFat).replace(/'/g,"\\'")+'\')" title="Excluir"><i class="ti ti-x"></i></button></div>';
+  }).join('');
+}
+function carregarAnexosParaExibirEditavel_(elId, chave){
+  if(!chave) return;
+  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
+    .then(function(j){ if(j.success) renderAttListEditavel_(elId, j.anexos || [], chave); })
+    .catch(function(){});
+}
+function rmAttDriveSp(fileId, chaveFat){
+  if(!confirm('Excluir este anexo permanentemente? (a cópia que foi pro card não é afetada)')) return;
+  fetchComTentativas_(WEBAPP_URL, {method:'POST', body: JSON.stringify({action:'excluir_anexo', fileId: fileId})})
+    .then(function(j){
+      if(j.success) carregarAnexosParaExibirEditavel_('sp-att-list', chaveFat);
+      else alert('Erro ao excluir: ' + (j.error||'desconhecido'));
+    }).catch(function(err){ alert('Erro ao excluir anexo: ' + err.message); });
+}
+function handleFilesSp(files){
+  if(currentSideId==null) return;
+  var r = registros.find(function(x){ return x._id===currentSideId; });
+  if(!r) return;
+  Array.prototype.forEach.call(files, function(f){
+    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    enviarAnexoSp_(r, f);
+  });
+}
+async function enviarAnexoSp_(r, f){
+  var chaveFat = chaveAnexoFat_(r.cod, r._id);
+  var drop = document.getElementById('sp-att-drop');
+  if(drop) drop.style.opacity = '0.5';
+  try{
+    var base64 = await new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+      reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
+      reader.readAsDataURL(f);
+    });
+    await uploadAnexoFat_(chaveFat, r.cod, f.name, base64, f.type || 'application/octet-stream');
+    carregarAnexosParaExibirEditavel_('sp-att-list', chaveFat);
+  }catch(err){ alert('Erro ao enviar anexo ' + f.name + ': ' + err.message); }
+  finally{ if(drop) drop.style.opacity = '1'; }
 }
 
 /* ── Anexos do Canhoto — mesmo padrão do 'sol', mas no mesmo grupo (chave)
@@ -1047,7 +1126,7 @@ function renderAttListCan(){
   l.innerHTML = out || '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Nenhum canhoto anexado ainda</div>';
 }
 
-async function saveAttCan(chave){
+async function saveAttCan(chave, cod){
   if(!pendAttCan.length || !chave) return;
   for(var i=0; i<pendAttCan.length; i++){
     var f = pendAttCan[i];
@@ -1058,10 +1137,7 @@ async function saveAttCan(chave){
         reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
         reader.readAsDataURL(f);
       });
-      var j = await fetchComTentativas_(WEBAPP_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action:'upload_anexo', chave: chave, nome: f.name, data: base64, mimeType: f.type || 'application/octet-stream' })
-      });
+      var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsCan.push(j.anexo);
     }catch(err){ console.error('[saveAttCan] erro:', err); }
   }
@@ -1159,7 +1235,7 @@ async function finalizarCanhotoUI(){
 
   if(pendAttCan.length){
     btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando canhoto…';
-    await saveAttCan(chaveAnexoFat_(r.cod, r._id));
+    await saveAttCan(chaveAnexoFat_(r.cod, r._id), r.cod);
   }
 
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando pra análise…';
@@ -1674,6 +1750,14 @@ function openSidePanel(id){
     ${campoSomenteLeitura('Status', r.statusCanhoto || 'Em Andamento')}
     <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-paperclip" style="font-size:12px"></i> Anexos (NF, CT-e e canhoto)</div>
     <div class="alist" id="sp-att-list"><div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Carregando…</div></div>
+    <div class="az" id="sp-att-drop" onclick="document.getElementById('sp-att-inp').click()"
+      ondragover="event.preventDefault();this.classList.add('dov')"
+      ondragleave="this.classList.remove('dov')"
+      ondrop="event.preventDefault();this.classList.remove('dov');handleFilesSp(event.dataTransfer.files)">
+      <i class="ti ti-cloud-upload" style="font-size:22px;color:var(--txt-dim)"></i>
+      <p>Clique ou arraste pra adicionar mais anexos<br><span style="font-size:10px;opacity:.6">PDF, JPG ou PNG · máx 10MB cada · vai também pro card</span></p>
+    </div>
+    <input type="file" id="sp-att-inp" multiple accept="application/pdf,image/*" style="display:none" onchange="handleFilesSp(this.files)">
   `;
   document.getElementById('side-panel-registro').classList.add('open');
   document.getElementById('sp-overlay').classList.add('open');
@@ -1681,7 +1765,7 @@ function openSidePanel(id){
   var btnFinalizar = document.getElementById('sp-btn-finalizar-canhoto');
   btnFinalizar.style.display = r.statusCanhoto === 'Aguardando Análise' ? 'inline-flex' : 'none';
 
-  carregarAnexosParaExibir_('sp-att-list', chaveAnexoFat_(r.cod, r._id));
+  carregarAnexosParaExibirEditavel_('sp-att-list', chaveAnexoFat_(r.cod, r._id));
 }
 function closeSidePanel(){
   document.getElementById('side-panel-registro').classList.remove('open');
@@ -1731,6 +1815,7 @@ function openModalRegistro(){
   document.getElementById('r-id').value = '';
   document.getElementById('r-aviso-finalizacao').style.display = 'none';
   document.getElementById('r-att-list').innerHTML = '';
+  pendCteArquivoReg = null;
   document.getElementById('modal-registro-titulo').textContent = 'Novo Registro de Faturamento';
   document.getElementById('btn-salvar-registro-label').textContent = 'Salvar Registro';
   custoOperacionalCardAtualFat = null;
@@ -1836,7 +1921,7 @@ async function enviarSolicitacao(){
     if(pendAttSol.length){
       btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando anexo(s)…';
       var criado = await res.json();
-      await saveAttSol(chaveAnexoFat_(criado.cod, criado.id));
+      await saveAttSol(chaveAnexoFat_(criado.cod, criado.id), criado.cod);
     }
   }catch(e){ alert('Erro de conexão ao enviar solicitação.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
   await loadAllData();
@@ -1917,10 +2002,28 @@ async function salvarRegistro(){
   } else {
     url = API_BASE + '/faturamento';
   }
+  var salvo;
   try{
     var res = await apiFetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(registro) });
     if(!res.ok){ var j = await res.json(); alert('Erro ao salvar registro: ' + (j.error||'desconhecido')); btnSalvar.disabled=false; btnSalvar.innerHTML=textoOriginal; return; }
+    salvo = await res.json();
   }catch(e){ alert('Erro de conexão ao salvar registro.'); btnSalvar.disabled=false; btnSalvar.innerHTML=textoOriginal; return; }
+
+  // Anexa de verdade o PDF do CT-e lido em "Anexar CT-e (PDF)" — antes ele
+  // só era usado pra ler o texto e depois descartado. Melhor-esforço: se
+  // falhar, não desfaz o registro que já foi salvo com sucesso.
+  if(pendCteArquivoReg){
+    try{
+      var base64Cte = await new Promise(function(resolve, reject){
+        var reader = new FileReader();
+        reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+        reader.onerror = function(){ reject(new Error('Falha ao ler ' + pendCteArquivoReg.name)); };
+        reader.readAsDataURL(pendCteArquivoReg);
+      });
+      await uploadAnexoFat_(chaveAnexoFat_(salvo.cod, salvo.id), salvo.cod, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
+    }catch(errCte){ console.error('[salvarRegistro] falha ao anexar CT-e:', errCte); }
+    pendCteArquivoReg = null;
+  }
 
   // Busca de novo em vez de só empurrar localmente — assim já vem com o
   // rateio aplicado (inclusive em registros que já existiam antes desse,
@@ -2112,6 +2215,10 @@ async function lerDocumentoFiscalPdf(prefixo){
   if(!arquivo){ statusEl.innerHTML = '<span class="txt-red">Selecione um arquivo PDF primeiro.</span>'; return; }
   if(typeof pdfjsLib === 'undefined'){ statusEl.innerHTML = '<span class="txt-red">Biblioteca de leitura de PDF não carregou.</span>'; return; }
 
+  // Guarda o arquivo pra anexar de verdade quando o registro for salvo —
+  // só limpa se descobrir que é o documento errado (NFe) mais abaixo.
+  if(prefixo==='r') pendCteArquivoReg = arquivo;
+
   statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Lendo PDF…';
   try{
     var buffer = await arquivo.arrayBuffer();
@@ -2123,11 +2230,12 @@ async function lerDocumentoFiscalPdf(prefixo){
       textoCompleto += reconstruirTextoVisualFat_(content.items) + '\n';
     }
     if(textoCompleto.trim().length < 40){
-      statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span>';
+      statusEl.innerHTML = '<span class="txt-red">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span> <span class="txt-green">O arquivo ainda será anexado ao registro.</span>';
       return;
     }
     var tipo = detectarTipoDocumentoFiscal_(textoCompleto);
     if(tipo === 'nfe'){
+      if(prefixo==='r') pendCteArquivoReg = null;
       statusEl.innerHTML = '<span class="txt-red">Isso parece ser uma Nota Fiscal, não um CT-e — anexe a NF na tela de Nova Solicitação (Fila de Faturamento) em vez de ler aqui.</span>';
       return;
     }
