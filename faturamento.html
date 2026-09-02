@@ -1536,7 +1536,19 @@ function calcularResultado(totalFrete, valorFreteiro, gnre, observacoes, dataFat
 }
 
 /* ── Helpers de formatação ── */
-function fmtMoeda(v){ return "R$\u00A0" + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// Alguns valores v\u00EAm crus do card do Kanban, digitados \u00E0 m\u00E3o em formato
+// BR (ex: "107,15" ou "5.770,00") \u2014 Number() direto quebra nesses casos
+// (vira NaN sempre que tem centavos com v\u00EDrgula) e s\u00F3 "funcionava por
+// acaso" quando o valor era um n\u00FAmero redondo sem v\u00EDrgula nenhuma. Essa
+// fun\u00E7\u00E3o entende os dois formatos (BR digitado e number/string j\u00E1 limpa).
+function parseValorBR_(v){
+  if(v===null||v===undefined||v==="")return 0;
+  var s=String(v).replace(/R\$\s*/g,"").trim();
+  if(s.indexOf(",")!==-1)s=s.replace(/\./g,"").replace(",",".");
+  var n=parseFloat(s);
+  return isFinite(n)?n:0;
+}
+function fmtMoeda(v){ return "R$\u00A0" + parseValorBR_(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtPct(v){ return (v===null||v===undefined||v==='') ? '—' : (Number(v)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
 function fmtData(iso){ if(!iso) return "—"; var p=String(iso).split("-"); return p.length===3 ? (p[2]+"/"+p[1]+"/"+p[0]) : iso; }
 function dataPlanilhaParaISO_(data){
