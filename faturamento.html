@@ -1397,7 +1397,10 @@ function renderFila(){
         <span style="display:block">Solicitado por ${r.solicitante||'—'} em ${r.dataSolicitacao||'—'}</span>
         ${mdfTxt}
       </div>
-      ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirFinalizacao(\''+r._id+'\')"><i class="ti ti-check"></i> Faturado</button>'}
+      <div style="display:flex;gap:6px;align-items:center">
+        ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirFinalizacao(\''+r._id+'\')"><i class="ti ti-check"></i> Faturado</button>'}
+        <button class="btn btn-danger btn-sm" title="Excluir solicitação" onclick="event.stopPropagation();excluirSolicitacaoFila('${r._id}')"><i class="ti ti-trash"></i></button>
+      </div>
     </div>`;
   }).join('');
   var htmlAnalise = aguardandoAnalise.map(function(r){
@@ -1819,6 +1822,21 @@ async function atualizarCampoRegistro(id, field, value){
 
   await loadAllData();
   openSidePanel(id);
+}
+
+// Exclui uma solicitação ainda pendente (fila de faturamento, antes de
+// finalizar) — mesma exclusão do painel "Detalhes do Registro", só que
+// acessível direto pelo card da fila, sem precisar abrir nada (essas
+// solicitações nem têm painel próprio pra abrir).
+async function excluirSolicitacaoFila(id){
+  var r = todosRegistrosFat.find(function(x){ return x._id===id; });
+  if(!r) return;
+  if(!confirm('Excluir esta solicitação ("'+(r.cliente||'—')+' · Cód. '+(r.cod||'—')+'")? Essa ação não pode ser desfeita.')) return;
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(id), { method: 'DELETE' });
+    if(!res.ok && res.status !== 204){ var j = await res.json(); alert('Erro ao excluir: ' + (j.error||'desconhecido')); return; }
+  }catch(e){ alert('Erro de conexão ao excluir.'); return; }
+  await loadAllData();
 }
 
 async function excluirRegistroAtual(){
