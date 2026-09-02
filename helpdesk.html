@@ -730,7 +730,7 @@ function renderLista() {
     '<div class="col-label">Status</div>'+
     '<div class="col-label">Prioridade</div>'+
     '<div class="col-label">Abertura</div>'+
-    '<div class="col-label">Tempo de Atendimento</div>'+
+    '<div class="col-label" style="text-align:center">Tempo de Atendimento</div>'+
     '<div></div></div>';
 
   html += '<div class="chamados-grid">';
@@ -745,7 +745,7 @@ function renderLista() {
     rowHtml += '<div>' + statusPill(r.Status) + '</div>';
     rowHtml += '<div>' + priorPill(r.Prioridade) + '</div>';
     rowHtml += '<div style="font-size:11px;color:var(--txt-dim);white-space:nowrap">' + esc(r.DataAbertura||'') + '</div>';
-    rowHtml += '<div style="font-size:11px;font-weight:600;white-space:nowrap;color:' + (r.ResolvidoEmISO?'var(--txt-dim)':'var(--orange)') + '">' + esc(tempoAtendimento(r.CriadoEmISO, r.ResolvidoEmISO)) + '</div>';
+    rowHtml += '<div style="font-size:11px;font-weight:600;white-space:nowrap;text-align:center;color:' + (r.ResolvidoEmISO?'var(--txt-dim)':'var(--orange)') + '">' + esc(tempoAtendimento(r.CriadoEmISO, r.ResolvidoEmISO)) + '</div>';
     rowHtml += '<div style="text-align:right"><i class="ti ti-chevron-right" style="color:var(--txt-muted)"></i></div>';
     rowHtml += '</div>';
     html += rowHtml;
