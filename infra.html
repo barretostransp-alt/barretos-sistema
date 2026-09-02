@@ -466,6 +466,7 @@ function mapearDoApi_(row){
     out[chave] = camposBool[campo] ? (v ? "SIM" : "NAO") : (camposData[campo] ? fromDateInp(v||'') : (v||''));
   });
   out["Chave"] = out["DT CODIGO"];
+  out["_atualizado_em"] = row.atualizado_em || '';
   return out;
 }
 
@@ -588,15 +589,30 @@ function dataAmanhaBR_(){
   var d=new Date();d.setDate(d.getDate()+1);
   return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
 }
+// Um card "pertence" ao mês vigente quando a Data da Coleta cai nesse mês
+// — mesmo critério que o gráfico ao lado já usa. Cards sem Data da Coleta
+// não entram nessa checagem (por isso "Sem Data de Coleta" abaixo olha
+// pra todos os cards em aberto, não só os do mês: senão o contador que
+// existe justamente pra achar quem não tem data nunca acharia ninguém).
+function estaNoMesVigente_(dataBR){
+  if(!dataBR)return false;
+  var p=String(dataBR).split("/");if(p.length!==3)return false;
+  var hoje=new Date();
+  return (parseInt(p[1],10)-1)===hoje.getMonth() && parseInt(p[2],10)===hoje.getFullYear();
+}
 function montarResumo_(cards){
-  var abertos=cards.filter(function(c){return c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO";});
-  var valorAberto=abertos.reduce(function(s,c){return s+parseValorBR_(c["FRETE COBRADO"]);},0);
-  var semValePedagio=cards.filter(function(c){return c["DATA DA COLETA"]&&!c["VALE PEDAGIO"];}).length;
-  var semDataColeta=cards.filter(function(c){return !c["DATA DA COLETA"];}).length;
+  var cardsDoMes=cards.filter(function(c){return estaNoMesVigente_(c["DATA DA COLETA"]);});
+  var abertosGeral=cards.filter(function(c){return c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO";});
+  var abertosDoMes=cardsDoMes.filter(function(c){return c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO";});
+  var valorAberto=abertosDoMes.reduce(function(s,c){return s+parseValorBR_(c["FRETE COBRADO"]);},0);
+  var semValePedagio=cardsDoMes.filter(function(c){return c["DATA DA COLETA"]&&!c["VALE PEDAGIO"];}).length;
+  var semDataColeta=abertosGeral.filter(function(c){return !c["DATA DA COLETA"];}).length;
   var coletaAmanha=cards.filter(function(c){return c["DATA DA COLETA"]===dataAmanhaBR_();}).length;
+  var hoje=new Date();
+  var tituloResumo="Resumo do Quadro — "+MESES_[hoje.getMonth()]+"/"+hoje.getFullYear();
 
   return "<div class=\"resumo\">"+
-    "<div class=\"resumo-ttl\">Resumo do Quadro</div>"+
+    "<div class=\"resumo-ttl\">"+tituloResumo+"</div>"+
     "<div class=\"resumo-hero\"><div class=\"n\">"+fmtMoeda_(valorAberto)+"</div><div class=\"lbl\">Em aberto (não faturado)</div></div>"+
     "<div class=\"resumo-grid\">"+
     "<div class=\"resumo-kpi"+(semValePedagio?" warn":"")+"\"><div class=\"n\">"+semValePedagio+"</div><div class=\"lbl\">Sem Vale Pedágio</div></div>"+
@@ -703,6 +719,15 @@ function renderBoard(){
   var h="";
   STATUS_LIST.forEach(function(st){
     var cc=allCards.filter(function(c){return c["Status"]===st;});
+    if(st==="FINALIZADO"){
+      // Ordem de finalização (mais recente primeiro), não a ordem de
+      // criação do card — usa atualizado_em como referência de quando
+      // entrou nessa coluna (pedido do Alex).
+      cc=cc.slice().sort(function(a,b){
+        var ta=a["_atualizado_em"]||"",tb=b["_atualizado_em"]||"";
+        return ta===tb?0:(ta<tb?1:-1);
+      });
+    }
     var color=SC[st]||"#888";
     h+="<div class=\"col\" data-status=\""+e(st)+"\" ondragover=\"dov(event)\" ondragleave=\"dlv(event)\" ondrop=\"ddrop(event,\'"+e(st)+"\')\">"+
       "<div class=\"col-hd\"><div class=\"col-dot\" style=\"background:"+color+"\"></div>"+
@@ -725,11 +750,13 @@ function rCard(c){
   var fret=c["FRETE COBRADO"]||"",acomp=c["ACOMPANHAMENTO"]||"",tip=c["TIPO DE VEICULO"]||"";
   var ro=[c["CIDADE ORIGEM"],c["UF ORIGEM"]].filter(Boolean).join("/");
   if(c["CIDADE DESTINO"])ro+=(ro?" → ":"")+[c["CIDADE DESTINO"],c["UF DESTINO"]].filter(Boolean).join("/");
-  // Title: read from local extra storage (saved on form submit)
+  // Título: prioriza o campo real (TITULO, vindo da API) — cards antigos,
+  // de antes desse campo existir, caem pra rota ou cliente em vez do
+  // genérico "(sem título)", ficando visualmente padrão com os demais.
   var _extra=getExtra(key);
   var _parts=(c["Resumo"]||"").split(" - ");
   var _rota=_parts.find(function(p){return p.toUpperCase().indexOf(" X ")!==-1;})||"";
-  var titulo=_extra["TITULO"]||_rota||"";
+  var titulo=c["TITULO"]||_extra["TITULO"]||ro||_rota||cli||"";
   var att=getAtt(key);
   var cot=c["COTAÇÃO"]||"";
   var srch=[key,titulo,cli,vend,c["MOTORISTA"]||"",ro,fret,c["NF"]||"",c["CTE"]||"",cot?"cotacao "+cot:""].join(" ").toLowerCase();
