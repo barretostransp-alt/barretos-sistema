@@ -305,7 +305,8 @@ var FM={
   "PEDAGIO":            "fi_pedagio",
   "PEDAGIO INCLUSO":    "fi_pedagio_incluso",
   "MODALIDADE":         "fi_modalidade",
-  "TIPO DE MATERIAL":   "fi_tipo_de_material"
+  "TIPO DE MATERIAL":   "fi_tipo_de_material",
+  "CADASTRADO BSOFT":   "fi_cadastrado_bsoft"
 };
 function fid(k){return FM[k]||("fi_"+k.replace(/\s+/g,"_").toLowerCase());}
 function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"";}
@@ -423,7 +424,7 @@ function mostrarTelaSemAcesso() {
 // planilha antiga devolvia) pro formato da API (snake_case, datas ISO).
 function mapearParaApi_(dados){
   var camposData = {"DATA DA COLETA":1,"PREVISÃO DE ENTREGA":1,"DATA DA ENTREGA":1};
-  var camposBool = {"PEDAGIO INCLUSO":1};
+  var camposBool = {"PEDAGIO INCLUSO":1,"CADASTRADO BSOFT":1};
   var mapa = {
     "DT CODIGO":"codigo","Resumo":"resumo","TITULO":"titulo","Status":"status","ACOMPANHAMENTO":"acompanhamento",
     "CLIENTE":"cliente","CONTATO CLIENTE":"contato_cliente","CNPJ TOMADOR":"cnpj_tomador","VENDEDOR":"vendedor",
@@ -432,7 +433,7 @@ function mapearParaApi_(dados){
     "CIDADE ORIGEM":"cidade_origem","UF ORIGEM":"uf_origem","CIDADE DESTINO":"cidade_destino","UF DESTINO":"uf_destino",
     "FRETE COBRADO":"frete_cobrado","FRETE PAGO":"frete_pago","PEDAGIO":"pedagio_valor","PEDAGIO INCLUSO":"pedagio_incluso","CUSTO OPERACIONAL TOTAL":"custo_operacional_total","ADIANTAMENTO":"adiantamento",
     "TIPO DE VEICULO":"tipo_veiculo","MOTORISTA":"motorista","TELEFONE MOTORISTA":"telefone_motorista","GERENCIAMENTO":"gerenciamento",
-    "TITULAR DA CONTA":"titular_conta","TIPO CHAVE PIX":"tipo_chave_pix","CHAVE PIX":"chave_pix","BANCO":"banco",
+    "TITULAR DA CONTA":"titular_conta","TIPO CHAVE PIX":"tipo_chave_pix","CHAVE PIX":"chave_pix","BANCO":"banco","CADASTRADO BSOFT":"cadastrado_bsoft",
     "OBSERVACAO":"observacao","COTAÇÃO":"cotacao_numero","VALE PEDAGIO":"vale_pedagio"
   };
   var out = {};
@@ -454,11 +455,11 @@ function mapearDoApi_(row){
     cidade_origem:"CIDADE ORIGEM", uf_origem:"UF ORIGEM", cidade_destino:"CIDADE DESTINO", uf_destino:"UF DESTINO",
     frete_cobrado:"FRETE COBRADO", frete_pago:"FRETE PAGO", pedagio_valor:"PEDAGIO", pedagio_incluso:"PEDAGIO INCLUSO", custo_operacional_total:"CUSTO OPERACIONAL TOTAL", adiantamento:"ADIANTAMENTO",
     tipo_veiculo:"TIPO DE VEICULO", motorista:"MOTORISTA", telefone_motorista:"TELEFONE MOTORISTA", gerenciamento:"GERENCIAMENTO",
-    titular_conta:"TITULAR DA CONTA", tipo_chave_pix:"TIPO CHAVE PIX", chave_pix:"CHAVE PIX", banco:"BANCO",
+    titular_conta:"TITULAR DA CONTA", tipo_chave_pix:"TIPO CHAVE PIX", chave_pix:"CHAVE PIX", banco:"BANCO", cadastrado_bsoft:"CADASTRADO BSOFT",
     observacao:"OBSERVACAO", cotacao_numero:"COTAÇÃO", vale_pedagio:"VALE PEDAGIO"
   };
   var camposData = {data_coleta:1, previsao_entrega:1, data_entrega:1};
-  var camposBool = {pedagio_incluso:1};
+  var camposBool = {pedagio_incluso:1, cadastrado_bsoft:1};
   var out = {};
   Object.keys(mapaInverso).forEach(function(campo){
     var chave = mapaInverso[campo];
@@ -944,6 +945,15 @@ function buildForm(data,isNew){
       sel("TIPO CHAVE PIX",["","CPF","CNPJ","Telefone","E-mail","Chave Aleatória"],"")+"</div>"+
     "<div class=\"fg\"><label>Chave Pix</label>"+inp("CHAVE PIX","Informe a chave")+"</div>"+
     "<div class=\"fg\"><label>Banco</label>"+inp("BANCO","Ex: Nubank, Itaú")+"</div>"+
+  "</div>"+
+  "<div class=\"fg-grid g4\" style=\"margin-top:9px\">"+
+    "<div class=\"fg\"><label>Cadastrado na Bsoft?</label>"+
+      "<div class=\"ped-toggle-wrap\" onclick=\"toggleCadastradoBsoft()\">"+
+        "<div class=\"ped-toggle"+((data["CADASTRADO BSOFT"]==="SIM")?" on":"")+"\" id=\""+fid("CADASTRADO BSOFT")+"_sw\"><div class=\"knob\"></div></div>"+
+        "<span class=\"ped-toggle-label\" id=\""+fid("CADASTRADO BSOFT")+"_lbl\" style=\""+((data["CADASTRADO BSOFT"]==="SIM")?"color:var(--gold)":"")+"\">"+((data["CADASTRADO BSOFT"]==="SIM")?"Sim":"Não")+"</span>"+
+      "</div>"+
+      "<input type=\"hidden\" id=\""+fid("CADASTRADO BSOFT")+"\" value=\""+((data["CADASTRADO BSOFT"]==="SIM")?"SIM":"NAO")+"\">"+
+    "</div>"+
   "</div></div>"+
 
   // ── OBSERVAÇÃO
@@ -1435,6 +1445,19 @@ function togglePedagioIncluso(){
   if(sw)sw.classList.toggle("on",ligando);
   if(lbl){lbl.textContent=ligando?"Sim":"Não";lbl.style.color=ligando?"var(--gold)":"";}
   onFretMotBlur();
+}
+
+// Toggle "Cadastrado na Bsoft?" — só controle/registro visual, não mexe
+// em nenhum outro campo (diferente do Pedágio Incluso).
+function toggleCadastradoBsoft(){
+  var hid=document.getElementById(fid("CADASTRADO BSOFT"));
+  var sw=document.getElementById(fid("CADASTRADO BSOFT")+"_sw");
+  var lbl=document.getElementById(fid("CADASTRADO BSOFT")+"_lbl");
+  if(!hid)return;
+  var ligando=hid.value!=="SIM";
+  hid.value=ligando?"SIM":"NAO";
+  if(sw)sw.classList.toggle("on",ligando);
+  if(lbl){lbl.textContent=ligando?"Sim":"Não";lbl.style.color=ligando?"var(--gold)":"";}
 }
 </script>
 
