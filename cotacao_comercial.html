@@ -3037,12 +3037,17 @@ function contemTodosTokens_(base, tokens) {
   return tokens.every(t => base.indexOf(t) !== -1);
 }
 
-// Lista de tokens (todos precisam bater) que identificam cada aprovador —
-// reaproveitada tanto pra saber "esse usuário logado é aprovador" quanto
-// pra saber "essa cotação foi criada por um aprovador" (Ponto extra:
-// aprovadores também vendem, então a própria cotação deles não deve
-// aparecer no modal de aprovação).
+// Lista de tokens (todos precisam bater) que identificam cada aprovador
+// pelo nome/login completo (usuário logado sempre tem nome completo).
 const APROVADORES_TOKENS = [['filipe'], ['gabriel','pinheiro'], ['diego','florido'], ['alex','brochini']];
+// O campo Vendedor da cotação só guarda o primeiro nome (mesma lista fixa
+// do dropdown de Vendedor) — bater com APROVADORES_TOKENS aqui nunca
+// funcionava pros aprovadores de sobrenome composto (Diego, Gabriel, Alex),
+// porque "diego" sozinho não contém "florido". Por isso essa lista à parte,
+// só de primeiro nome, pra saber "essa cotação foi criada por um aprovador"
+// (aprovadores também vendem, a própria cotação deles não deve aparecer
+// no modal de aprovação).
+const APROVADORES_PRIMEIRO_NOME = ['filipe', 'gabriel', 'diego', 'alex'];
 
 function stringEhAprovador_(s) {
   const base = normNomeLogin_(s||'');
@@ -3055,7 +3060,8 @@ function ehAprovador(user) {
 }
 
 function vendedorEhAprovador(vendedorNome) {
-  return stringEhAprovador_(vendedorNome);
+  const base = normNomeLogin_(vendedorNome||'');
+  return APROVADORES_PRIMEIRO_NOME.includes(base.trim());
 }
 
 function usuarioLogadoAtual() {
