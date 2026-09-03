@@ -1404,12 +1404,12 @@ function renderFila(){
     </div>`;
   }).join('');
   var htmlAnalise = aguardandoAnalise.map(function(r){
-    return `<div class="fila-card" onclick="openSidePanel('${r._id}')" style="cursor:pointer">
+    return `<div class="fila-card" ${ehColaborador?'':`onclick="openSidePanel('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:var(--blue-dim)"><i class="ti ti-receipt" style="color:var(--blue)"></i></div>
       <div class="fila-card-main"><strong>${r.cliente||'—'} · CT-e ${r.cte||'—'}</strong>
         <span style="display:block">Canhoto enviado, aguardando análise · Cód. ${r.cod||'—'}</span>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openSidePanel('${r._id}')"><i class="ti ti-eye"></i> Analisar</button>
+      ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openSidePanel(\''+r._id+'\')"><i class="ti ti-eye"></i> Analisar</button>'}
     </div>`;
   }).join('');
   var titulo = function(txt){ return '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);margin:14px 0 8px 2px">'+txt+'</div>'; };
