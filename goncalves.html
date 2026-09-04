@@ -53,13 +53,22 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 .resumo{background:var(--surface);border:1px solid var(--border);
   border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;}
 .resumo-ttl{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim);}
-.resumo-hero{background:var(--gold-dim);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.resumo-hero{background:var(--gold-dim);border:1px solid var(--border);border-radius:10px;padding:16px 18px;cursor:pointer;transition:border-color .15s;}
+.resumo-hero:hover{border-color:var(--gold);}
+.resumo-hero.active{border-color:var(--gold);border-width:2px;}
 .resumo-hero .n{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums;font-size:28px;font-weight:700;color:var(--txt);line-height:1.15;}
 .resumo-hero .lbl{font-size:11px;color:var(--txt-dim);margin-top:4px;}
 .resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .resumo-kpi{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border);
-  border-radius:8px;padding:10px 12px;}
+  border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .15s,background .15s;}
+.resumo-kpi:hover{background:var(--card-hover,var(--card));border-color:var(--gold);}
+.resumo-kpi.active{border-color:var(--gold);background:var(--gold-dim);}
 .resumo-kpi.warn{border-left-color:var(--gold);}
+.resumo-filtro-aviso{display:none;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--gold-dim);border:1px solid var(--gold-border,var(--border));border-radius:8px;
+  padding:8px 12px;font-size:11.5px;color:var(--txt);}
+.resumo-filtro-aviso.on{display:flex;}
+.resumo-filtro-aviso button{background:none;border:none;color:var(--gold);font-weight:700;font-size:11px;cursor:pointer;padding:0;}
 .resumo-kpi .n{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;color:var(--txt);}
 .resumo-chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;}
 .resumo-chart-tip{display:none;position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);
@@ -559,11 +568,27 @@ async function carregarTodosCards(){
   btnAntigos.disabled = true;
 }
 
+// Critério de cada KPI clicável do Resumo do Quadro, espelhando exatamente
+// a mesma conta usada em montarResumo_ (mesmos dados, só lidos via
+// data-* em vez de recalculados) — se um dia mudar um critério lá, muda
+// aqui também, senão a contagem do KPI e o filtro ficam divergentes.
+function passaFiltroResumo_(el){
+  if(!resumoFiltroAtivo) return true;
+  var ab=el.dataset.ab==="1", mes=el.dataset.mes==="1", dc=el.dataset.dc==="1", vp=el.dataset.vp==="1", cam=el.dataset.cam==="1", bs=el.dataset.bs==="1";
+  switch(resumoFiltroAtivo){
+    case "aberto": return mes&&ab;
+    case "sem_vale_pedagio": return mes&&dc&&!vp;
+    case "sem_data_coleta": return ab&&!dc;
+    case "coleta_amanha": return cam;
+    case "sem_bsoft": return ab&&!bs;
+    default: return true;
+  }
+}
 function doFilter(){
   var q=(document.getElementById("tb-s").value||"").toLowerCase().trim();
   var v=(document.getElementById("f-vend").value||"");
   document.querySelectorAll(".kcard").forEach(function(el){
-    var show=(!q||(el.dataset.s||"").toLowerCase().indexOf(q)!==-1)&&(!v||el.dataset.v===v);
+    var show=(!q||(el.dataset.s||"").toLowerCase().indexOf(q)!==-1)&&(!v||el.dataset.v===v)&&passaFiltroResumo_(el);
     el.classList.toggle("hidden",!show);
   });
   document.querySelectorAll(".col").forEach(function(col){
@@ -601,6 +626,23 @@ function estaNoMesVigente_(dataBR){
   var hoje=new Date();
   return (parseInt(p[1],10)-1)===hoje.getMonth() && parseInt(p[2],10)===hoje.getFullYear();
 }
+// Filtro ativado ao clicar num KPI do Resumo do Quadro — clicar de novo
+// no mesmo desliga. Consumido pelo doFilter() junto dos outros filtros
+// (busca por texto, vendedor), então combina com eles em vez de substituir.
+var resumoFiltroAtivo=null;
+var RESUMO_FILTRO_LABEL={aberto:"Em aberto (não faturado)",sem_vale_pedagio:"Sem Vale Pedágio",sem_data_coleta:"Sem Data de Coleta",coleta_amanha:"Coleta amanhã",sem_bsoft:"Sem Cadastro na Bsoft"};
+function aplicarFiltroResumo(tipo){
+  resumoFiltroAtivo=(resumoFiltroAtivo===tipo)?null:tipo;
+  document.querySelectorAll("[data-resumo-kpi]").forEach(function(el){
+    el.classList.toggle("active",el.getAttribute("data-resumo-kpi")===resumoFiltroAtivo);
+  });
+  var aviso=document.getElementById("resumo-filtro-aviso");
+  if(aviso){
+    aviso.classList.toggle("on",!!resumoFiltroAtivo);
+    aviso.querySelector(".lbl").textContent=resumoFiltroAtivo?("Filtrando: "+RESUMO_FILTRO_LABEL[resumoFiltroAtivo]):"";
+  }
+  doFilter();
+}
 function montarResumo_(cards){
   var cardsDoMes=cards.filter(function(c){return estaNoMesVigente_(c["DATA DA COLETA"]);});
   var abertosGeral=cards.filter(function(c){return c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO";});
@@ -609,16 +651,28 @@ function montarResumo_(cards){
   var semValePedagio=cardsDoMes.filter(function(c){return c["DATA DA COLETA"]&&!c["VALE PEDAGIO"];}).length;
   var semDataColeta=abertosGeral.filter(function(c){return !c["DATA DA COLETA"];}).length;
   var coletaAmanha=cards.filter(function(c){return c["DATA DA COLETA"]===dataAmanhaBR_();}).length;
+  var semBsoft=abertosGeral.filter(function(c){return c["CADASTRADO BSOFT"]!=="SIM";}).length;
   var hoje=new Date();
   var tituloResumo="Resumo do Quadro — "+MESES_[hoje.getMonth()]+"/"+hoje.getFullYear();
 
+  function kpi(tipo,cls,valor,label,full){
+    return "<div class=\"resumo-kpi"+(cls?" "+cls:"")+(resumoFiltroAtivo===tipo?" active":"")+"\""
+      +(full?" style=\"grid-column:1/-1\"":"")+" data-resumo-kpi=\""+tipo+"\" onclick=\"aplicarFiltroResumo('"+tipo+"')\">"
+      +"<div class=\"n\">"+valor+"</div><div class=\"lbl\">"+label+"</div></div>";
+  }
+
   return "<div class=\"resumo\">"+
     "<div class=\"resumo-ttl\">"+tituloResumo+"</div>"+
-    "<div class=\"resumo-hero\"><div class=\"n\">"+fmtMoeda_(valorAberto)+"</div><div class=\"lbl\">Em aberto (não faturado)</div></div>"+
+    "<div class=\"resumo-hero"+(resumoFiltroAtivo==="aberto"?" active":"")+"\" data-resumo-kpi=\"aberto\" onclick=\"aplicarFiltroResumo('aberto')\">"
+      +"<div class=\"n\">"+fmtMoeda_(valorAberto)+"</div><div class=\"lbl\">Em aberto (não faturado)</div></div>"+
+    "<div id=\"resumo-filtro-aviso\" class=\"resumo-filtro-aviso"+(resumoFiltroAtivo?" on":"")+"\">"
+      +"<span class=\"lbl\">"+(resumoFiltroAtivo?("Filtrando: "+RESUMO_FILTRO_LABEL[resumoFiltroAtivo]):"")+"</span>"
+      +"<button onclick=\"event.stopPropagation();aplicarFiltroResumo(resumoFiltroAtivo)\">Limpar</button></div>"+
     "<div class=\"resumo-grid\">"+
-    "<div class=\"resumo-kpi"+(semValePedagio?" warn":"")+"\"><div class=\"n\">"+semValePedagio+"</div><div class=\"lbl\">Sem Vale Pedágio</div></div>"+
-    "<div class=\"resumo-kpi"+(semDataColeta?" warn":"")+"\"><div class=\"n\">"+semDataColeta+"</div><div class=\"lbl\">Sem Data de Coleta</div></div>"+
-    "<div class=\"resumo-kpi\" style=\"grid-column:1/-1\"><div class=\"n\">"+coletaAmanha+"</div><div class=\"lbl\">Coleta amanhã</div></div>"+
+    kpi("sem_vale_pedagio",semValePedagio?"warn":"",semValePedagio,"Sem Vale Pedágio")+
+    kpi("sem_data_coleta",semDataColeta?"warn":"",semDataColeta,"Sem Data de Coleta")+
+    kpi("sem_bsoft",semBsoft?"warn":"",semBsoft,"Sem Cadastro na Bsoft")+
+    kpi("coleta_amanha","",coletaAmanha,"Coleta amanhã")+
     "</div></div>";
 }
 var MESES_=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -740,6 +794,7 @@ function renderBoard(){
   });
   h+="<div class=\"resumo-col\">"+montarResumo_(allCards)+montarGraficoResumo_(allCards)+"</div>";
   document.getElementById("board").innerHTML=h;
+  doFilter(); // reaplica busca/vendedor/filtro do resumo depois de recriar os cards
 }
 function onColClick(ev){
   var el=ev.target.closest(".kcard");
@@ -761,8 +816,18 @@ function rCard(c){
   var att=getAtt(key);
   var cot=c["COTAÇÃO"]||"";
   var srch=[key,titulo,cli,vend,c["MOTORISTA"]||"",ro,fret,c["NF"]||"",c["CTE"]||"",cot?"cotacao "+cot:""].join(" ").toLowerCase();
+  // Flags pro filtro clicável do Resumo do Quadro (aplicarFiltroResumo/
+  // doFilter) — calculadas aqui, uma vez por card, em vez de reconsultar
+  // allCards toda hora que o filtro roda.
+  var flAberto=(c["Status"]!=="FATURADO"&&c["Status"]!=="FINALIZADO")?"1":"0";
+  var flMes=estaNoMesVigente_(c["DATA DA COLETA"])?"1":"0";
+  var flDataColeta=c["DATA DA COLETA"]?"1":"0";
+  var flValePedagio=c["VALE PEDAGIO"]?"1":"0";
+  var flColetaAmanha=(c["DATA DA COLETA"]===dataAmanhaBR_())?"1":"0";
+  var flBsoft=(c["CADASTRADO BSOFT"]==="SIM")?"1":"0";
   return "<div class=\"kcard\" draggable=\"true\""
     +" data-key=\""+e(key)+"\" data-s=\""+e(srch)+"\" data-v=\""+e(vend)+"\""+
+    " data-ab=\""+flAberto+"\" data-mes=\""+flMes+"\" data-dc=\""+flDataColeta+"\" data-vp=\""+flValePedagio+"\" data-cam=\""+flColetaAmanha+"\" data-bs=\""+flBsoft+"\""+
     " ondragstart=\"dstart(event,event.currentTarget)\" ondragend=\"dend(event)\">"+
     "<div class=\"kcard-top\"><span class=\"kcard-code\">"+e(key)+(c["CTE"]?" · CTE "+e(c["CTE"])+"":"")+"</span>"+
     (acomp?"<span class=\"kcard-acomp\">"+e(acomp)+"</span>":"")+
