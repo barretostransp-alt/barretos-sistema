@@ -1921,6 +1921,11 @@ function abrirFinalizacao(regId){
   avisoEl.style.display = 'block';
   carregarAnexosParaExibir_('r-att-list', chaveAnexoFat_(r.cod, r._id));
   atualizarPreviewCalculo();
+  // Puxa automático o Custo Operacional Total do card pro Valor Freteiro —
+  // antes só acontecia se alguém clicasse em "Buscar" de novo, e esse passo
+  // ficava sendo esquecido, gerando registros finalizados com Valor
+  // Freteiro zerado.
+  if(r.cod) buscarCardKanbanFat('r');
 }
 
 function closeModalSolicitacao(){ document.getElementById('modal-solicitacao').classList.remove('open'); }
