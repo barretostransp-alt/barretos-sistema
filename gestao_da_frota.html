@@ -3673,7 +3673,7 @@ function deltaGam_(atual, anterior, invertido){
 function criterioGam_(label, icon, atual, anterior, unidade, invertido){
   const atualTxt = (atual===null||atual===undefined) ? '—' : (atual+(unidade||''));
   const anteriorTxt = (anterior===null||anterior===undefined) ? 'sem dado' : ('mês ant.: '+anterior+(unidade||''));
-  return `<div style="background:var(--surface2,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+  return `<div style="background:var(--card,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:8px 10px">
     <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-dim);display:flex;align-items:center;gap:5px;margin-bottom:4px">
       <i class="ti ${icon}"></i> ${label}
     </div>
@@ -3698,10 +3698,10 @@ async function carregarRankingMotoristas(){
       const c = r.criterios;
       const primeiro = idx===0;
       const badge = primeiro ? `<span class="badge badge-gold" style="margin-left:8px"><i class="ti ti-trophy" style="font-size:10px"></i> Motorista do Mês</span>` : '';
-      const aviso = r.motoristaNovo ? `<div style="font-size:11px;color:var(--txt-dim);background:var(--surface2,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin:8px 0"><i class="ti ti-info-circle"></i> Primeiro mês com histórico — pontuação neutra em todos os critérios.</div>` : '';
+      const aviso = r.motoristaNovo ? `<div style="font-size:11px;color:var(--txt-dim);background:var(--card,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin:8px 0"><i class="ti ti-info-circle"></i> Primeiro mês com histórico — pontuação neutra em todos os critérios.</div>` : '';
       return `<div style="border:1px solid ${primeiro?'var(--gold-border)':'var(--border)'};border-radius:10px;padding:14px;margin-bottom:10px;${primeiro?'background:var(--gold-dim)':''}">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-          <div style="width:32px;height:32px;border-radius:50%;background:${primeiro?'var(--gold)':'var(--surface2,rgba(255,255,255,.05))'};border:1px solid ${primeiro?'var(--gold)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${primeiro?'#111':'var(--txt-dim)'};flex-shrink:0">${idx+1}º</div>
+          <div style="width:32px;height:32px;border-radius:50%;background:${primeiro?'var(--gold)':'var(--card,rgba(255,255,255,.05))'};border:1px solid ${primeiro?'var(--gold)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${primeiro?'#111':'var(--txt-dim)'};flex-shrink:0">${idx+1}º</div>
           <div style="flex:1;min-width:0">
             <strong style="font-size:14px">${escGam_(r.nome)}</strong>${badge}
           </div>
