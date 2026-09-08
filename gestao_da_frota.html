@@ -300,6 +300,10 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   <div class="nav-item" onclick="showView('detalhamentoMotorista')">
     <i class="ti ti-report-money"></i>Detalhamento
   </div>
+  <div class="nav-item" onclick="showView('filaLancamentos')">
+    <i class="ti ti-inbox"></i>Fila de Lançamentos
+    <span class="nav-badge warn" id="badge-fila-lancamentos" style="display:none"></span>
+  </div>
 
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">Financeiro</div>
@@ -578,6 +582,19 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <div class="kpi-val" id="det-kpi-comissao" style="color:var(--blue)">—</div><div class="kpi-lbl">Total de Comissão (R$)</div></div>
       </div>
       <div id="det-lista"><div class="loading-row"><span class="spinner"></span> Carregando…</div></div>
+    </div>
+
+    <!-- ─── FILA DE LANÇAMENTOS ─── -->
+    <div id="view-filaLancamentos" class="view">
+      <div class="filter-bar">
+        <select class="filter-input" id="fl-status" onchange="carregarFilaLancamentos()" style="max-width:200px">
+          <option value="Pendente">Pendentes</option>
+          <option value="Aprovado">Aprovados</option>
+          <option value="Rejeitado">Rejeitados</option>
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div id="fl-lista"><div class="loading-row"><span class="spinner"></span> Carregando…</div></div>
     </div>
 
     <!-- ─── DESPESAS ─── -->
@@ -1127,6 +1144,25 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   </div>
 </div>
 
+<!-- Analisar Lançamento (fila) -->
+<div id="modal-analisar-lancamento" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-inbox" style="color:var(--gold);margin-right:6px"></i>Analisar Lançamento</div>
+      <button class="modal-close" onclick="document.getElementById('modal-analisar-lancamento').classList.remove('open')">×</button>
+    </div>
+    <div id="lanc-info" style="background:var(--card,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px"></div>
+    <div id="lanc-form-especifico" class="form-grid form-grid-2"></div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost" style="color:var(--red)" onclick="rejeitarLancamentoAtual()"><i class="ti ti-x"></i> Rejeitar</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-analisar-lancamento').classList.remove('open')">Cancelar</button>
+        <button class="btn btn-primary" onclick="aprovarLancamentoAtual()"><i class="ti ti-check" style="font-size:14px"></i> Aprovar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Histórico de Checklist (dentro da OS) -->
 <div id="modal-historico-checklist" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
@@ -1338,6 +1374,7 @@ const VIEWS = {
   os:          { title:'Ordens de Serviço', icon:'ti-tool',           sub:'Operacional', add:'Nova OS' },
   gamificacao: { title:'Ranking de Motoristas', icon:'ti-trophy',     sub:'Operacional' },
   detalhamentoMotorista: { title:'Detalhamento', icon:'ti-report-money', sub:'Operacional' },
+  filaLancamentos: { title:'Fila de Lançamentos', icon:'ti-inbox', sub:'Operacional' },
   multas:      { title:'Multas',         icon:'ti-alert-octagon',    sub:'Financeiro', add:'Nova Multa' },
   despesas:    { title:'Despesas',        icon:'ti-receipt',          sub:'Financeiro', add:'Nova Despesa' },
   loginMotorista: { title:'Login Motorista', icon:'ti-key',           sub:'Acesso', add:'Novo Motorista' },
@@ -1357,6 +1394,7 @@ function showView(v) {
   if(v==='loginMotorista' && !db.motoristasLoginCarregado) { db.motoristasLoginCarregado = true; carregarMotoristasLogin(); }
   if(v==='gamificacao') carregarRankingMotoristas();
   if(v==='detalhamentoMotorista') carregarDetalhamentoMotoristas();
+  if(v==='filaLancamentos') carregarFilaLancamentos();
   const cfg = VIEWS[v];
   if(!cfg) return;
   document.getElementById('topbar-title').textContent = cfg.title;
@@ -3819,6 +3857,181 @@ async function carregarDetalhamentoMotoristas(){
   }catch(e){
     el.innerHTML = `<div class="tbl-empty"><i class="ti ti-wifi-off"></i> Não foi possível carregar o detalhamento agora.</div>`;
   }
+}
+
+/* ═══════════════════════════════════════
+   FILA DE LANÇAMENTOS (Mobile Frota)
+════════════════════════════════════════ */
+var db_lancamentos = [];
+var lancamentoAtual = null;
+
+function badgeTipoLancamento_(tipo){
+  if(tipo==='pre_viagem') return '<span class="badge badge-blue">Pré-Viagem</span>';
+  if(tipo==='abastecimento') return '<span class="badge badge-gold">Abastecimento</span>';
+  return '<span class="badge badge-gray">Diverso</span>';
+}
+function badgeStatusLancamento_(status){
+  if(status==='Aprovado') return '<span class="badge badge-green">Aprovado</span>';
+  if(status==='Rejeitado') return '<span class="badge badge-red">Rejeitado</span>';
+  return '<span class="badge badge-orange">Pendente</span>';
+}
+function fotosLinksLancamento_(fotos){
+  if(!Array.isArray(fotos) || !fotos.length) return '<span style="color:var(--txt-dim)">Sem foto</span>';
+  return fotos.map((f,i)=>`<a href="${f.url}" target="_blank" style="margin-right:8px"><i class="ti ti-photo" style="font-size:12px"></i> Foto ${i+1}</a>`).join('');
+}
+
+async function carregarFilaLancamentos(){
+  const status = document.getElementById('fl-status').value;
+  const el = document.getElementById('fl-lista');
+  el.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando…</div>`;
+  try{
+    const url = `${API_BASE}/lancamentos-motorista` + (status?`?status=${encodeURIComponent(status)}`:'');
+    const res = await apiFetch(url);
+    if(!res.ok) throw new Error('Falha ao buscar');
+    db_lancamentos = await res.json();
+    const pendentesBadge = document.getElementById('badge-fila-lancamentos');
+    const qtdPend = db_lancamentos.filter(l=>l.status==='Pendente').length;
+    if(status==='Pendente' && qtdPend){ pendentesBadge.style.display='inline-flex'; pendentesBadge.textContent=qtdPend; }
+    else if(status==='Pendente'){ pendentesBadge.style.display='none'; }
+    if(!db_lancamentos.length){ el.innerHTML = `<div class="tbl-empty">Nenhum lançamento encontrado.</div>`; return; }
+    el.innerHTML = db_lancamentos.map(l => `
+      <div class="panel" style="margin-bottom:10px">
+        <div class="panel-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          ${badgeTipoLancamento_(l.tipo)}
+          <strong style="flex:1;min-width:140px">${escGam_((l.motorista&&l.motorista.nome)||'—')}</strong>
+          <span style="font-size:12px;color:var(--txt-dim)">${isoParaBR(l.data)}</span>
+          ${l.cliente?`<span style="font-size:12px">${escGam_(l.cliente)}${l.cliente_novo?' <span class="badge badge-gold" style="font-size:9px">novo cliente</span>':''}</span>`:''}
+          <span style="font-size:12px">${fotosLinksLancamento_(l.fotos)}</span>
+          ${l.status==='Pendente'
+            ? `<button class="btn btn-primary btn-sm" onclick="abrirAnaliseLancamento('${l.id}')"><i class="ti ti-eye"></i> Analisar</button>`
+            : badgeStatusLancamento_(l.status)}
+        </div>
+        ${l.status==='Rejeitado' && l.motivo_rejeicao ? `<div class="panel-body" style="padding-top:0;font-size:12px;color:var(--red)">Motivo: ${escGam_(l.motivo_rejeicao)}</div>` : ''}
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML = `<div class="tbl-empty"><i class="ti ti-wifi-off"></i> Não foi possível carregar a fila agora.</div>`;
+  }
+}
+
+function abrirAnaliseLancamento(id){
+  const l = db_lancamentos.find(x=>x.id===id);
+  if(!l) return;
+  lancamentoAtual = l;
+  const nomeMotorista = (l.motorista&&l.motorista.nome)||'—';
+  document.getElementById('lanc-info').innerHTML = `
+    ${badgeTipoLancamento_(l.tipo)} &nbsp; <strong>${escGam_(nomeMotorista)}</strong> · ${isoParaBR(l.data)}
+    ${l.cliente?' · Cliente: '+escGam_(l.cliente)+(l.cliente_novo?' <span class="badge badge-gold" style="font-size:9px">novo</span>':''):''}
+    <div style="margin-top:6px">${fotosLinksLancamento_(l.fotos)}</div>`;
+
+  const form = document.getElementById('lanc-form-especifico');
+  if(l.tipo==='pre_viagem'){
+    const placaOpts = '<option value="">Selecione...</option>'+db.veiculos.map(v=>`<option value="${v['Placa']}">${v['Placa']} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
+    form.innerHTML = `
+      <div class="form-group"><label class="form-label">Veículo <span class="req">*</span></label><select class="form-input" id="al-placa">${placaOpts}</select></div>
+      <div class="form-group"><label class="form-label">Tipo do Veículo</label><input class="form-input" id="al-tipo-veic" placeholder="Ex: CARRETA CAÇAMBA"></div>
+      <div class="form-group"><label class="form-label">Origem <span class="req">*</span></label><input class="form-input" id="al-origem" placeholder="Cidade de origem"></div>
+      <div class="form-group"><label class="form-label">UF Origem</label><input class="form-input" id="al-uf" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="form-group"><label class="form-label">Destino <span class="req">*</span></label><input class="form-input" id="al-destino" placeholder="Cidade de destino"></div>
+      <div class="form-group"><label class="form-label">UF Destino</label><input class="form-input" id="al-uf2" maxlength="2" style="text-transform:uppercase"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Cliente ${l.cliente_novo?'<span style="color:var(--gold)">(ajuste o nome correto)</span>':''}</label><input class="form-input" id="al-cliente" value="${escGam_(l.cliente||'')}"></div>
+      <div class="form-group"><label class="form-label">Nº Embarque</label><input class="form-input" id="al-embarque"></div>
+      <div class="form-group"><label class="form-label">Peso (ton)</label><input class="form-input" type="number" step="0.01" id="al-peso"></div>
+      <div class="form-group"><label class="form-label">Faturamento (R$) <span class="req">*</span></label><input class="form-input" type="number" step="0.01" id="al-faturamento"></div>
+      <div class="form-group"><label class="form-label">Pedágio (R$)</label><input class="form-input" type="number" step="0.01" id="al-pedagio"></div>
+      <div class="form-group"><label class="form-label">Abastecimento (R$)</label><input class="form-input" type="number" step="0.01" id="al-abastecimento"></div>
+      <div class="form-group"><label class="form-label">Litros</label><input class="form-input" type="number" step="0.01" id="al-litros"></div>
+      <div class="form-group"><label class="form-label">Comissão (R$)</label><input class="form-input" type="number" step="0.01" id="al-comissao"></div>
+      <div class="form-group"><label class="form-label">KM Total (Odômetro)</label><input class="form-input" type="number" id="al-km"></div>`;
+  } else if(l.tipo==='abastecimento'){
+    const viagensMotorista = db.viagens.filter(v=>v.MOTORISTA===nomeMotorista).slice(0,25);
+    const viagemOpts = '<option value="">Selecione...</option>'+viagensMotorista.map(v=>`<option value="${v._id}">${v.DATA} — ${v.ORGIEM} → ${v.ROTA}</option>`).join('');
+    form.innerHTML = `
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Viagem <span class="req">*</span></label><select class="form-input" id="al-viagem">${viagemOpts}</select></div>
+      <div class="form-group"><label class="form-label">Valor Abastecimento (R$) <span class="req">*</span></label><input class="form-input" type="number" step="0.01" id="al-abastecimento"></div>
+      <div class="form-group"><label class="form-label">Litros</label><input class="form-input" type="number" step="0.01" id="al-litros"></div>
+      <div class="form-group"><label class="form-label">KM Total (Odômetro)</label><input class="form-input" type="number" id="al-km"></div>`;
+  } else {
+    form.innerHTML = `
+      <div class="form-group"><label class="form-label">Categoria <span class="req">*</span></label>
+        <select class="form-input" id="al-categoria"><option value="">Selecione...</option><option>Alimentação</option><option>Combustível</option><option>Outros</option></select></div>
+      <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" type="number" step="0.01" id="al-valor"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descrição</label><input class="form-input" id="al-descricao" placeholder="O que é essa despesa"></div>
+      <div class="form-group"><label class="form-label">Fornecedor</label><input class="form-input" id="al-fornecedor"></div>
+      <div class="form-group"><label class="form-label">Forma de Pagamento</label><input class="form-input" id="al-forma-pgto"></div>`;
+  }
+  document.getElementById('modal-analisar-lancamento').classList.add('open');
+}
+
+async function aprovarLancamentoAtual(){
+  const l = lancamentoAtual;
+  if(!l) return;
+  try{
+    let url, payload;
+    if(l.tipo==='pre_viagem'){
+      const veiculoId = idDoVeiculoPorPlaca(document.getElementById('al-placa').value);
+      if(!veiculoId || !document.getElementById('al-origem').value || !document.getElementById('al-destino').value || !document.getElementById('al-faturamento').value){
+        alert('Preencha veículo, origem, destino e faturamento.'); return;
+      }
+      payload = {
+        veiculo_id: veiculoId,
+        tipo_veiculo: document.getElementById('al-tipo-veic').value || null,
+        origem: document.getElementById('al-origem').value,
+        uf_origem: document.getElementById('al-uf').value || null,
+        destino: document.getElementById('al-destino').value,
+        uf_destino: document.getElementById('al-uf2').value || null,
+        cliente: document.getElementById('al-cliente').value || null,
+        numero_embarque: document.getElementById('al-embarque').value || null,
+        peso: parseFloat(document.getElementById('al-peso').value) || null,
+        valor_faturamento: parseFloat(document.getElementById('al-faturamento').value) || 0,
+        valor_pedagio: parseFloat(document.getElementById('al-pedagio').value) || 0,
+        valor_abastecimento: parseFloat(document.getElementById('al-abastecimento').value) || 0,
+        litros: parseFloat(document.getElementById('al-litros').value) || null,
+        valor_comissao: parseFloat(document.getElementById('al-comissao').value) || 0,
+        km_total: parseFloat(document.getElementById('al-km').value) || null,
+      };
+      url = `${API_BASE}/lancamentos-motorista/${l.id}/aprovar-pre-viagem`;
+    } else if(l.tipo==='abastecimento'){
+      const viagemId = document.getElementById('al-viagem').value;
+      if(!viagemId || !document.getElementById('al-abastecimento').value){ alert('Selecione a viagem e informe o valor.'); return; }
+      payload = {
+        viagem_id: viagemId,
+        valor_abastecimento: parseFloat(document.getElementById('al-abastecimento').value) || 0,
+        litros: parseFloat(document.getElementById('al-litros').value) || null,
+        km_total: parseFloat(document.getElementById('al-km').value) || null,
+      };
+      url = `${API_BASE}/lancamentos-motorista/${l.id}/aprovar-abastecimento`;
+    } else {
+      const categoria = document.getElementById('al-categoria').value;
+      const valor = parseFloat(document.getElementById('al-valor').value) || 0;
+      if(!categoria || !valor){ alert('Preencha categoria e valor.'); return; }
+      payload = {
+        categoria,
+        valor,
+        descricao: document.getElementById('al-descricao').value || null,
+        fornecedor: document.getElementById('al-fornecedor').value || null,
+        forma_pagamento: document.getElementById('al-forma-pgto').value || null,
+      };
+      url = `${API_BASE}/lancamentos-motorista/${l.id}/aprovar-diverso`;
+    }
+    const res = await apiFetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error||'Erro ao aprovar.'); return; }
+    document.getElementById('modal-analisar-lancamento').classList.remove('open');
+    await loadAllData();
+    await carregarFilaLancamentos();
+  }catch(e){ console.error(e); alert('Erro ao aprovar.'); }
+}
+
+async function rejeitarLancamentoAtual(){
+  const l = lancamentoAtual;
+  if(!l) return;
+  const motivo = prompt('Motivo da rejeição:');
+  if(!motivo) return;
+  try{
+    const res = await apiFetch(`${API_BASE}/lancamentos-motorista/${l.id}/rejeitar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({motivo})});
+    if(!res.ok){ const err = await res.json().catch(()=>({})); alert(err.error||'Erro ao rejeitar.'); return; }
+    document.getElementById('modal-analisar-lancamento').classList.remove('open');
+    await carregarFilaLancamentos();
+  }catch(e){ console.error(e); alert('Erro ao rejeitar.'); }
 }
 
 /* ═══════════════════════════════════════
