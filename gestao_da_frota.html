@@ -3977,13 +3977,30 @@ function abrirAnaliseLancamento(id){
   } else {
     const placaOptsDiv = '<option value="">Selecione...</option>'+db.veiculos.map(v=>`<option value="${v['Placa']}" ${v['Placa']===placaInformada?'selected':''}>${v['Placa']} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
     form.innerHTML = `
-      <div class="form-group"><label class="form-label">Veículo</label><select class="form-input" id="al-placa-diverso">${placaOptsDiv}</select></div>
+      <div class="form-group"><label class="form-label">Data <span class="req">*</span></label><input class="form-input" type="date" id="al-data" value="${l.data||''}"></div>
       <div class="form-group"><label class="form-label">Categoria <span class="req">*</span></label>
-        <select class="form-input" id="al-categoria"><option value="">Selecione...</option><option>Alimentação</option><option>Combustível</option><option>Outros</option></select></div>
+        <select class="form-input" id="al-categoria">
+          <option value="">Selecione...</option>
+          <option>Borracharia</option>
+          <option>Serviços/Peças</option><option>Peças</option>
+          <option>Documentação</option>
+          <option>Pessoal</option><option>Tecnologia</option>
+          <option>Alimentação</option><option>Combustível</option><option>Outros</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">Veículo</label><select class="form-input" id="al-placa-diverso">${placaOptsDiv}</select></div>
+      <div class="form-group"><label class="form-label">Forma de Pagamento</label>
+        <select class="form-input" id="al-forma-pgto">
+          <option value="">Selecione...</option>
+          <option>Pix</option><option>DDA</option><option>Crédito</option>
+          <option>TED</option><option>Pré-Pago</option><option>Outros</option>
+        </select></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descrição</label>
+        <input class="form-input" id="al-descricao" placeholder="O que é essa despesa" list="dl-desc" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Fornecedor</label>
+        <input class="form-input" id="al-fornecedor" list="dl-forn" autocomplete="off"></div>
       <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" type="number" step="0.01" id="al-valor"></div>
-      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descrição</label><input class="form-input" id="al-descricao" placeholder="O que é essa despesa"></div>
-      <div class="form-group"><label class="form-label">Fornecedor</label><input class="form-input" id="al-fornecedor"></div>
-      <div class="form-group"><label class="form-label">Forma de Pagamento</label><input class="form-input" id="al-forma-pgto"></div>`;
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-input" id="al-status"><option>Pendente</option><option>Pago</option></select></div>`;
   }
   document.getElementById('modal-analisar-lancamento').classList.add('open');
 }
@@ -4033,10 +4050,12 @@ async function aprovarLancamentoAtual(){
       payload = {
         categoria,
         valor,
+        data: document.getElementById('al-data').value || null,
         veiculo_id: idDoVeiculoPorPlaca(document.getElementById('al-placa-diverso').value) || null,
         descricao: document.getElementById('al-descricao').value || null,
         fornecedor: document.getElementById('al-fornecedor').value || null,
         forma_pagamento: document.getElementById('al-forma-pgto').value || null,
+        status: document.getElementById('al-status').value || null,
       };
       url = `${API_BASE}/lancamentos-motorista/${l.id}/aprovar-diverso`;
     }
