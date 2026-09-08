@@ -294,6 +294,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <i class="ti ti-tool"></i>OS
     <span class="nav-badge warn" id="badge-os" style="display:none"></span>
   </div>
+  <div class="nav-item" onclick="showView('gamificacao')">
+    <i class="ti ti-trophy"></i>Ranking de Motoristas
+  </div>
 
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">Financeiro</div>
@@ -541,6 +544,21 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
               <div class="loading-row"><span class="spinner"></span> Carregando…</div>
             </td></tr></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── RANKING DE MOTORISTAS (GAMIFICAÇÃO) ─── -->
+    <div id="view-gamificacao" class="view">
+      <div class="panel">
+        <div class="panel-body">
+          <p style="font-size:12px;color:var(--txt-dim);margin-bottom:14px;line-height:1.5">
+            Cada critério compara o motorista com o próprio mês anterior — não é sobre quem fatura mais
+            (rotas fixas diferentes tornam isso injusto), é sobre quem melhora mais. O 1º colocado do
+            mês vira o <strong>"Motorista do Mês"</strong>.
+            <span id="gam-periodo" style="display:block;margin-top:6px;color:var(--gold);font-weight:700"></span>
+          </p>
+          <div id="gam-lista"><div class="loading-row"><span class="spinner"></span> Carregando ranking…</div></div>
         </div>
       </div>
     </div>
@@ -1297,6 +1315,7 @@ const VIEWS = {
   viagens:     { title:'Viagens',         icon:'ti-route',            sub:'Operacional', add:'Lançar Viagem' },
   combustivel: { title:'Combustível',     icon:'ti-gas-station',      sub:'Operacional', add:'Abastecimento' },
   os:          { title:'Ordens de Serviço', icon:'ti-tool',           sub:'Operacional', add:'Nova OS' },
+  gamificacao: { title:'Ranking de Motoristas', icon:'ti-trophy',     sub:'Operacional' },
   multas:      { title:'Multas',         icon:'ti-alert-octagon',    sub:'Financeiro', add:'Nova Multa' },
   despesas:    { title:'Despesas',        icon:'ti-receipt',          sub:'Financeiro', add:'Nova Despesa' },
   loginMotorista: { title:'Login Motorista', icon:'ti-key',           sub:'Acesso', add:'Novo Motorista' },
@@ -1314,6 +1333,7 @@ function showView(v) {
   });
   currentView = v;
   if(v==='loginMotorista' && !db.motoristasLoginCarregado) { db.motoristasLoginCarregado = true; carregarMotoristasLogin(); }
+  if(v==='gamificacao') carregarRankingMotoristas();
   const cfg = VIEWS[v];
   if(!cfg) return;
   document.getElementById('topbar-title').textContent = cfg.title;
@@ -3630,6 +3650,75 @@ function renderHistoricoGeral() {
       </div>
     </div>`;
   }).join('');
+}
+
+/* ═══════════════════════════════════════
+   RANKING DE MOTORISTAS (GAMIFICAÇÃO)
+════════════════════════════════════════ */
+const MESES_GAM_ = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function labelMesGam_(chave){
+  if(!chave) return '';
+  const p = chave.split('-');
+  return MESES_GAM_[Number(p[1])-1] + '/' + p[0];
+}
+function escGam_(s){ return String(s||'').replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+function deltaGam_(atual, anterior, invertido){
+  if(anterior === null || anterior === undefined) return `<span class="badge badge-gray"><i class="ti ti-minus" style="font-size:10px"></i></span>`;
+  let diff = atual - anterior;
+  if(invertido) diff = -diff;
+  if(diff > 0) return `<span class="badge badge-green"><i class="ti ti-trending-up" style="font-size:10px"></i></span>`;
+  if(diff < 0) return `<span class="badge badge-red"><i class="ti ti-trending-down" style="font-size:10px"></i></span>`;
+  return `<span class="badge badge-gray"><i class="ti ti-minus" style="font-size:10px"></i></span>`;
+}
+function criterioGam_(label, icon, atual, anterior, unidade, invertido){
+  const atualTxt = (atual===null||atual===undefined) ? '—' : (atual+(unidade||''));
+  const anteriorTxt = (anterior===null||anterior===undefined) ? 'sem dado' : ('mês ant.: '+anterior+(unidade||''));
+  return `<div style="background:var(--surface2,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+    <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-dim);display:flex;align-items:center;gap:5px;margin-bottom:4px">
+      <i class="ti ${icon}"></i> ${label}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:12px;color:var(--txt-dim)">${atualTxt} <span style="opacity:.6">(${anteriorTxt})</span></span>
+      ${deltaGam_(atual, anterior, invertido)}
+    </div>
+  </div>`;
+}
+async function carregarRankingMotoristas(){
+  const el = document.getElementById('gam-lista');
+  if(!el) return;
+  el.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando ranking…</div>`;
+  try{
+    const res = await apiFetch(`${API_BASE}/gamificacao-motoristas`);
+    if(!res.ok) throw new Error('Falha ao buscar ranking');
+    const dados = await res.json();
+    document.getElementById('gam-periodo').textContent = labelMesGam_(dados.mesAtual)+' vs '+labelMesGam_(dados.mesAnterior);
+    const validos = (dados.ranking||[]).filter(r=>!r.erro);
+    if(!validos.length){ el.innerHTML = `<div class="tbl-empty">Nenhum motorista participante encontrado no cadastro.</div>`; return; }
+    el.innerHTML = validos.map((r, idx) => {
+      const c = r.criterios;
+      const primeiro = idx===0;
+      const badge = primeiro ? `<span class="badge badge-gold" style="margin-left:8px"><i class="ti ti-trophy" style="font-size:10px"></i> Motorista do Mês</span>` : '';
+      const aviso = r.motoristaNovo ? `<div style="font-size:11px;color:var(--txt-dim);background:var(--surface2,rgba(255,255,255,.03));border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin:8px 0"><i class="ti ti-info-circle"></i> Primeiro mês com histórico — pontuação neutra em todos os critérios.</div>` : '';
+      return `<div style="border:1px solid ${primeiro?'var(--gold-border)':'var(--border)'};border-radius:10px;padding:14px;margin-bottom:10px;${primeiro?'background:var(--gold-dim)':''}">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+          <div style="width:32px;height:32px;border-radius:50%;background:${primeiro?'var(--gold)':'var(--surface2,rgba(255,255,255,.05))'};border:1px solid ${primeiro?'var(--gold)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${primeiro?'#111':'var(--txt-dim)'};flex-shrink:0">${idx+1}º</div>
+          <div style="flex:1;min-width:0">
+            <strong style="font-size:14px">${escGam_(r.nome)}</strong>${badge}
+          </div>
+          <div style="font-size:20px;font-weight:800;flex-shrink:0">${r.total}<span style="font-size:11px;color:var(--txt-dim);font-weight:500">/100</span></div>
+        </div>
+        ${aviso}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+          ${criterioGam_('Diárias','ti-calendar-check', c.diarias.atual, c.diarias.anterior, '', false)}
+          ${criterioGam_('Checklist','ti-clipboard-check', c.checklist.atual, c.checklist.anterior, '', false)}
+          ${criterioGam_('Consumo','ti-gas-station', c.combustivel.atual, c.combustivel.anterior, ' km/L', false)}
+          ${criterioGam_('Multas','ti-alert-triangle', c.multas.atual, c.multas.anterior, '', true)}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML = `<div class="tbl-empty"><i class="ti ti-wifi-off"></i> Não foi possível carregar o ranking agora.</div>`;
+  }
 }
 
 /* ═══════════════════════════════════════
