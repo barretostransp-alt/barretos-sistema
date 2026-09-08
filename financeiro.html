@@ -806,7 +806,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
 
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModalPix()">Cancelar</button>
-      <button class="btn btn-primary btn-sm" onclick="savePix()"><i class="ti ti-check"></i> Salvar Solicitação</button>
+      <button class="btn btn-primary btn-sm" id="btn-salvar-pix" onclick="savePix()"><i class="ti ti-check"></i> Salvar Solicitação</button>
     </div>
   </div>
 </div>
@@ -1981,7 +1981,24 @@ async function buscarCardKanban(){
   }
 }
 
+var pixSalvando_ = false;
 async function savePix(){
+  // Trava contra duplo-clique/duplo-toque: sem isso, dois cliques rápidos
+  // disparavam duas solicitações idênticas antes da primeira voltar do
+  // servidor, já que o array `lancamentos` (usado pelo aviso de
+  // duplicidade) só é atualizado depois do await lá embaixo.
+  if(pixSalvando_) return;
+  pixSalvando_ = true;
+  var btnSalvar = document.getElementById('btn-salvar-pix');
+  if(btnSalvar) btnSalvar.disabled = true;
+  try{
+    await savePix_();
+  }finally{
+    pixSalvando_ = false;
+    if(btnSalvar) btnSalvar.disabled = false;
+  }
+}
+async function savePix_(){
   var favorecido = document.getElementById('p-favorecido').value.trim();
   var vencimento = document.getElementById('p-vencimento').value;
   var descricao = document.getElementById('p-descricao').value.trim();
