@@ -686,8 +686,8 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
             </div>
             <div class="panel-body" style="padding:0;overflow-x:auto">
               <table class="tbl">
-                <thead><tr><th>Nome</th><th>Login</th><th></th></tr></thead>
-                <tbody id="tbody-login-motorista"><tr><td colspan="3" class="tbl-empty">
+                <thead><tr><th>Nome</th><th>Login</th><th>Vinculado a</th><th></th></tr></thead>
+                <tbody id="tbody-login-motorista"><tr><td colspan="4" class="tbl-empty">
                   <div class="loading-row"><span class="spinner"></span> Carregando…</div>
                 </td></tr></tbody>
               </table>
@@ -1094,6 +1094,10 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <div class="form-grid form-grid-2">
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Nome Completo <span class="req">*</span></label>
         <input class="form-input" id="ml-nome" placeholder="Nome do motorista"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Vincular ao cadastro de motorista <span class="req">*</span></label>
+        <select class="form-input" id="ml-motorista-id"><option value="">Selecione...</option></select>
+        <span style="font-size:11px;color:var(--txt-dim)">Esse vínculo é o que garante que o motorista só veja os próprios dados (Detalhamento, etc.) — obrigatório.</span>
+      </div>
       <div class="form-group"><label class="form-label">Login <span class="req">*</span></label>
         <input class="form-input" id="ml-login" placeholder="login de acesso"></div>
       <div class="form-group"><label class="form-label">Senha <span class="req">*</span></label>
@@ -1368,6 +1372,12 @@ function openAddModal() {
   }
   if(currentView==='loginMotorista'){
     ['ml-nome','ml-login','ml-senha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const selMot=document.getElementById('ml-motorista-id');
+    if(selMot){
+      selMot.innerHTML='<option value="">Selecione...</option>'+
+        (db.motoristas||[]).filter(m=>m.Status==='Ativo').map(m=>`<option value="${m._id}">${m.Nome}</option>`).join('');
+      selMot.value='';
+    }
   }
   if(m){
     if(currentView==='veiculos'){
@@ -3729,22 +3739,23 @@ async function carregarMotoristasLogin() {
   try {
     const res = await apiFetch(`${API_BASE}/frota/motoristas-login`);
     if(!res.ok){
-      tb.innerHTML = `<tr><td colspan="3" class="tbl-empty">Sem permissão para gerenciar logins de motorista.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="4" class="tbl-empty">Sem permissão para gerenciar logins de motorista.</td></tr>`;
       return;
     }
     db.motoristasLogin = await res.json();
     renderLoginMotoristas();
-  } catch(e){ console.error(e); tb.innerHTML=`<tr><td colspan="3" class="tbl-empty">Erro ao carregar.</td></tr>`; }
+  } catch(e){ console.error(e); tb.innerHTML=`<tr><td colspan="4" class="tbl-empty">Erro ao carregar.</td></tr>`; }
 }
 
 function renderLoginMotoristas() {
   const tb=document.getElementById('tbody-login-motorista'); if(!tb) return;
   const rows=db.motoristasLogin||[];
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="3" class="tbl-empty">Nenhum login de motorista cadastrado</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="4" class="tbl-empty">Nenhum login de motorista cadastrado</td></tr>'; return; }
   tb.innerHTML = rows.map(m=>`
     <tr>
       <td style="font-size:12px">${m.nome||'—'}</td>
       <td class="txt-mono" style="font-size:12px">${m.login||'—'}</td>
+      <td style="font-size:12px">${m.motorista?.nome ? m.motorista.nome : '<span class="txt-red">Sem vínculo</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="resetarSenhaMotoristaLogin('${m.id}')" title="Resetar senha"><i class="ti ti-key" style="font-size:12px"></i></button>
         <button class="btn btn-ghost btn-sm" onclick="excluirMotoristaLogin('${m.id}')" title="Excluir"><i class="ti ti-trash" style="font-size:12px;color:var(--red)"></i></button>
@@ -3756,9 +3767,11 @@ async function saveMotoristaLogin() {
   const nome=document.getElementById('ml-nome').value.trim();
   const login=document.getElementById('ml-login').value.trim();
   const senha=document.getElementById('ml-senha').value;
+  const motorista_id=document.getElementById('ml-motorista-id').value;
   if(!nome||!login||!senha){ alert('Preencha nome, login e senha.'); return; }
+  if(!motorista_id){ alert('Selecione a qual cadastro de motorista esse login pertence.'); return; }
   try {
-    const res = await apiFetch(`${API_BASE}/frota/motoristas-login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,login,senha})});
+    const res = await apiFetch(`${API_BASE}/frota/motoristas-login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,login,senha,motorista_id})});
     if(!res.ok){ const err=await res.json().catch(()=>({})); alert(err.error||'Erro ao criar login.'); return; }
     document.getElementById('modal-motorista-login').classList.remove('open');
     await carregarMotoristasLogin();
