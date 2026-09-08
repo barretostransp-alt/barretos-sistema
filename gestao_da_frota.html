@@ -154,6 +154,7 @@ select.form-input option{background:var(--surface2);color:var(--txt)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .txt-right{text-align:right}
+.txt-center{text-align:center}
 .txt-mono{font-family:'JetBrains Mono',monospace;font-size:12px}
 .txt-green{color:var(--green)}
 .txt-red{color:var(--red)}
@@ -3843,8 +3844,8 @@ async function carregarDetalhamentoMotoristas(){
     document.getElementById('det-kpi-comissao').textContent = fmtBRL(totalComissao);
     if(!lista.length){ el.innerHTML = `<div class="tbl-empty">Nenhum motorista ativo encontrado.</div>`; return; }
     el.innerHTML = lista.map(m => {
-      const viagensRows = m.viagens.map(v=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(v.data)}</td><td style="font-size:12px">${escGam_(v.origem)}${v.ufOrigem?'/'+v.ufOrigem:''} → ${escGam_(v.destino)}${v.ufDestino?'/'+v.ufDestino:''}</td><td class="txt-right" style="font-size:12px">${fmtBRL(v.valorComissao)}</td></tr>`).join('');
-      const diariasRows = m.diarias.map(d=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(d.data)}</td><td style="font-size:12px" colspan="2">${escGam_(d.observacao||'—')}</td></tr>`).join('');
+      const viagensRows = m.viagens.map(v=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(v.data)}</td><td style="font-size:12px;color:var(--txt-dim)">Viagem</td><td style="font-size:12px">${escGam_(v.origem)}${v.ufOrigem?'/'+v.ufOrigem:''} → ${escGam_(v.destino)}${v.ufDestino?'/'+v.ufDestino:''}</td><td class="txt-center" style="font-size:12px">${fmtBRL(v.valorComissao)}</td></tr>`).join('');
+      const diariasRows = m.diarias.map(d=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(d.data)}</td><td style="font-size:12px;color:var(--txt-dim)">Diária</td><td style="font-size:12px" colspan="2">${escGam_(d.observacao||'—')}</td></tr>`).join('');
       const semanasRows = (m.semanasDiaria||[]).map(s=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(s.inicio)} – ${isoParaBR(s.fim)}</td><td style="font-size:12px">${s.qtdDiarias} diária(s)</td><td class="txt-right" style="font-size:12px;font-weight:600">${fmtBRL(s.valor)}</td></tr>`).join('');
       return `<div class="panel" style="margin-bottom:10px">
         <div class="panel-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;cursor:pointer" onclick="toggleDetalheMotorista_('${m.motoristaId}')">
@@ -3868,7 +3869,7 @@ async function carregarDetalhamentoMotoristas(){
           </table>`}
           ${(!m.viagens.length && !m.diarias.length) ? '<p style="font-size:12px;color:var(--txt-dim);padding-top:10px">Nenhuma viagem ou diária nesse mês.</p>' : `
           <table class="tbl" style="margin-top:10px">
-            <thead><tr><th>Data</th><th>Origem → Destino / Observação</th><th class="txt-right">Comissão</th></tr></thead>
+            <thead><tr><th>Data</th><th>Natureza</th><th>Origem → Destino / Observação</th><th class="txt-center">Comissão</th></tr></thead>
             <tbody>${viagensRows}${diariasRows}</tbody>
           </table>`}
         </div>
