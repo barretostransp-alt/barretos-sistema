@@ -297,6 +297,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   <div class="nav-item" onclick="showView('gamificacao')">
     <i class="ti ti-trophy"></i>Ranking de Motoristas
   </div>
+  <div class="nav-item" onclick="showView('detalhamentoMotorista')">
+    <i class="ti ti-report-money"></i>Detalhamento
+  </div>
 
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">Financeiro</div>
@@ -561,6 +564,20 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
           <div id="gam-lista"><div class="loading-row"><span class="spinner"></span> Carregando ranking…</div></div>
         </div>
       </div>
+    </div>
+
+    <!-- ─── DETALHAMENTO POR MOTORISTA (DIÁRIA/COMISSÃO) ─── -->
+    <div id="view-detalhamentoMotorista" class="view">
+      <div class="filter-bar">
+        <select class="filter-input" id="det-mes" onchange="carregarDetalhamentoMotoristas()" style="max-width:220px"></select>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><i class="ti ti-calendar-dollar kpi-icon gold"></i>
+          <div class="kpi-val txt-gold" id="det-kpi-diaria">—</div><div class="kpi-lbl">Total de Diária (R$)</div></div>
+        <div class="kpi-card blue"><i class="ti ti-percentage kpi-icon blue"></i>
+          <div class="kpi-val" id="det-kpi-comissao" style="color:var(--blue)">—</div><div class="kpi-lbl">Total de Comissão (R$)</div></div>
+      </div>
+      <div id="det-lista"><div class="loading-row"><span class="spinner"></span> Carregando…</div></div>
     </div>
 
     <!-- ─── DESPESAS ─── -->
@@ -1320,6 +1337,7 @@ const VIEWS = {
   combustivel: { title:'Combustível',     icon:'ti-gas-station',      sub:'Operacional', add:'Abastecimento' },
   os:          { title:'Ordens de Serviço', icon:'ti-tool',           sub:'Operacional', add:'Nova OS' },
   gamificacao: { title:'Ranking de Motoristas', icon:'ti-trophy',     sub:'Operacional' },
+  detalhamentoMotorista: { title:'Detalhamento', icon:'ti-report-money', sub:'Operacional' },
   multas:      { title:'Multas',         icon:'ti-alert-octagon',    sub:'Financeiro', add:'Nova Multa' },
   despesas:    { title:'Despesas',        icon:'ti-receipt',          sub:'Financeiro', add:'Nova Despesa' },
   loginMotorista: { title:'Login Motorista', icon:'ti-key',           sub:'Acesso', add:'Novo Motorista' },
@@ -1338,6 +1356,7 @@ function showView(v) {
   currentView = v;
   if(v==='loginMotorista' && !db.motoristasLoginCarregado) { db.motoristasLoginCarregado = true; carregarMotoristasLogin(); }
   if(v==='gamificacao') carregarRankingMotoristas();
+  if(v==='detalhamentoMotorista') carregarDetalhamentoMotoristas();
   const cfg = VIEWS[v];
   if(!cfg) return;
   document.getElementById('topbar-title').textContent = cfg.title;
@@ -3728,6 +3747,77 @@ async function carregarRankingMotoristas(){
     }).join('');
   }catch(e){
     el.innerHTML = `<div class="tbl-empty"><i class="ti ti-wifi-off"></i> Não foi possível carregar o ranking agora.</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════
+   DETALHAMENTO POR MOTORISTA (DIÁRIA/COMISSÃO)
+════════════════════════════════════════ */
+function popularMesesDetalhamento_(){
+  const sel = document.getElementById('det-mes');
+  if(!sel || sel.options.length) return; // já populado, não refaz (perde a seleção do usuário)
+  const hoje = new Date();
+  let html = '';
+  for(let i=0;i<12;i++){
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
+    const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    html += `<option value="${chave}">${MESES_GAM_[d.getMonth()]}/${d.getFullYear()}</option>`;
+  }
+  sel.innerHTML = html;
+}
+async function salvarValorDiaria_(motoristaId, valor){
+  try{
+    const res = await apiFetch(`${API_BASE}/motoristas/${motoristaId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({valor_diaria:parseFloat(valor)||0})});
+    if(!res.ok) throw new Error();
+    await carregarDetalhamentoMotoristas();
+  }catch(e){ alert('Erro ao salvar valor da diária.'); }
+}
+function toggleDetalheMotorista_(id){
+  const el = document.getElementById('det-detalhe-'+id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+async function carregarDetalhamentoMotoristas(){
+  popularMesesDetalhamento_();
+  const mes = document.getElementById('det-mes').value;
+  const el = document.getElementById('det-lista');
+  el.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando…</div>`;
+  try{
+    const res = await apiFetch(`${API_BASE}/detalhamento-motoristas?mes=${encodeURIComponent(mes)}`);
+    if(!res.ok) throw new Error('Falha ao buscar detalhamento');
+    const dados = await res.json();
+    const lista = dados.motoristas || [];
+    const totalDiaria = lista.reduce((s,m)=>s+m.totalDiariaRS,0);
+    const totalComissao = lista.reduce((s,m)=>s+m.totalComissaoRS,0);
+    document.getElementById('det-kpi-diaria').textContent = fmtBRL(totalDiaria);
+    document.getElementById('det-kpi-comissao').textContent = fmtBRL(totalComissao);
+    if(!lista.length){ el.innerHTML = `<div class="tbl-empty">Nenhum motorista ativo encontrado.</div>`; return; }
+    el.innerHTML = lista.map(m => {
+      const viagensRows = m.viagens.map(v=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(v.data)}</td><td style="font-size:12px">${escGam_(v.origem)}${v.ufOrigem?'/'+v.ufOrigem:''} → ${escGam_(v.destino)}${v.ufDestino?'/'+v.ufDestino:''}</td><td class="txt-right" style="font-size:12px">${fmtBRL(v.valorComissao)}</td></tr>`).join('');
+      const diariasRows = m.diarias.map(d=>`<tr><td class="txt-mono" style="font-size:11px">${isoParaBR(d.data)}</td><td style="font-size:12px" colspan="2">${escGam_(d.observacao||'—')}</td></tr>`).join('');
+      return `<div class="panel" style="margin-bottom:10px">
+        <div class="panel-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;cursor:pointer" onclick="toggleDetalheMotorista_('${m.motoristaId}')">
+          <strong style="flex:1;min-width:160px">${escGam_(m.nome)}</strong>
+          <div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:11px;color:var(--txt-dim)">Valor Diária (R$)</label>
+            <input class="form-input" type="number" step="0.01" value="${m.valorDiaria||''}" placeholder="0,00" style="width:100px;padding:5px 8px"
+              onchange="salvarValorDiaria_('${m.motoristaId}', this.value)">
+          </div>
+          <div style="font-size:12px;color:var(--txt-dim)">${m.qtdDiarias} diária(s)</div>
+          <div style="font-weight:700">${fmtBRL(m.totalDiariaRS)}</div>
+          <div style="font-weight:700;color:var(--blue)">${fmtBRL(m.totalComissaoRS)}</div>
+          <i class="ti ti-chevron-down"></i>
+        </div>
+        <div id="det-detalhe-${m.motoristaId}" style="display:none;border-top:1px solid var(--border);padding:0 16px 14px">
+          ${(!m.viagens.length && !m.diarias.length) ? '<p style="font-size:12px;color:var(--txt-dim);padding-top:10px">Nenhuma viagem ou diária nesse mês.</p>' : `
+          <table class="tbl" style="margin-top:10px">
+            <thead><tr><th>Data</th><th>Origem → Destino / Observação</th><th class="txt-right">Comissão</th></tr></thead>
+            <tbody>${viagensRows}${diariasRows}</tbody>
+          </table>`}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML = `<div class="tbl-empty"><i class="ti ti-wifi-off"></i> Não foi possível carregar o detalhamento agora.</div>`;
   }
 }
 
