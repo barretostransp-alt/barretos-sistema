@@ -955,6 +955,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       </div>
       <div class="form-group"><label class="form-label">Tipo do Veículo</label><input class="form-input" id="vg-tipo-veic" placeholder="Ex: CARRETA CAÇAMBA"></div>
     </div>
+    <div id="vg-fotos-pre-viagem" style="display:none;margin-top:4px;font-size:12px"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-viagem').classList.remove('open')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveViagem()"><i class="ti ti-check" style="font-size:14px"></i> Salvar</button>
@@ -1468,6 +1469,7 @@ function openAddModal() {
       document.getElementById('modal-viagem').querySelector('.modal-title').innerHTML='<i class="ti ti-route" style="color:var(--gold);margin-right:6px"></i>Lançar Viagem';
       document.getElementById('modal-viagem').querySelectorAll('input,select').forEach(el=>{ if(el.id!=='vg-situacao') el.value=''; });
       document.getElementById('vg-situacao').value='À VENCER';
+      document.getElementById('vg-fotos-pre-viagem').style.display='none';
     }
     populateSelects(); document.getElementById(m).classList.add('open'); setTodayDates();
   }
@@ -1566,6 +1568,7 @@ function adaptarViagem(v) {
     MOTORISTA3: v.tipo_veiculo || '',
     'SITUAÇÃO DE PAGAMENTO': SITUACAO_DO_BANCO[v.situacao_pagamento] || 'À VENCER',
     LIQUIDO: fat - aba - ped - com,
+    FOTOS_PRE_VIAGEM: (v.lancamento_origem && v.lancamento_origem.fotos) || [],
   };
 }
 function adaptarCombustivel(c) {
@@ -3123,6 +3126,16 @@ function openEditViagem(r) {
   document.getElementById('vg-km').value         = r['KM TOTAL']||r['KM']||'';
   document.getElementById('vg-situacao').value   = r['SITUAÇÃO DE PAGAMENTO']||r['Situacao Pagamento']||'À VENCER';
   document.getElementById('vg-tipo-veic').value  = r['MOTORISTA3']||'';
+  const fotosBox = document.getElementById('vg-fotos-pre-viagem');
+  const fotos = r['FOTOS_PRE_VIAGEM']||[];
+  if(fotos.length){
+    fotosBox.style.display = 'block';
+    fotosBox.innerHTML = '<i class="ti ti-photo" style="font-size:12px;color:var(--gold)"></i> Foto(s) do lançamento de Pré-Viagem: ' +
+      fotos.map((f,i)=>`<a href="${f.url}" target="_blank" style="margin-left:6px">Foto ${i+1}</a>`).join('');
+  } else {
+    fotosBox.style.display = 'none';
+    fotosBox.innerHTML = '';
+  }
   document.getElementById('modal-viagem').classList.add('open');
 }
 
