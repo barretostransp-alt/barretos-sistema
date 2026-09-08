@@ -3931,14 +3931,16 @@ function abrirAnaliseLancamento(id){
   if(!l) return;
   lancamentoAtual = l;
   const nomeMotorista = (l.motorista&&l.motorista.nome)||'—';
+  const placaInformada = (l.veiculo&&l.veiculo.placa)||'';
   document.getElementById('lanc-info').innerHTML = `
     ${badgeTipoLancamento_(l.tipo)} &nbsp; <strong>${escGam_(nomeMotorista)}</strong> · ${isoParaBR(l.data)}
+    ${placaInformada?' · Veículo: '+escGam_(placaInformada):''}
     ${l.cliente?' · Cliente: '+escGam_(l.cliente)+(l.cliente_novo?' <span class="badge badge-gold" style="font-size:9px">novo</span>':''):''}
     <div style="margin-top:6px">${fotosLinksLancamento_(l.fotos)}</div>`;
 
   const form = document.getElementById('lanc-form-especifico');
   if(l.tipo==='pre_viagem'){
-    const placaOpts = '<option value="">Selecione...</option>'+db.veiculos.map(v=>`<option value="${v['Placa']}">${v['Placa']} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
+    const placaOpts = '<option value="">Selecione...</option>'+db.veiculos.map(v=>`<option value="${v['Placa']}" ${v['Placa']===placaInformada?'selected':''}>${v['Placa']} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
     form.innerHTML = `
       <div class="form-group"><label class="form-label">Veículo <span class="req">*</span></label><select class="form-input" id="al-placa">${placaOpts}</select></div>
       <div class="form-group"><label class="form-label">Tipo do Veículo</label><input class="form-input" id="al-tipo-veic" placeholder="Ex: CARRETA CAÇAMBA"></div>
@@ -3964,7 +3966,9 @@ function abrirAnaliseLancamento(id){
       <div class="form-group"><label class="form-label">Litros</label><input class="form-input" type="number" step="0.01" id="al-litros"></div>
       <div class="form-group"><label class="form-label">KM Total (Odômetro)</label><input class="form-input" type="number" id="al-km"></div>`;
   } else {
+    const placaOptsDiv = '<option value="">Selecione...</option>'+db.veiculos.map(v=>`<option value="${v['Placa']}" ${v['Placa']===placaInformada?'selected':''}>${v['Placa']} — ${v['Modelo']||v['Tipo']||''}</option>`).join('');
     form.innerHTML = `
+      <div class="form-group"><label class="form-label">Veículo</label><select class="form-input" id="al-placa-diverso">${placaOptsDiv}</select></div>
       <div class="form-group"><label class="form-label">Categoria <span class="req">*</span></label>
         <select class="form-input" id="al-categoria"><option value="">Selecione...</option><option>Alimentação</option><option>Combustível</option><option>Outros</option></select></div>
       <div class="form-group"><label class="form-label">Valor (R$) <span class="req">*</span></label><input class="form-input" type="number" step="0.01" id="al-valor"></div>
@@ -4020,6 +4024,7 @@ async function aprovarLancamentoAtual(){
       payload = {
         categoria,
         valor,
+        veiculo_id: idDoVeiculoPorPlaca(document.getElementById('al-placa-diverso').value) || null,
         descricao: document.getElementById('al-descricao').value || null,
         fornecedor: document.getElementById('al-fornecedor').value || null,
         forma_pagamento: document.getElementById('al-forma-pgto').value || null,
