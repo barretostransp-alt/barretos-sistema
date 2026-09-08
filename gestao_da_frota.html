@@ -297,7 +297,7 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
   <div class="nav-item" onclick="showView('gamificacao')">
     <i class="ti ti-trophy"></i>Ranking de Motoristas
   </div>
-  <div class="nav-item" onclick="showView('detalhamentoMotorista')">
+  <div class="nav-item" id="nav-detalhamento-motorista" onclick="showView('detalhamentoMotorista')" style="display:none">
     <i class="ti ti-report-money"></i>Detalhamento
   </div>
   <div class="nav-item" onclick="showView('filaLancamentos')">
@@ -4277,7 +4277,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if (!getAuthToken()) { mostrarTelaSemAcesso(); } else { loadAllData(); }
   const perfil = localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';
   if(perfil==='gestor'){
-    ['divider-acesso','section-acesso','nav-login-motorista'].forEach(id=>{
+    ['divider-acesso','section-acesso','nav-login-motorista','nav-detalhamento-motorista'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.style.display='';
     });
   }
