@@ -3902,6 +3902,23 @@ function fotosLinksLancamento_(fotos){
   return fotos.map((f,i)=>`<a href="${f.url}" target="_blank" style="margin-right:8px"><i class="ti ti-photo" style="font-size:12px"></i> Foto ${i+1}</a>`).join('');
 }
 
+// Sincronização entre navegadores — mesmo padrão do Financeiro/Faturamento:
+// confere com frequência só um timestamp leve (obterUltimaAtualizacao, no
+// backend) e só busca a fila inteira de novo quando esse valor muda de
+// verdade, pra uma aprovação/lançamento feito num navegador aparecer pros
+// outros em poucos segundos sem sobrecarregar nada.
+var ultimaAtualizacaoConhecidaLanc = null;
+async function verificarAtualizacaoLancamentos(){
+  try{
+    const res = await apiFetch(`${API_BASE}/lancamentos-motorista/ultima-atualizacao`);
+    const j = await res.json();
+    if(j.atualizadoEm === ultimaAtualizacaoConhecidaLanc) return;
+    ultimaAtualizacaoConhecidaLanc = j.atualizadoEm;
+    if(document.querySelector('.modal-overlay.open')) return; // não atualiza com a análise aberta, pra não perder o que o usuário está preenchendo
+    await carregarFilaLancamentos();
+  }catch(e){}
+}
+
 async function carregarFilaLancamentos(){
   const status = document.getElementById('fl-status').value;
   const el = document.getElementById('fl-lista');
@@ -4307,7 +4324,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   // falhar de verdade (backend fora do ar).
   document.getElementById('config-dot').style.background='var(--green)';
   document.getElementById('config-label').textContent='API conectada';
-  if (!getAuthToken()) { mostrarTelaSemAcesso(); } else { loadAllData(); }
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); } else {
+    loadAllData();
+    verificarAtualizacaoLancamentos().then(()=>{ setInterval(verificarAtualizacaoLancamentos, 5000); });
+  }
   const perfil = localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';
   if(perfil==='gestor'){
     ['divider-acesso','section-acesso','nav-login-motorista','nav-detalhamento-motorista'].forEach(id=>{

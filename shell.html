@@ -797,6 +797,10 @@ function applyUser(user){
   iniciarAlertaValePedagioHoje(user);
   // Alerta de novo chamado no Helpdesk (só pro Alex) — polling a cada 45s.
   iniciarAlertaHelpdesk(user);
+  // Alerta de novo lançamento na Fila de Lançamentos da Gestão da Frota
+  // (só Alex e Macelly) — polling a cada 45s, mesmo esqueleto da Fila de
+  // Faturamento.
+  iniciarAlertaFilaLancamentos(user);
 }
 
 function aplicarMenuPermissoes(p){
@@ -1408,6 +1412,34 @@ async function salvarTrocaSenhaObrigatoria(){
   </div>
 </div>
 
+<!-- MODAL ALERTA — FILA DE LANÇAMENTOS (Gestão da Frota, só Alex e Macelly) -->
+<div id="fila-lanc-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div id="fila-lanc-alerta-modal" style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🚚</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="fila-lanc-alerta-titulo">Novo lançamento na Fila</div>
+        <div style="font-size:11px;color:#6B7280" id="fila-lanc-alerta-sub">Fila de Lançamentos — Gestão da Frota</div>
+      </div>
+      <button onclick="fecharAlertaFilaLanc()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="fila-lanc-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaFilaLanc()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaFilaLanc();navigate('frota')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver na Gestão da Frota</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ALERTA — EVENTO DO CALENDÁRIO (participação nova ou lembrete do dia seguinte às 16h) -->
 <div id="evento-alerta-overlay" style="
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
@@ -1857,6 +1889,89 @@ function mostrarAlertaFilaFat(novos){
 
 function fecharAlertaFilaFat(){
   document.getElementById('fila-fat-alerta-overlay').style.display = 'none';
+}
+
+/* ── ALERTA DE NOVO LANÇAMENTO NA FILA (Gestão da Frota, só Alex e
+   Macelly) ──
+   Mesmo esqueleto do alerta de fila do Financeiro/Faturamento (polling
+   45s, "seen ids" no localStorage, popup estilo "novo e-mail") — dispara
+   pra qualquer lançamento novo (Pré-Viagem, Abastecimento ou Diverso)
+   pendente de análise em /api/lancamentos-motorista. */
+var _filaLancIntervalId = null;
+function iniciarAlertaFilaLancamentos(user){
+  if(_filaLancIntervalId){ clearInterval(_filaLancIntervalId); _filaLancIntervalId = null; }
+  var nome = ((user && user.nome)||'').trim().toLowerCase();
+  var login = ((user && user.login)||'').trim().toLowerCase();
+  var permitido = ['alex','macelly'].some(function(t){ return nome.indexOf(t)===0 || login.indexOf(t)===0; });
+  if(!permitido) return;
+  setTimeout(verificarAtualizacaoFilaLancamentos, 3000);
+  _filaLancIntervalId = setInterval(verificarAtualizacaoFilaLancamentos, 45000);
+}
+
+async function verificarAtualizacaoFilaLancamentos(){
+  try{
+    var r = await apiFetchShell(API_BASE + '/lancamentos-motorista?status=Pendente');
+    if(!r.ok) return;
+    var itens = await r.json();
+    if(!Array.isArray(itens)) return;
+
+    var chaveVistos = 'lancamentos_fila_vista';
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+
+    var idsAtuais = itens.map(function(row){ return row.id; });
+
+    if(!vistos){
+      // Primeira vez rodando neste navegador — só registra a base, sem alertar
+      localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+      return;
+    }
+
+    var novos = itens.filter(function(row){ return vistos.indexOf(row.id) === -1; });
+
+    localStorage.setItem(chaveVistos, JSON.stringify(idsAtuais));
+
+    if(novos.length > 0) mostrarAlertaFilaLanc(novos);
+  }catch(e){
+    // Falha silenciosa — não incomoda o usuário por causa disso
+  }
+}
+
+function escFilaLanc_(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+
+function mostrarAlertaFilaLanc(novos){
+  var titulo = document.getElementById('fila-lanc-alerta-titulo');
+  var body = document.getElementById('fila-lanc-alerta-body');
+
+  var rotuloTipo = { pre_viagem:'Pré-Viagem', abastecimento:'Abastecimento', diverso:'Diverso' };
+  var iconeTipo = { pre_viagem:'🧭', abastecimento:'⛽', diverso:'🧾' };
+
+  titulo.textContent = novos.length === 1
+    ? 'Novo lançamento na Fila'
+    : novos.length + ' novos lançamentos na Fila';
+
+  body.innerHTML = novos.map(function(row){
+    var nomeMotorista = escFilaLanc_((row.motorista && row.motorista.nome) || 'Motorista');
+    var tipo = escFilaLanc_(rotuloTipo[row.tipo] || row.tipo || '—');
+    var cliente = row.cliente ? escFilaLanc_(row.cliente) : '';
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+      '<div style="font-size:16px;flex-shrink:0;margin-top:1px">'+(iconeTipo[row.tipo]||'📋')+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:13px;font-weight:600;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nomeMotorista+'</div>'+
+        '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+tipo+(cliente?' · '+cliente:'')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  document.getElementById('fila-lanc-alerta-overlay').style.display = 'flex';
+}
+
+function fecharAlertaFilaLanc(){
+  document.getElementById('fila-lanc-alerta-overlay').style.display = 'none';
 }
 
 /* ── ALERTA DE COTAÇÃO AGUARDANDO APROVAÇÃO (cascata Filipe → Gabriel
