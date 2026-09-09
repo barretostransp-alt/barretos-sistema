@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
 <style>
 :root{
   --bg:#0F1117;--surface:#161922;--card:#1C1F2E;--card-hover:#222638;
@@ -1303,20 +1304,54 @@ async function lerFichaCadastralPdf() {
       var content = await page.getTextContent();
       textoCompleto += reconstruirTextoVisualFicha_(content.items) + '\n';
     }
+
+    var viaOcr = false;
     if (textoCompleto.trim().length < 30) {
-      statusEl.innerHTML = '<span style="color:var(--red)">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span> <span style="color:var(--green)">O arquivo ainda será anexado ao cliente.</span>';
-      return;
+      // Sem texto embutido — o PDF é provavelmente uma imagem escaneada
+      // (documento fotografado/digitalizado). Tenta OCR antes de desistir.
+      if (typeof Tesseract === 'undefined') {
+        statusEl.innerHTML = '<span style="color:var(--red)">Este PDF parece ser uma imagem escaneada e a biblioteca de OCR não carregou — preencha manualmente.</span> <span style="color:var(--green)">O arquivo ainda será anexado ao cliente.</span>';
+        return;
+      }
+      statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> PDF sem texto — aplicando OCR na imagem (pode levar um pouco mais)…';
+      textoCompleto = await ocrPdfEscaneado_(doc);
+      viaOcr = true;
+      if (textoCompleto.trim().length < 30) {
+        statusEl.innerHTML = '<span style="color:var(--red)">Não consegui ler texto nem por OCR — preencha manualmente.</span> <span style="color:var(--green)">O arquivo ainda será anexado ao cliente.</span>';
+        return;
+      }
     }
+
     var ehCartaoCnpj = detectarCartaoCnpj_(textoCompleto);
     var campos = ehCartaoCnpj ? parseCartaoCnpjTexto_(textoCompleto) : parseFichaCadastralTexto_(textoCompleto);
     var qtd = aplicarCamposFicha_(campos);
-    var origem = ehCartaoCnpj ? 'do Cartão CNPJ' : 'do PDF';
+    var origem = (ehCartaoCnpj ? 'do Cartão CNPJ' : 'do PDF') + (viaOcr ? ' (via OCR — confira com atenção, a leitura de imagem é menos precisa)' : '');
     statusEl.innerHTML = qtd
       ? '<span style="color:var(--green)">✓ '+qtd+' campo(s) preenchido(s) automaticamente pela leitura '+origem+'. Confira antes de salvar.</span>'
-      : '<span style="color:var(--red)">Não consegui reconhecer campos neste PDF. Preencha manualmente — o arquivo será anexado do mesmo jeito.</span>';
+      : '<span style="color:var(--red)">Não consegui reconhecer campos neste PDF'+(viaOcr?' (via OCR)':'')+'. Preencha manualmente — o arquivo será anexado do mesmo jeito.</span>';
   } catch (e) {
     statusEl.innerHTML = '<span style="color:var(--red)">Erro ao ler o PDF ('+(e.message||'falha desconhecida')+').</span>';
   }
+}
+
+// Roda quando o PDF não tem texto embutido (documento escaneado como
+// imagem) — renderiza cada página num canvas e aplica OCR (Tesseract.js,
+// roda inteiro no navegador, sem precisar de servidor) em português.
+// Bem mais lento e menos preciso que ler o texto de verdade do PDF, por
+// isso só entra como último recurso.
+async function ocrPdfEscaneado_(doc) {
+  var textoTotal = '';
+  for (var p=1; p<=doc.numPages; p++) {
+    var page = await doc.getPage(p);
+    var viewport = page.getViewport({ scale: 2 }); // resolução maior ajuda a precisão do OCR
+    var canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+    var resultado = await Tesseract.recognize(canvas, 'por');
+    textoTotal += (resultado && resultado.data && resultado.data.text || '') + '\n';
+  }
+  return textoTotal;
 }
 
 // Heurística por rótulos comuns em fichas cadastrais — ao contrário do
