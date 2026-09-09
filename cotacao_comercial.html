@@ -1902,7 +1902,7 @@ function mapearCotacaoDoApi_(row) {
     Cliente: row.cliente || '',
     Modalidade: row.modalidade || '',
     origem: row.origem || '', destino: row.destino || '',
-    'Cidade Origem': row.origem || '', 'Cidade Destino': row.destino || '',
+    'Endereço Origem': row.origem || '', 'Endereço Destino': row.destino || '',
     Piso: fmtMoeda_(row.piso), Valor: fmtMoeda_(row.valor),
     Empresa: row.empresa || '', 'Empresa Emitente': row.empresa || '',
     'CNPJ Emit': row.cnpj_emit || '', 'CNPJ Emitente': row.cnpj_emit || '',
@@ -2336,6 +2336,18 @@ function cidadeDoEndereco_(s){
   return partes.length>1 ? partes[partes.length-2] : partes[0];
 }
 
+// Resumo "Cidade — UF" pra listagens/telas de resumo — o Detalhamento da
+// cotação continua mostrando o endereço completo (rua, bairro etc.) como
+// foi digitado; só aqui, nos lugares pensados pra visão rápida, é que
+// reduz pra não poluir a tela.
+function resumirEndereco_(s){
+  const partes = String(s||'').split(/,|—/).map(p=>p.trim()).filter(Boolean);
+  if(partes.length<=1) return s||'';
+  const cidade = partes[partes.length-2];
+  const uf = partes[partes.length-1];
+  return uf ? cidade+' — '+uf : cidade;
+}
+
 function routeMatch(a, b){
   const ca=normRoute(cidadeDoEndereco_(a)), cb=normRoute(cidadeDoEndereco_(b));
   if(!ca||!cb) return false;
@@ -2353,8 +2365,8 @@ function checkRouteHistory(){
   if(!origemVal||!destinoVal){alertEl.style.display='none';return;}
 
   const matches = histData.filter(r=>{
-    return routeMatch(r['Cidade Origem']||'', origemVal) &&
-           routeMatch(r['Cidade Destino']||'', destinoVal);
+    return routeMatch(r['Endereço Origem']||'', origemVal) &&
+           routeMatch(r['Endereço Destino']||'', destinoVal);
   });
 
   if(!matches.length){alertEl.style.display='none';return;}
@@ -3107,7 +3119,7 @@ function renderAprovPanel() {
     return `<div class="aprov-card">
       <div class="aprov-card-head">
         <span class="aprov-num">#${String(numero).padStart(4,'0')}</span>
-        <span class="aprov-meta">${fmtCampo(r['Vendedor'])} · ${fmtCampo(r['Cliente'])} · ${fmtCampo(r['Cidade Origem'])} → ${fmtCampo(r['Cidade Destino'])} · ${fmtCampo(r['Valor'])}</span>
+        <span class="aprov-meta">${fmtCampo(r['Vendedor'])} · ${fmtCampo(r['Cliente'])} · ${fmtCampo(resumirEndereco_(r['Endereço Origem']))} → ${fmtCampo(resumirEndereco_(r['Endereço Destino']))} · ${fmtCampo(r['Valor'])}</span>
         ${badgeAprovacaoHTML(r['StatusAprovacao'], numero, r['Vendedor'])}
         <button onclick="abrirDetalheCotacao('${numero}')" style="margin-left:auto;background:none;border:1px solid var(--charcoal-border);border-radius:6px;color:var(--txt-dim,#888);padding:4px 10px;cursor:pointer;font-size:11px">Ver cotação completa</button>
       </div>
@@ -3187,8 +3199,8 @@ function onCotacaoRefInput() {
   const matches = histData.filter(r => {
     const num = String(r['Numero'] || '').toLowerCase();
     const cli = String(r['Vendedor'] || '').toLowerCase();
-    const ori = String(r['Cidade Origem'] || '').toLowerCase();
-    const des = String(r['Cidade Destino'] || '').toLowerCase();
+    const ori = String(r['Endereço Origem'] || '').toLowerCase();
+    const des = String(r['Endereço Destino'] || '').toLowerCase();
     return num.includes(q) || cli.includes(q) || ori.includes(q) || des.includes(q);
   }).slice(0, 8);
 
@@ -3210,7 +3222,7 @@ function onCotacaoRefInput() {
           <span>${r['Vendedor']||'—'}</span>
           <span style="margin-left:auto;font-size:10px;font-weight:700;color:${scol}">${r['Status']||'Pendente'}</span>
         </div>
-        <div class="addr-item-sub">${r['Cidade Origem']||'—'} → ${r['Cidade Destino']||'—'} · ${r['Modalidade']||''} · ${r['Valor']||''}</div>
+        <div class="addr-item-sub">${resumirEndereco_(r['Endereço Origem'])||'—'} → ${resumirEndereco_(r['Endereço Destino'])||'—'} · ${r['Modalidade']||''} · ${r['Valor']||''}</div>
       </div>`;
     el.addEventListener('click', () => selecionarCotacao(r));
     drop.appendChild(el);
@@ -3226,7 +3238,7 @@ function selecionarCotacao(r) {
   /* Mostrar badge da cotação selecionada */
   document.getElementById('cot-sel-num').textContent = num;
   document.getElementById('cot-sel-info').textContent =
-    `${r['Vendedor']||''} · ${r['Cidade Origem']||''} → ${r['Cidade Destino']||''} · ${r['Modalidade']||''} · ${r['Valor']||''}`;
+    `${r['Vendedor']||''} · ${resumirEndereco_(r['Endereço Origem'])} → ${resumirEndereco_(r['Endereço Destino'])} · ${r['Modalidade']||''} · ${r['Valor']||''}`;
   document.getElementById('cot-selected').style.display = 'block';
 
   /* Auto-preencher campos */
@@ -3256,8 +3268,8 @@ function selecionarCotacao(r) {
     empField.focus();
   }
 
-  const endColeta  = r['Cidade Origem']  || r['origem']  || '';
-  const endEntrega = r['Cidade Destino'] || r['destino'] || '';
+  const endColeta  = r['Endereço Origem']  || r['origem']  || '';
+  const endEntrega = r['Endereço Destino'] || r['destino'] || '';
 
   if (endColeta)  {
     const fc = document.getElementById('oc-end-coleta');
@@ -4046,8 +4058,8 @@ function abrirDetalheCotacao(numero) {
       <div class="det-field"><div class="det-lbl">Tabela</div><div class="det-val">${fmtCampo(r['Tabela'])}</div></div>
       <div class="det-field"><div class="det-lbl">Tipo de Carga</div><div class="det-val">${fmtCampo(r['TipoCarga'])}</div></div>
       <div class="det-field"><div class="det-lbl">Eixos</div><div class="det-val">${fmtCampo(r['Eixos'])}</div></div>
-      <div class="det-field"><div class="det-lbl">Origem</div><div class="det-val">${fmtCampo(r['Cidade Origem'])}</div></div>
-      <div class="det-field"><div class="det-lbl">Destino</div><div class="det-val">${fmtCampo(r['Cidade Destino'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Origem</div><div class="det-val">${fmtCampo(r['Endereço Origem'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Destino</div><div class="det-val">${fmtCampo(r['Endereço Destino'])}</div></div>
       <div class="det-field"><div class="det-lbl">KM</div><div class="det-val">${fmtCampo(r['KM'])}</div></div>
       <div class="det-field"><div class="det-lbl">Viagens/Embarques</div><div class="det-val">${fmtCampo(r['Viagens'])}</div></div>
       <div class="det-field"><div class="det-lbl">Valor/km adicional</div><div class="det-val">${fmtCampo(r['ValKm'])}</div></div>
@@ -4248,7 +4260,7 @@ function renderHistory() {
   const sortedData = filtered.slice().sort((a, b) => (parseInt(b.Numero, 10) || 0) - (parseInt(a.Numero, 10) || 0));
   const keys = histData.length ? Object.keys(histData[0]) : [];
   /* Inclui Cliente logo após Vendedor */
-  const colsAll = ['Data','Numero','Vendedor','Cliente','Modalidade','Cidade Origem','Cidade Destino','Valor'];
+  const colsAll = ['Data','Numero','Vendedor','Cliente','Modalidade','Endereço Origem','Endereço Destino','Valor'];
   const cols = colsAll.filter(c => keys.includes(c));
   const tableHTML = filtered.length ? `<div style="overflow-x:auto">
     <table class="hist-table">
@@ -4257,6 +4269,7 @@ function renderHistory() {
         const key = getLocalKey(r);
         return `<tr>${cols.map(c => {
           if (c === 'Data') { const pd = parseDateAny(r[c]); return `<td>${pd ? pd.fmt : (r[c]||'—')}</td>`; }
+          if (c === 'Endereço Origem' || c === 'Endereço Destino') return `<td>${resumirEndereco_(r[c])||'—'}</td>`;
           return `<td>${r[c]||'—'}</td>`;
         }).join('')}${buildStatusCell(r,key,i)}${buildAprovCell(r)}${buildObsInternaCell(r,key)}${buildObsCell(r,key)}</tr>`;
       }).join('')}</tbody>
@@ -4815,15 +4828,15 @@ async function loadRefazer() {
       } catch(e) { /* Cubagem antiga/vazia — ignora e mantém linha padrão */ }
     }
     // Origem e Destino
-    if (row['Cidade Origem'])  {
+    if (row['Endereço Origem'])  {
       const el = document.getElementById('addr-origem');
-      if (el) { el.value = row['Cidade Origem']; }
+      if (el) { el.value = row['Endereço Origem']; }
       const clr = document.getElementById('clear-origem');
       if (clr) clr.style.display = 'flex';
     }
-    if (row['Cidade Destino']) {
+    if (row['Endereço Destino']) {
       const el = document.getElementById('addr-destino');
-      if (el) { el.value = row['Cidade Destino']; }
+      if (el) { el.value = row['Endereço Destino']; }
       const clr = document.getElementById('clear-destino');
       if (clr) clr.style.display = 'flex';
     }
@@ -4834,8 +4847,8 @@ async function loadRefazer() {
     // as coordenadas). O KM salvo continua aparecendo até a geocodificação
     // terminar, e é substituído pelo recalculado assim que resolver.
     Promise.all([
-      geocodeSilencioso('origem', row['Cidade Origem']),
-      geocodeSilencioso('destino', row['Cidade Destino']),
+      geocodeSilencioso('origem', row['Endereço Origem']),
+      geocodeSilencioso('destino', row['Endereço Destino']),
     ]).then(() => {
       if (addrState.origem.lat && addrState.destino.lat) calcRoute();
     });

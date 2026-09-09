@@ -428,7 +428,7 @@ function _renderResumo(resumo) {
     html += '<div class="fat-row">'+
       '<div>'+
         '<div class="fat-cliente">'+esc(op.cliente||'—')+(op.dtCodigo?' <span style="font-size:10px;color:#F97316;font-weight:600">#'+esc(op.dtCodigo)+'</span>':'')+'</div>'+
-        '<div class="fat-rota">'+esc(op.cidadeOrigem)+(op.cidadeDestino?' \u2192 '+esc(op.cidadeDestino):'')+'</div>'+
+        '<div class="fat-rota">'+esc(resumirEndereco(op.enderecoOrigem))+(op.enderecoDestino?' \u2192 '+esc(resumirEndereco(op.enderecoDestino)):'')+'</div>'+
       '</div>'+
       '<div class="fat-origem">'+esc(String(op.origem||'').toUpperCase())+'</div>'+
       '<div>'+
@@ -622,6 +622,16 @@ function toISOLocal(d) {
 }
 function padZ(n){ return String(n).padStart(2,'0'); }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Endereço do card pode vir completo (rua, bairro etc.) — aqui na home é
+// só um feed resumido, então reduz pra "Cidade — UF" (mesma regra usada
+// na Cotação pra extrair cidade/UF de um endereço em texto livre).
+function resumirEndereco(s) {
+  var partes = String(s||'').split(/,|—/).map(function(p){ return p.trim(); }).filter(Boolean);
+  if (partes.length <= 1) return s||'';
+  var cidade = partes[partes.length-2], uf = partes[partes.length-1];
+  return uf ? cidade+' — '+uf : cidade;
+}
 
 function parseBRL(v) {
   if (typeof v === 'number') return v;

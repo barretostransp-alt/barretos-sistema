@@ -2124,6 +2124,18 @@ async function buscarCardsAbaFat_(aba){
   return Array.isArray(data) ? data : [];
 }
 
+// O endereço do card pode vir curto ("Arujá", com UF numa coluna à parte
+// — cards antigos) ou completo ("Rua X, Bairro Y, Arujá, SP" — cards
+// novos). Os campos de Cidade/UF aqui no Financeiro são só um resumo
+// rápido, então sempre extrai cidade+UF em vez de jogar o endereço
+// completo dentro do campinho de Cidade.
+function cidadeUfDoCardFat_(endereco, ufFallback){
+  var partes = String(endereco||'').split(/,|—/).map(function(p){ return p.trim(); }).filter(Boolean);
+  if(!partes.length) return { cidade: '', uf: ufFallback||'' };
+  if(partes.length===1) return { cidade: partes[0], uf: ufFallback||'' };
+  return { cidade: partes[partes.length-2], uf: partes[partes.length-1] };
+}
+
 async function buscarCardKanbanFat(prefixo){
   prefixo = prefixo || 'r';
   var codigo = document.getElementById(prefixo+'-cod').value.trim();
@@ -2143,10 +2155,12 @@ async function buscarCardKanbanFat(prefixo){
     document.getElementById(prefixo+'-vendedor').value = card.vendedor||"";
     document.getElementById(prefixo+'-veiculo').value = card.tipo_veiculo||"";
     if(document.getElementById(prefixo+'-cliente') && !document.getElementById(prefixo+'-cliente').value) document.getElementById(prefixo+'-cliente').value = card.cliente||"";
-    if(document.getElementById(prefixo+'-origem')) document.getElementById(prefixo+'-origem').value = card.cidade_origem||"";
-    if(document.getElementById(prefixo+'-uf')) document.getElementById(prefixo+'-uf').value = card.uf_origem||"";
-    if(document.getElementById(prefixo+'-destino')) document.getElementById(prefixo+'-destino').value = card.cidade_destino||"";
-    if(document.getElementById(prefixo+'-uf2')) document.getElementById(prefixo+'-uf2').value = card.uf_destino||"";
+    var origemFat_ = cidadeUfDoCardFat_(card.endereco_origem, card.uf_origem);
+    var destinoFat_ = cidadeUfDoCardFat_(card.endereco_destino, card.uf_destino);
+    if(document.getElementById(prefixo+'-origem')) document.getElementById(prefixo+'-origem').value = origemFat_.cidade;
+    if(document.getElementById(prefixo+'-uf')) document.getElementById(prefixo+'-uf').value = origemFat_.uf;
+    if(document.getElementById(prefixo+'-destino')) document.getElementById(prefixo+'-destino').value = destinoFat_.cidade;
+    if(document.getElementById(prefixo+'-uf2')) document.getElementById(prefixo+'-uf2').value = destinoFat_.uf;
     if(document.getElementById(prefixo+'-empresa') && !document.getElementById(prefixo+'-empresa').value) document.getElementById(prefixo+'-empresa').value = abaSelect.value;
 
     var custoOperRaw = card.custo_operacional_total;
@@ -2216,8 +2230,8 @@ async function visualizarCardFat(){
       </div>
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-route" style="font-size:12px"></i> Rota</div>
       <div class="grid-2">
-        ${campo('Origem', [card.cidade_origem,card.uf_origem].filter(Boolean).join('/'))}
-        ${campo('Destino', [card.cidade_destino,card.uf_destino].filter(Boolean).join('/'))}
+        ${campo('Origem', [card.endereco_origem,card.uf_origem].filter(Boolean).join('/'))}
+        ${campo('Destino', [card.endereco_destino,card.uf_destino].filter(Boolean).join('/'))}
         ${campo('Data Coleta', card.data_coleta)}${campo('Previsão Entrega', card.previsao_entrega)}
         ${campo('Data Entrega', card.data_entrega)}
       </div>

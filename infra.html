@@ -299,8 +299,8 @@ var FM={
   "CTE":                "fi_cte",
   "MDF":                "fi_mdf",
   "NF":                 "fi_nf",
-  "CIDADE ORIGEM":      "fi_cid_orig",
-  "CIDADE DESTINO":     "fi_cid_dest",
+  "ENDEREÇO ORIGEM":    "fi_cid_orig",
+  "ENDEREÇO DESTINO":   "fi_cid_dest",
   "UF DESTINO":         "fi_uf_dest",
   "ADIANTAMENTO":       "fi_adiant",
   "TITULAR DA CONTA":   "fi_titular",
@@ -324,7 +324,7 @@ function fval(k){var e=document.getElementById(fid(k));return e?e.value.trim():"
 // DT CODIGO/Chave (já forçados em outro lugar) e VENDEDOR (nome próprio,
 // usado com acento/maiúscula certa nos relatórios — não force aqui).
 var CAMPOS_MAIUSCULOS={"CLIENTE":1,"CONTATO CLIENTE":1,"CNPJ TOMADOR":1,"CTE":1,"MDF":1,"NF":1,
-  "CIDADE ORIGEM":1,"CIDADE DESTINO":1,"TITULAR DA CONTA":1,"CHAVE PIX":1,"BANCO":1,
+  "ENDEREÇO ORIGEM":1,"ENDEREÇO DESTINO":1,"TITULAR DA CONTA":1,"CHAVE PIX":1,"BANCO":1,
   "TELEFONE MOTORISTA":1,"TITULO":1,"OBSERVACAO":1,"VALE PEDAGIO":1,"TIPO DE VEICULO":1,
   "MOTORISTA":1,"GERENCIAMENTO":1};
 function fset(k,v){var e=document.getElementById(fid(k));if(e){if(e.type==="date")e.value=toBR_inv(v);else e.value=CAMPOS_MAIUSCULOS[k]?String(v||"").toUpperCase():(v||"");}}
@@ -439,7 +439,7 @@ function mapearParaApi_(dados){
     "CLIENTE":"cliente","CONTATO CLIENTE":"contato_cliente","CNPJ TOMADOR":"cnpj_tomador","VENDEDOR":"vendedor",
     "DATA DA COLETA":"data_coleta","PREVISÃO DE ENTREGA":"previsao_entrega","MODALIDADE":"modalidade","TIPO DE MATERIAL":"tipo_material",
     "CTE":"cte","MDF":"mdf","NF":"nf","DATA DA ENTREGA":"data_entrega",
-    "CIDADE ORIGEM":"cidade_origem","UF ORIGEM":"uf_origem","CIDADE DESTINO":"cidade_destino","UF DESTINO":"uf_destino",
+    "ENDEREÇO ORIGEM":"endereco_origem","UF ORIGEM":"uf_origem","ENDEREÇO DESTINO":"endereco_destino","UF DESTINO":"uf_destino",
     "FRETE COBRADO":"frete_cobrado","FRETE PAGO":"frete_pago","PEDAGIO":"pedagio_valor","PEDAGIO INCLUSO":"pedagio_incluso","CUSTO OPERACIONAL TOTAL":"custo_operacional_total","ADIANTAMENTO":"adiantamento",
     "TIPO DE VEICULO":"tipo_veiculo","MOTORISTA":"motorista","TELEFONE MOTORISTA":"telefone_motorista","GERENCIAMENTO":"gerenciamento",
     "TITULAR DA CONTA":"titular_conta","TIPO CHAVE PIX":"tipo_chave_pix","CHAVE PIX":"chave_pix","BANCO":"banco","CADASTRADO BSOFT":"cadastrado_bsoft",
@@ -461,7 +461,7 @@ function mapearDoApi_(row){
     cliente:"CLIENTE", contato_cliente:"CONTATO CLIENTE", cnpj_tomador:"CNPJ TOMADOR", vendedor:"VENDEDOR",
     data_coleta:"DATA DA COLETA", previsao_entrega:"PREVISÃO DE ENTREGA", modalidade:"MODALIDADE", tipo_material:"TIPO DE MATERIAL",
     cte:"CTE", mdf:"MDF", nf:"NF", data_entrega:"DATA DA ENTREGA",
-    cidade_origem:"CIDADE ORIGEM", uf_origem:"UF ORIGEM", cidade_destino:"CIDADE DESTINO", uf_destino:"UF DESTINO",
+    endereco_origem:"ENDEREÇO ORIGEM", uf_origem:"UF ORIGEM", endereco_destino:"ENDEREÇO DESTINO", uf_destino:"UF DESTINO",
     frete_cobrado:"FRETE COBRADO", frete_pago:"FRETE PAGO", pedagio_valor:"PEDAGIO", pedagio_incluso:"PEDAGIO INCLUSO", custo_operacional_total:"CUSTO OPERACIONAL TOTAL", adiantamento:"ADIANTAMENTO",
     tipo_veiculo:"TIPO DE VEICULO", motorista:"MOTORISTA", telefone_motorista:"TELEFONE MOTORISTA", gerenciamento:"GERENCIAMENTO",
     titular_conta:"TITULAR DA CONTA", tipo_chave_pix:"TIPO CHAVE PIX", chave_pix:"CHAVE PIX", banco:"BANCO", cadastrado_bsoft:"CADASTRADO BSOFT",
@@ -800,12 +800,26 @@ function onColClick(ev){
   var el=ev.target.closest(".kcard");
   if(el&&el.dataset.key)openEdit(el.dataset.key);
 }
+// Resume um endereço (curto "Cidade, UF" ou completo "Rua X, Bairro Y,
+// Cidade, UF") pra "Cidade/UF", pros lugares que só precisam da rota
+// resumida (título do card, busca, Resumo salvo) — nunca deixa o endereço
+// completo vazar pra esses lugares. ufFallback é o campo UF separado que
+// cards antigos ainda têm (cards novos não preenchem UF à parte, já vem
+// embutido no próprio endereço).
+function enderecoResumo_(endereco, ufFallback){
+  var partes=String(endereco||"").split(/,|—/).map(function(s){return s.trim();}).filter(Boolean);
+  if(!partes.length)return "";
+  if(partes.length===1)return partes[0]+(ufFallback?"/"+ufFallback:"");
+  var cidade=partes[partes.length-2],uf=partes[partes.length-1];
+  return cidade+(uf?"/"+uf:"");
+}
 function rCard(c){
   var key=c["DT CODIGO"]||c["Chave"]||"";
   var cli=c["CLIENTE"]||"",vend=c["VENDEDOR"]||"?";
   var fret=c["FRETE COBRADO"]||"",acomp=c["ACOMPANHAMENTO"]||"",tip=c["TIPO DE VEICULO"]||"";
-  var ro=[c["CIDADE ORIGEM"],c["UF ORIGEM"]].filter(Boolean).join("/");
-  if(c["CIDADE DESTINO"])ro+=(ro?" → ":"")+[c["CIDADE DESTINO"],c["UF DESTINO"]].filter(Boolean).join("/");
+  var ro=enderecoResumo_(c["ENDEREÇO ORIGEM"],c["UF ORIGEM"]);
+  var roDestino=enderecoResumo_(c["ENDEREÇO DESTINO"],c["UF DESTINO"]);
+  if(roDestino)ro+=(ro?" → ":"")+roDestino;
   // Título: prioriza o campo real (TITULO, vindo da API) — cards antigos,
   // de antes desse campo existir, caem pra rota ou cliente em vez do
   // genérico "(sem título)", ficando visualmente padrão com os demais.
@@ -961,14 +975,8 @@ function buildForm(data,isNew){
   // ── ROTA
   "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-route\" style=\"font-size:12px\"></i> Rota</div>"+
   "<div class=\"fg-grid g4\">"+
-    "<div class=\"fg sp2\"><label>Cidade Origem</label>"+inp("CIDADE ORIGEM","Cidade de origem")+"</div>"+
-    "<div class=\"fg\"><label>UF Origem</label>"+
-      "<input id=\""+fid("UF ORIGEM")+"\" value=\""+e(data["UF ORIGEM"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
-    "</div>"+
-    "<div class=\"fg sp2\"><label>Cidade Destino</label>"+inp("CIDADE DESTINO","Cidade de destino")+"</div>"+
-    "<div class=\"fg\"><label>UF Destino</label>"+
-      "<input id=\""+fid("UF DESTINO")+"\" value=\""+e(data["UF DESTINO"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
-    "</div>"+
+    "<div class=\"fg sp2\"><label>Endereço Origem</label>"+inp("ENDEREÇO ORIGEM","Endereço completo ou só cidade/UF")+"</div>"+
+    "<div class=\"fg sp2\"><label>Endereço Destino</label>"+inp("ENDEREÇO DESTINO","Endereço completo ou só cidade/UF")+"</div>"+
   "</div></div>"+
 
   // ── FINANCEIRO
@@ -1089,8 +1097,8 @@ async function saveCard(){
   if(dados["NF"])parts.push("NF "+dados["NF"]);
   if(dados["CLIENTE"])parts.push(dados["CLIENTE"]);
   var rota="";
-  if(dados["CIDADE ORIGEM"])rota+=dados["CIDADE ORIGEM"]+(dados["UF ORIGEM"]?"/"+dados["UF ORIGEM"]:"");
-  if(dados["CIDADE DESTINO"])rota+=(rota?" X ":"")+dados["CIDADE DESTINO"]+(dados["UF DESTINO"]?"/"+dados["UF DESTINO"]:"");
+  if(dados["ENDEREÇO ORIGEM"])rota+=enderecoResumo_(dados["ENDEREÇO ORIGEM"],dados["UF ORIGEM"]);
+  if(dados["ENDEREÇO DESTINO"])rota+=(rota?" X ":"")+enderecoResumo_(dados["ENDEREÇO DESTINO"],dados["UF DESTINO"]);
   if(rota)parts.push(rota);
   dados["Resumo"]=parts.join(" - ");
 
