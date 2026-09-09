@@ -224,6 +224,7 @@ body.tema-claro .card-section,body.tema-claro .op-row,body.tema-claro .op-card{b
       <div class="side-hd">
         <span class="side-hd-ico">💡</span>
         <span class="side-hd-title">Laboratório de Ideias</span>
+        <span class="side-hd-badge" id="lab-badge" style="display:none;background:var(--red)">0</span>
       </div>
       <div class="side-body" id="lab-body">
         <div class="skel shimmer"></div>
@@ -253,9 +254,9 @@ body.tema-claro .card-section,body.tema-claro .op-row,body.tema-claro .op-card{b
 // ══════════════════════════════════════════════════
 // Faturamento (kanban_cards), Agenda (calendario_eventos) e Helpdesk
 // (helpdesk_chamados) ja migrados pro Supabase — ver API_BASE abaixo.
-// Laboratorio de Ideias ainda nao foi migrado, entao continua batendo
-// direto no Apps Script dele.
-var URL_LAB  = 'https://script.google.com/macros/s/AKfycbzboBXmOiM6a_eG5veYo7Dk8kqNL9FXT5bD57NXzEx9y5g6MoDoHMmYAf9ceXIkVybb/exec';
+// Laboratorio de Ideias tambem ja esta no Supabase (/api/laboratorio) —
+// esse comentario e essa URL do Apps Script ficaram desatualizados depois
+// da migracao e nao sao mais usados aqui.
 
 var API_BASE = 'https://barretos-backend.onrender.com/api';
 
@@ -525,24 +526,34 @@ async function carregarAgenda(user) {
 // ══════════════════════════════════════════════════
 //  LABORATÓRIO
 // ══════════════════════════════════════════════════
+// "Em aberto" = ainda não chegou num status final — precisa de alguém
+// olhar (analisar, aprovar, executar etc.), mesmo critério do Helpdesk.
+var LAB_STATUS_FINAIS = ['CONCLUIDA', 'RESULTADO REGISTRADO', 'REPROVADA'];
 async function carregarLab(user) {
   var el = document.getElementById('lab-body');
   try {
-    var r = await fetch(URL_LAB);
-    var j = await r.json();
-    var items = (j.data || j.rows || []).slice(-5).reverse(); // últimas 5
+    var r = await apiFetch(API_BASE + '/laboratorio');
+    var ideias = await r.json();
+    if (!r.ok) throw new Error(ideias.error || 'Erro ao carregar');
 
-    if (!items.length) { el.innerHTML = '<div class="side-empty">Nenhuma ideia cadastrada.</div>'; return; }
+    var abertas = (ideias || []).filter(function(item) {
+      return LAB_STATUS_FINAIS.indexOf(String(item.status||'').toUpperCase()) === -1;
+    }).sort(function(a, b) { return new Date(b.criado_em||0) - new Date(a.criado_em||0); });
 
-    el.innerHTML = items.map(function(item) {
-      var status = item.Status||item.status||'';
-      var cor = status.toLowerCase().includes('conclu') ? 'var(--green)' :
-                status.toLowerCase().includes('andamento') ? 'var(--gold)' : 'var(--txt-dim)';
+    var badge = document.getElementById('lab-badge');
+    if (abertas.length) { badge.style.display = 'inline'; badge.textContent = abertas.length; }
+    else { badge.style.display = 'none'; }
+
+    if (!abertas.length) { el.innerHTML = '<div class="side-empty">Nenhuma ideia em aberto.</div>'; return; }
+
+    el.innerHTML = abertas.slice(0, 5).map(function(item) {
+      var status = item.status||'';
+      var cor = status === 'EM ANDAMENTO' ? 'var(--gold)' : 'var(--txt-dim)';
       return '<div class="feed-item">'+
         '<div class="feed-ico" style="background:rgba(245,184,0,.1);color:var(--gold)">💡</div>'+
         '<div class="feed-info">'+
-          '<div class="feed-titulo">'+esc(item.Titulo||item.titulo||'—')+'</div>'+
-          '<div class="feed-sub" style="color:'+cor+'">'+esc(status)+'</div>'+
+          '<div class="feed-titulo">'+esc(item.titulo||'—')+'</div>'+
+          '<div class="feed-sub" style="color:'+cor+'">'+esc(status)+(item.colaborador?' · '+esc(item.colaborador):'')+'</div>'+
         '</div>'+
       '</div>';
     }).join('');
