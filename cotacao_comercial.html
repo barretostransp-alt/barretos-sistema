@@ -4051,7 +4051,7 @@ function abrirDetalheCotacao(numero) {
       <div class="det-field"><div class="det-lbl">KM</div><div class="det-val">${fmtCampo(r['KM'])}</div></div>
       <div class="det-field"><div class="det-lbl">Viagens/Embarques</div><div class="det-val">${fmtCampo(r['Viagens'])}</div></div>
       <div class="det-field"><div class="det-lbl">Valor/km adicional</div><div class="det-val">${fmtCampo(r['ValKm'])}</div></div>
-      <div class="det-field"><div class="det-lbl">Peso real (kg)</div><div class="det-val">${fmtCampo(r['PesoReal'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Peso real (kg)</div><div class="det-val">${fmtCampo(r['Modalidade'] === 'Dedicado' ? 0 : r['PesoReal'])}</div></div>
       ${cubagemHTML}
       <div class="det-field"><div class="det-lbl">Cap. peso (kg)</div><div class="det-val">${fmtCampo(r['CapPeso'])}</div></div>
       <div class="det-field"><div class="det-lbl">Cap. cúbica (m³)</div><div class="det-val">${fmtCampo(r['CapVol'])}</div></div>
