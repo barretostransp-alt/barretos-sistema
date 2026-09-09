@@ -2231,7 +2231,9 @@ async function visualizarCardFat(){
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-route" style="font-size:12px"></i> Rota</div>
       <div class="grid-2">
         ${campo('Origem', [card.endereco_origem,card.uf_origem].filter(Boolean).join('/'))}
+        ${campo('CEP Origem', card.cep_origem)}
         ${campo('Destino', [card.endereco_destino,card.uf_destino].filter(Boolean).join('/'))}
+        ${campo('CEP Destino', card.cep_destino)}
         ${campo('Data Coleta', card.data_coleta)}${campo('Previsão Entrega', card.previsao_entrega)}
         ${campo('Data Entrega', card.data_entrega)}
       </div>
