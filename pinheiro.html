@@ -978,9 +978,15 @@ function buildForm(data,isNew){
   // ── ROTA
   "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-route\" style=\"font-size:12px\"></i> Rota</div>"+
   "<div class=\"fg-grid g4\">"+
-    "<div class=\"fg sp3\"><label>Endereço Origem</label>"+inp("ENDEREÇO ORIGEM","Endereço completo ou só cidade/UF")+"</div>"+
+    "<div class=\"fg sp2\"><label>Endereço Origem</label>"+inp("ENDEREÇO ORIGEM","Endereço completo ou só cidade/UF")+"</div>"+
+    "<div class=\"fg\"><label>UF Origem</label>"+
+      "<input id=\""+fid("UF ORIGEM")+"\" value=\""+e(data["UF ORIGEM"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
+    "</div>"+
     "<div class=\"fg\"><label>CEP Origem</label>"+inp("CEP ORIGEM","00000-000","maxlength=\"9\"")+"</div>"+
-    "<div class=\"fg sp3\"><label>Endereço Destino</label>"+inp("ENDEREÇO DESTINO","Endereço completo ou só cidade/UF")+"</div>"+
+    "<div class=\"fg sp2\"><label>Endereço Destino</label>"+inp("ENDEREÇO DESTINO","Endereço completo ou só cidade/UF")+"</div>"+
+    "<div class=\"fg\"><label>UF Destino</label>"+
+      "<input id=\""+fid("UF DESTINO")+"\" value=\""+e(data["UF DESTINO"]||"")+"\" maxlength=\"2\" oninput=\"this.value=this.value.toUpperCase()\">"+
+    "</div>"+
     "<div class=\"fg\"><label>CEP Destino</label>"+inp("CEP DESTINO","00000-000","maxlength=\"9\"")+"</div>"+
   "</div></div>"+
 
