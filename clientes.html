@@ -1380,16 +1380,45 @@ function detectarCartaoCnpj_(texto) {
   return /COMPROVANTE DE INSCRI[ÇC][ÃA]O E DE SITUA[ÇC][ÃA]O CADASTRAL|CADASTRO NACIONAL DA PESSOA JUR[ÍI]DICA/i.test(texto);
 }
 
+// Rótulos oficiais do Cartão CNPJ — usados pra impedir que a extração
+// aceite o começo de OUTRO rótulo como se fosse o valor do campo atual.
+// Isso importa porque alguns pares de campo ficam lado a lado na mesma
+// linha visual do formulário (ex: "Situação Cadastral" e "Data da
+// Situação Cadastral"), e a reconstrução do texto às vezes junta os dois
+// rótulos numa linha só antes do valor de cada um aparecer.
+var ROTULOS_CARTAO_CNPJ_ = [
+  'NUMERO DE INSCRICAO','DATA DE ABERTURA','NOME EMPRESARIAL',
+  'TITULO DO ESTABELECIMENTO','PORTE',
+  'CODIGO E DESCRICAO DA ATIVIDADE ECONOMICA PRINCIPAL',
+  'CODIGO E DESCRICAO DAS ATIVIDADES ECONOMICAS SECUNDARIAS',
+  'CODIGO E DESCRICAO DA NATUREZA JURIDICA',
+  'LOGRADOURO','NUMERO','COMPLEMENTO','CEP','BAIRRO/DISTRITO','BAIRRO','MUNICIPIO','UF',
+  'ENDERECO ELETRONICO','TELEFONE','ENTE FEDERATIVO RESPONSAVEL',
+  'SITUACAO CADASTRAL','DATA DA SITUACAO CADASTRAL','MOTIVO DE SITUACAO CADASTRAL',
+  'SITUACAO ESPECIAL','DATA DA SITUACAO ESPECIAL'
+];
+function semAcento_(s) {
+  var re = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+  return String(s||'').toUpperCase().normalize('NFD').replace(re, '');
+}
+function pareceOutroRotulo_(valor) {
+  var alvo = semAcento_(valor);
+  return ROTULOS_CARTAO_CNPJ_.some(function(r){ return alvo.indexOf(r) === 0; });
+}
+
 // No Cartão CNPJ o rótulo fica numa linha e o valor na linha seguinte
 // (caixinhas do formulário da Receita) — bem diferente do "Rótulo: valor"
-// da ficha genérica, por isso usa uma busca própria por linha.
+// da ficha genérica, por isso usa uma busca própria por linha. Só aceita
+// o resto da própria linha como valor se ele não parecer o início de
+// outro rótulo (ver ROTULOS_CARTAO_CNPJ_ acima); senão, procura nas
+// linhas seguintes.
 function acharValorAposRotulo_(linhas, rotuloRegex) {
   var idx = linhas.findIndex(function(l){ return rotuloRegex.test(l); });
   if (idx < 0) return '';
   var restoMesmaLinha = linhas[idx].replace(rotuloRegex, '').replace(/^[:\s]+/, '').trim();
-  if (restoMesmaLinha) return restoMesmaLinha;
+  if (restoMesmaLinha && !pareceOutroRotulo_(restoMesmaLinha)) return restoMesmaLinha;
   for (var i = idx+1; i < Math.min(idx+3, linhas.length); i++) {
-    if (linhas[i]) return linhas[i];
+    if (linhas[i] && !pareceOutroRotulo_(linhas[i])) return linhas[i];
   }
   return '';
 }
@@ -1407,10 +1436,13 @@ function parseCartaoCnpjTexto_(texto) {
   var fantasia = acharValorAposRotulo_(linhas, /T[ÍI]TULO DO ESTABELECIMENTO\s*(?:\(NOME DE FANTASIA\))?/i);
   if (fantasia && !/^\*+$/.test(fantasia)) campos.nome_fantasia = fantasia;
 
+  var cnae = acharValorAposRotulo_(linhas, /C[ÓO]DIGO E DESCRI[ÇC][ÃA]O DA ATIVIDADE ECON[ÔO]MICA PRINCIPAL/i);
+  if (cnae) campos.cnae = cnae;
+
   var logradouro = acharValorAposRotulo_(linhas, /^LOGRADOURO/i);
   if (logradouro) campos.logradouro = logradouro;
 
-  var numero = acharValorAposRotulo_(linhas, /^N[ÚU]MERO$/i);
+  var numero = acharValorAposRotulo_(linhas, /^N[ÚU]MERO\b(?!\s+DE\s+INSCRI)/i);
   if (numero) campos.numero = numero;
 
   var complemento = acharValorAposRotulo_(linhas, /^COMPLEMENTO/i);
@@ -1425,10 +1457,10 @@ function parseCartaoCnpjTexto_(texto) {
   var cidade = acharValorAposRotulo_(linhas, /MUNIC[ÍI]PIO/i);
   if (cidade) campos.cidade = cidade;
 
-  var uf = acharValorAposRotulo_(linhas, /^UF$/i);
+  var uf = acharValorAposRotulo_(linhas, /^UF\b/i);
   if (uf && /^[A-Z]{2}$/.test(uf)) campos.uf = uf;
 
-  var situacao = acharValorAposRotulo_(linhas, /^SITUA[ÇC][ÃA]O CADASTRAL/i);
+  var situacao = acharValorAposRotulo_(linhas, /^SITUA[ÇC][ÃA]O CADASTRAL\b/i);
   if (situacao) campos.situacao = situacao;
 
   return campos;
@@ -1439,7 +1471,7 @@ function aplicarCamposFicha_(campos) {
     doc:'fi-doc', ie:'fi-ie', razao_social:'fi-razao', nome_fantasia:'fi-fantasia',
     telefone:'fi-telefone', email:'fi-email', cep:'fi-cep', logradouro:'fi-logradouro',
     numero:'fi-numero', complemento:'fi-complemento', bairro:'fi-bairro', cidade:'fi-cidade', uf:'fi-uf',
-    situacao:'fi-situacao'
+    situacao:'fi-situacao', cnae:'fi-cnae'
   };
   var qtd = 0;
   Object.keys(mapa).forEach(function(k){
