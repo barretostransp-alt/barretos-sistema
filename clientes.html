@@ -1423,6 +1423,43 @@ function acharValorAposRotulo_(linhas, rotuloRegex) {
   return '';
 }
 
+// Deduz o Segmento (dropdown fixo da tela) a partir da "Divisão" do CNAE
+// (os 2 primeiros dígitos do código, ex: "43" em "43.99-1-01") — a
+// classificação oficial do IBGE (CNAE 2.0) agrupa as divisões em Seções
+// (letras A-U), que dão uma base razoável pra mapear pros 10 segmentos
+// que a tela já usa. Divisões que não têm um segmento correspondente
+// claro (agropecuária, energia/saneamento, imobiliárias, administração
+// pública etc.) ficam de fora de propósito — nesses casos o usuário
+// escolhe na mão em vez de forçar um palpite ruim.
+var CNAE_DIVISAO_SEGMENTO_ = (function(){
+  var mapa = {};
+  function marcar(inicio, fim, segmento) {
+    for (var d = inicio; d <= fim; d++) mapa[String(d).padStart(2,'0')] = segmento;
+  }
+  marcar(5, 33, 'Indústria');   // extrativa + transformação
+  marcar(10, 12, 'Alimentício'); // fabricação de alimentos/bebidas/fumo (mais específico que Indústria)
+  marcar(41, 43, 'Construção Civil');
+  marcar(45, 47, 'Varejo');      // comércio (varejo/atacado/reparação de veículos)
+  marcar(49, 53, 'Logística');   // transporte, armazenagem e correio
+  marcar(55, 56, 'Alimentício'); // alojamento e alimentação
+  marcar(58, 63, 'Tecnologia');  // informação e comunicação
+  marcar(64, 66, 'Financeiro');
+  marcar(69, 82, 'Serviços');    // profissionais, científicas, administrativas
+  marcar(85, 85, 'Educação');
+  marcar(86, 88, 'Saúde');
+  marcar(90, 96, 'Serviços');    // artes/cultura, outras atividades de serviço
+  return mapa;
+})();
+
+// Só um palpite a partir da atividade econômica registrada na Receita —
+// pode não bater 100% com o segmento comercial real do cliente, por isso
+// sempre entra junto com o aviso pra conferir antes de salvar.
+function segmentoPorCnae_(cnaeTexto) {
+  var mDivisao = String(cnaeTexto||'').match(/^\s*(\d{2})/);
+  if (!mDivisao) return '';
+  return CNAE_DIVISAO_SEGMENTO_[mDivisao[1]] || '';
+}
+
 function parseCartaoCnpjTexto_(texto) {
   var linhas = texto.split('\n').map(function(l){ return l.replace(/\s+/g,' ').trim(); }).filter(Boolean);
   var campos = {};
@@ -1437,7 +1474,11 @@ function parseCartaoCnpjTexto_(texto) {
   if (fantasia && !/^\*+$/.test(fantasia)) campos.nome_fantasia = fantasia;
 
   var cnae = acharValorAposRotulo_(linhas, /C[ÓO]DIGO E DESCRI[ÇC][ÃA]O DA ATIVIDADE ECON[ÔO]MICA PRINCIPAL/i);
-  if (cnae) campos.cnae = cnae;
+  if (cnae) {
+    campos.cnae = cnae;
+    var segmento = segmentoPorCnae_(cnae);
+    if (segmento) campos.segmento = segmento;
+  }
 
   var logradouro = acharValorAposRotulo_(linhas, /^LOGRADOURO/i);
   if (logradouro) campos.logradouro = logradouro;
@@ -1471,7 +1512,7 @@ function aplicarCamposFicha_(campos) {
     doc:'fi-doc', ie:'fi-ie', razao_social:'fi-razao', nome_fantasia:'fi-fantasia',
     telefone:'fi-telefone', email:'fi-email', cep:'fi-cep', logradouro:'fi-logradouro',
     numero:'fi-numero', complemento:'fi-complemento', bairro:'fi-bairro', cidade:'fi-cidade', uf:'fi-uf',
-    situacao:'fi-situacao', cnae:'fi-cnae'
+    situacao:'fi-situacao', cnae:'fi-cnae', segmento:'fi-segmento'
   };
   var qtd = 0;
   Object.keys(mapa).forEach(function(k){
