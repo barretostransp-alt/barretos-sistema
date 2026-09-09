@@ -6,6 +6,7 @@
 <title>Clientes — Barreto's</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --bg:#0F1117;--surface:#161922;--card:#1C1F2E;--card-hover:#222638;
@@ -467,6 +468,24 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         </div>
       </div>
 
+      <!-- ── FICHA CADASTRAL (PDF) ── -->
+      <div class="fsec">
+        <div class="fsec-title"><i class="ti ti-file-text" style="font-size:12px"></i> Ficha Cadastral (PDF)</div>
+        <div id="ficha-atual-wrap" style="display:none;margin-bottom:8px">
+          <a id="ficha-atual-link" href="#" target="_blank" style="font-size:12px;color:var(--gold);display:inline-flex;align-items:center;gap:5px;text-decoration:none">
+            <i class="ti ti-file-check"></i> <span id="ficha-atual-nome">Ficha cadastral anexada</span>
+          </a>
+          <span style="font-size:11px;color:var(--txt-dim)"> — selecione outro PDF abaixo para substituir</span>
+        </div>
+        <div class="fi-cnpj-lookup">
+          <input class="fi" type="file" id="fi-ficha-arquivo" accept="application/pdf" onchange="pendFichaArquivo=(this.files&&this.files[0])||pendFichaArquivo">
+          <button class="btn-lookup" id="btn-ler-ficha" onclick="lerFichaCadastralPdf()" title="Ler PDF e preencher os campos">
+            <i class="ti ti-file-search"></i> Ler PDF
+          </button>
+        </div>
+        <span class="fi-hint" id="ficha-status"></span>
+      </div>
+
       <!-- ── DADOS FISCAIS (PJ) ── -->
       <div class="fsec" id="sec-fiscal">
         <div class="fsec-title"><i class="ti ti-receipt-tax" style="font-size:12px"></i> Dados Fiscais</div>
@@ -796,7 +815,8 @@ function mapearDoApi_(c) {
     Segmento: c.segmento || '',
     Limite: c.limite || '',
     Status: c.status || '',
-    Obs: c.obs || ''
+    Obs: c.obs || '',
+    FichaCadastralPdf: c.ficha_cadastral_pdf || null
   };
 }
 function mapearParaApi_(dados) {
@@ -823,7 +843,8 @@ function mapearParaApi_(dados) {
     segmento: dados.Segmento,
     limite: dados.Limite,
     status: dados.Status,
-    obs: dados.Obs
+    obs: dados.Obs,
+    ficha_cadastral_pdf: dados.FichaCadastralPdf !== undefined ? dados.FichaCadastralPdf : undefined
   };
 }
 
@@ -985,7 +1006,14 @@ function abrirDetalhe(id) {
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-muted);margin-bottom:2px">' + item[0] + '</div>' +
         '<div style="font-size:13px;color:var(--txt)">' + esc(item[1]) + '</div>' +
       '</div>';
-    }).join('');
+    }).join('') + (c.FichaCadastralPdf && c.FichaCadastralPdf.url
+      ? '<div style="border-left:2px solid var(--border);padding-left:10px">' +
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-muted);margin-bottom:2px">Ficha Cadastral</div>' +
+          '<a href="' + esc(c.FichaCadastralPdf.url) + '" target="_blank" style="font-size:13px;color:var(--gold);display:inline-flex;align-items:center;gap:5px;text-decoration:none">' +
+            '<i class="ti ti-file-type-pdf"></i> ' + esc(c.FichaCadastralPdf.nome || 'Ver PDF') +
+          '</a>' +
+        '</div>'
+      : '');
 
   // Abre na aba info
   abrirTab('tab-info', document.querySelector('.modal-tab'));
@@ -1106,6 +1134,12 @@ function limparForm() {
   document.getElementById('form-msg').className = 'msg';
   document.getElementById('form-msg').textContent = '';
   document.getElementById('form-status').textContent = '';
+  var fichaArq = document.getElementById('fi-ficha-arquivo');
+  if (fichaArq) fichaArq.value = '';
+  document.getElementById('ficha-status').innerHTML = '';
+  pendFichaArquivo = null;
+  fichaCadastralAtual = null;
+  document.getElementById('ficha-atual-wrap').style.display = 'none';
 }
 
 function preencherForm(c) {
@@ -1122,6 +1156,16 @@ function preencherForm(c) {
     var el = document.getElementById('fi-' + k);
     if (el && campos[k]) el.value = campos[k];
   });
+
+  fichaCadastralAtual = c.FichaCadastralPdf || null;
+  var wrap = document.getElementById('ficha-atual-wrap');
+  if (fichaCadastralAtual && fichaCadastralAtual.url) {
+    document.getElementById('ficha-atual-link').href = fichaCadastralAtual.url;
+    document.getElementById('ficha-atual-nome').textContent = fichaCadastralAtual.nome || 'Ficha cadastral anexada';
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+  }
 }
 
 // ── TIPO PJ / PF ──────────────────────────────────────────────
@@ -1177,6 +1221,181 @@ async function consultarReceita() {
   btn.disabled = false;
 }
 
+// ── FICHA CADASTRAL (PDF) ────────────────────────────────────
+// Mesmo Apps Script/Drive já usado pelos anexos do Kanban e do
+// Faturamento — reaproveitado aqui pra guardar a ficha cadastral do
+// cliente, com a chave sendo o próprio ID do cliente (ou um ID
+// temporário até o cadastro novo ser salvo pela primeira vez).
+var WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
+var pendFichaArquivo = null;
+var fichaCadastralAtual = null; // {url, nome, id} já salva no cliente sendo editado
+
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function fetchComTentativas_(url, options, maxTentativas) {
+  maxTentativas = maxTentativas || 3;
+  for (var tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+    try {
+      var res = await fetch(url, options);
+      var json = await res.json();
+      if (json && json.ocupado && tentativa < maxTentativas) {
+        await new Promise(function(r){ setTimeout(r, 2500); });
+        continue;
+      }
+      return json;
+    } catch (e) {
+      if (tentativa >= maxTentativas) throw e;
+      await new Promise(function(r){ setTimeout(r, 2500); });
+    }
+  }
+}
+
+function lerArquivoBase64_(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function(ev){ resolve(ev.target.result.split(',')[1]); };
+    reader.onerror = function(){ reject(new Error('Falha ao ler ' + file.name)); };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Reconstrói o texto do PDF na ordem visual (linha por linha, esquerda pra
+// direita) — a extração "crua" do pdf.js vem fora de ordem quando o
+// documento tem colunas/tabelas, mesma técnica já usada na leitura do
+// CT-e no Faturamento.
+function reconstruirTextoVisualFicha_(items) {
+  var pontos = items
+    .map(function(it){ return { x: it.transform[4], y: it.transform[5], str: it.str }; })
+    .filter(function(p){ return p.str && p.str.trim() !== ''; });
+  pontos.sort(function(a,b){ return b.y - a.y; });
+  var linhas = [];
+  var tolerancia = 3;
+  pontos.forEach(function(p){
+    var linha = linhas.find(function(l){ return Math.abs(l.y - p.y) <= tolerancia; });
+    if (!linha) { linha = {y:p.y, itens:[]}; linhas.push(linha); }
+    linha.itens.push(p);
+  });
+  return linhas.map(function(l){
+    return l.itens.sort(function(a,b){ return a.x-b.x; }).map(function(i){ return i.str; }).join(' ');
+  }).join('\n');
+}
+
+async function lerFichaCadastralPdf() {
+  var input = document.getElementById('fi-ficha-arquivo');
+  var statusEl = document.getElementById('ficha-status');
+  var arquivo = input.files && input.files[0];
+  if (!arquivo) { statusEl.innerHTML = '<span style="color:var(--red)">Selecione um arquivo PDF primeiro.</span>'; return; }
+  if (typeof pdfjsLib === 'undefined') { statusEl.innerHTML = '<span style="color:var(--red)">Biblioteca de leitura de PDF não carregou.</span>'; return; }
+
+  // Guarda o arquivo já aqui pra anexar de verdade ao salvar, mesmo que a
+  // leitura não reconheça nenhum campo (o anexo em si continua útil).
+  pendFichaArquivo = arquivo;
+
+  statusEl.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Lendo PDF…';
+  try {
+    var buffer = await arquivo.arrayBuffer();
+    var doc = await pdfjsLib.getDocument({data: buffer}).promise;
+    var textoCompleto = '';
+    for (var p=1; p<=doc.numPages; p++) {
+      var page = await doc.getPage(p);
+      var content = await page.getTextContent();
+      textoCompleto += reconstruirTextoVisualFicha_(content.items) + '\n';
+    }
+    if (textoCompleto.trim().length < 30) {
+      statusEl.innerHTML = '<span style="color:var(--red)">Este PDF parece ser uma imagem escaneada — preencha manualmente.</span> <span style="color:var(--green)">O arquivo ainda será anexado ao cliente.</span>';
+      return;
+    }
+    var campos = parseFichaCadastralTexto_(textoCompleto);
+    var qtd = aplicarCamposFicha_(campos);
+    statusEl.innerHTML = qtd
+      ? '<span style="color:var(--green)">✓ '+qtd+' campo(s) preenchido(s) automaticamente pela leitura do PDF. Confira antes de salvar.</span>'
+      : '<span style="color:var(--red)">Não consegui reconhecer campos neste PDF. Preencha manualmente — o arquivo será anexado do mesmo jeito.</span>';
+  } catch (e) {
+    statusEl.innerHTML = '<span style="color:var(--red)">Erro ao ler o PDF ('+(e.message||'falha desconhecida')+').</span>';
+  }
+}
+
+// Heurística por rótulos comuns em fichas cadastrais — ao contrário do
+// CT-e (documento fiscal padronizado), cada empresa tem seu próprio
+// modelo de ficha, então isso é best-effort: preenche o que reconhecer e
+// deixa o resto pro usuário completar na mão.
+function parseFichaCadastralTexto_(texto) {
+  var linhas = texto.split('\n').map(function(l){ return l.replace(/\s+/g,' ').trim(); }).filter(Boolean);
+  var t = linhas.join(' ');
+  var campos = {};
+
+  var mCnpj = t.match(/CNPJ[:\s]*([\d]{2}\.?[\d]{3}\.?[\d]{3}\/?[\d]{4}-?[\d]{2})/i);
+  if (mCnpj) campos.doc = mCnpj[1];
+  else {
+    var mCpf = t.match(/CPF[:\s]*([\d]{3}\.?[\d]{3}\.?[\d]{3}-?[\d]{2})/i);
+    if (mCpf) campos.doc = mCpf[1];
+  }
+
+  var mIe = t.match(/INSCRI[ÇC][ÃA]O ESTADUAL[:\s]*([\d.\-A-Za-z]{4,20})/i);
+  if (mIe && !/ISENT/i.test(mIe[1])) campos.ie = mIe[1];
+
+  var mRazao = t.match(/RAZ[ÃA]O SOCIAL[:\s]*(.+?)(?=\s+(?:NOME FANTASIA|CNPJ|CPF|INSCRI[ÇC][ÃA]O|ENDERE[ÇC]O|TELEFONE|E-?MAIL|$))/i);
+  if (mRazao) campos.razao_social = mRazao[1].trim();
+
+  var mFantasia = t.match(/NOME FANTASIA[:\s]*(.+?)(?=\s+(?:CNPJ|CPF|INSCRI[ÇC][ÃA]O|ENDERE[ÇC]O|RAZ[ÃA]O|TELEFONE|E-?MAIL|$))/i);
+  if (mFantasia) campos.nome_fantasia = mFantasia[1].trim();
+
+  var mTel = t.match(/(?:TELEFONE|FONE|CONTATO|WHATSAPP)[:\s]*(\(?\d{2}\)?\s?\d{4,5}-?\d{4})/i);
+  if (mTel) campos.telefone = mTel[1];
+
+  var mEmail = t.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  if (mEmail) campos.email = mEmail[0];
+
+  var mCep = t.match(/CEP[:\s]*(\d{5}-?\d{3})/i);
+  if (mCep) campos.cep = mCep[1];
+
+  var mEndereco = t.match(/(?:ENDERE[ÇC]O|LOGRADOURO)[:\s]*(.+?)(?=\s+(?:N[ÚU]MERO|N[º°]|BAIRRO|CEP|MUNIC[ÍI]PIO|CIDADE|$))/i);
+  if (mEndereco) campos.logradouro = mEndereco[1].trim();
+
+  var mNumero = t.match(/N[ÚU]MERO[:\s]*(\S+)|\bN[º°][:\s]*(\S+)/i);
+  if (mNumero) campos.numero = mNumero[1] || mNumero[2];
+
+  var mBairro = t.match(/BAIRRO[:\s]*(.+?)(?=\s+(?:CEP|MUNIC[ÍI]PIO|CIDADE|UF|ESTADO|$))/i);
+  if (mBairro) campos.bairro = mBairro[1].trim();
+
+  var mCidade = t.match(/(?:MUNIC[ÍI]PIO|CIDADE)[:\s]*(.+?)(?=\s+(?:UF|ESTADO|CEP|$))/i);
+  if (mCidade) campos.cidade = mCidade[1].trim();
+
+  var mUf = t.match(/\bUF[:\s]*([A-Z]{2})\b/);
+  if (mUf) campos.uf = mUf[1];
+
+  return campos;
+}
+
+function aplicarCamposFicha_(campos) {
+  var mapa = {
+    doc:'fi-doc', ie:'fi-ie', razao_social:'fi-razao', nome_fantasia:'fi-fantasia',
+    telefone:'fi-telefone', email:'fi-email', cep:'fi-cep', logradouro:'fi-logradouro',
+    numero:'fi-numero', bairro:'fi-bairro', cidade:'fi-cidade', uf:'fi-uf'
+  };
+  var qtd = 0;
+  Object.keys(mapa).forEach(function(k){
+    if (!campos[k]) return;
+    var el = document.getElementById(mapa[k]);
+    if (!el) return;
+    el.value = campos[k];
+    qtd++;
+  });
+  if (campos.doc) mascaraDoc(document.getElementById('fi-doc'));
+  if (campos.telefone) mascaraTel(document.getElementById('fi-telefone'));
+  if (campos.cep) mascaraCep(document.getElementById('fi-cep'));
+  return qtd;
+}
+
+async function uploadFichaCadastral_(chave, nome, base64, mimeType) {
+  return fetchComTentativas_(WEBAPP_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action:'upload_anexo', chave: chave, nome: nome, data: base64, mimeType: mimeType })
+  });
+}
+
 // ── BUSCA CEP ─────────────────────────────────────────────────
 async function buscarCep() {
   var cep = document.getElementById('fi-cep').value.replace(/\D/g,'');
@@ -1225,6 +1444,7 @@ async function salvarCliente() {
     Limite:       document.getElementById('fi-limite').value.trim(),
     Status:       document.getElementById('fi-status').value,
     Obs:          document.getElementById('fi-obs').value.trim(),
+    FichaCadastralPdf: fichaCadastralAtual,
   };
 
   btn.disabled = true;
@@ -1238,6 +1458,23 @@ async function salvarCliente() {
       : await apiFetch(API_BASE + '/clientes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     var json = await res.json();
     if (res.ok) {
+      var idSalvo = editandoId || json.id;
+      if (pendFichaArquivo && idSalvo) {
+        btn.innerHTML = '<span class="spinner"></span> Anexando ficha cadastral…';
+        try {
+          var base64Ficha = await lerArquivoBase64_(pendFichaArquivo);
+          var anexo = await uploadFichaCadastral_('CLIENTE-' + idSalvo, pendFichaArquivo.name, base64Ficha, pendFichaArquivo.type || 'application/pdf');
+          if (anexo && anexo.success && anexo.anexo) {
+            await apiFetch(API_BASE + '/clientes/' + idSalvo, {
+              method: 'PUT', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ ficha_cadastral_pdf: Object.assign({}, anexo.anexo, {nome: pendFichaArquivo.name}) })
+            });
+          }
+        } catch (e) {
+          console.error('[ficha cadastral] falha ao anexar PDF:', e);
+          toast('Cliente salvo, mas houve falha ao anexar o PDF da ficha cadastral.', 'err');
+        }
+      }
       toast(editandoId ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!', 'ok');
       fecharModal('ov-form');
       await carregarDados();
