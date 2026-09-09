@@ -1470,7 +1470,11 @@ function parseCartaoCnpjTexto_(texto) {
   var razao = acharValorAposRotulo_(linhas, /NOME EMPRESARIAL/i);
   if (razao) campos.razao_social = razao;
 
+  // "Título do Estabelecimento" e "Porte" ficam lado a lado na mesma
+  // linha do formulário — quando os dois se misturam na reconstrução, o
+  // valor do Porte (ME/EPP/DEMAIS) vem grudado no final do nome fantasia.
   var fantasia = acharValorAposRotulo_(linhas, /T[ÍI]TULO DO ESTABELECIMENTO\s*(?:\(NOME DE FANTASIA\))?/i);
+  fantasia = fantasia.replace(/\s+(ME|EPP|DEMAIS)\s*$/i, '').trim();
   if (fantasia && !/^\*+$/.test(fantasia)) campos.nome_fantasia = fantasia;
 
   var cnae = acharValorAposRotulo_(linhas, /C[ÓO]DIGO E DESCRI[ÇC][ÃA]O DA ATIVIDADE ECON[ÔO]MICA PRINCIPAL/i);
