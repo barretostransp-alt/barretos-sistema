@@ -924,8 +924,14 @@ function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").re
 async function fetchComTentativas_(url, options, maxTentativas){
   maxTentativas = maxTentativas || 3;
   for(var tentativa = 1; tentativa <= maxTentativas; tentativa++){
+    var controller = new AbortController();
+    // Sem isso, uma chamada que trava no Apps Script (ex: lock ocupado por
+    // outra requisição simultânea) deixa o fetch() pendurado pra sempre —
+    // a tela fica "carregando" sem nunca dar erro nem terminar.
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 25000);
     try{
-      var res = await fetch(url, options);
+      var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+      clearTimeout(timeoutId);
       var json = await res.json();
       if(json && json.ocupado && tentativa < maxTentativas){
         await new Promise(function(r){ setTimeout(r, 2500); });
@@ -933,7 +939,8 @@ async function fetchComTentativas_(url, options, maxTentativas){
       }
       return json;
     }catch(e){
-      if(tentativa >= maxTentativas) throw e;
+      clearTimeout(timeoutId);
+      if(tentativa >= maxTentativas) throw (e.name==='AbortError' ? new Error('O servidor demorou demais pra responder.') : e);
       await new Promise(function(r){ setTimeout(r, 2500); });
     }
   }
@@ -1002,10 +1009,16 @@ async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
     body: JSON.stringify({ action:'upload_anexo', chave: chaveFat, nome: nome, data: base64, mimeType: mimeType })
   });
   if(cod){
-    fetchComTentativas_(WEBAPP_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action:'upload_anexo', chave: cod, nome: nome, data: base64, mimeType: mimeType })
-    }).catch(function(err){ console.error('[uploadAnexoFat_] falha ao espelhar anexo no card:', err); });
+    // Espera terminar (não dispara em paralelo) antes de liberar o próximo
+    // arquivo do loop — o Apps Script processa uma requisição por vez, e
+    // duas chamadas simultâneas na mesma sessão eram exatamente o que
+    // travava o envio quando a solicitação tinha 2+ arquivos.
+    try{
+      await fetchComTentativas_(WEBAPP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action:'upload_anexo', chave: cod, nome: nome, data: base64, mimeType: mimeType })
+      });
+    }catch(err){ console.error('[uploadAnexoFat_] falha ao espelhar anexo no card:', err); }
   }
   return j;
 }
