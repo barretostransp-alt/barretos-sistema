@@ -1949,20 +1949,31 @@ function fecharAlertaIdeias(){
   document.getElementById('ideias-alerta-overlay').style.display = 'none';
 }
 
-/* ── ALERTA DE FILA DE FATURAMENTO (usuária Gisele Bonfim) ──
+/* ── ALERTA DE FILA DE FATURAMENTO (Gisele Bonfim + Alex/Macelly) ──
    Mesmo esqueleto do alerta de fila do Financeiro (polling 45s, popup
-   estilo "novo e-mail", diff de ids vistos no localStorage) — só que aqui
-   "atualização" é qualquer mudança na Fila de Faturamento: tanto uma
-   solicitação nova (aguardando emissão do CT-e) quanto um canhoto que
-   acabou de ser enviado (aguardando análise). ── */
+   estilo "novo e-mail", diff de ids vistos no localStorage). Gisele
+   acompanha a fila inteira (solicitação nova + canhoto aguardando
+   análise); Alex e Macelly só a parte de solicitação nova, mesma regra
+   já usada no push do mobile (pushAlerts.js). ── */
 var _filaFatIntervalId = null;
+var _filaFatEscopo = null; // 'completa' (Gisele, fila inteira) ou 'solicitacao' (Alex/Macelly, só solicitação nova)
 
 function iniciarAlertaFilaFaturamento(user){
   if(_filaFatIntervalId){ clearInterval(_filaFatIntervalId); _filaFatIntervalId = null; }
   var nome = ((user && user.nome)||'').trim().toLowerCase();
   var login = ((user && user.login)||'').trim().toLowerCase();
   var ehGisele = nome.indexOf('gisele')===0 || login.indexOf('gisele')===0;
-  if(!ehGisele) return; // só pra Gisele Bonfim
+  var ehKanban = ['alex','macelly'].some(function(t){ return nome.indexOf(t)===0 || login.indexOf(t)===0; });
+  // Mesma regra de quem recebe já usada no push do mobile (pushAlerts.js
+  // seção 2/2b) — a Gisele acompanha a fila inteira (solicitação nova +
+  // canhoto aguardando análise); Alex e Macelly só a parte de solicitação
+  // nova, pra priorizar junto com o alerta de Vale Pedágio. O popup do
+  // desktop só tinha o ramo da Gisele — por isso Alex só via esse aviso
+  // pelo push do celular, nunca no desktop.
+  if(ehGisele) _filaFatEscopo = 'completa';
+  else if(ehKanban) _filaFatEscopo = 'solicitacao';
+  else return; // mais ninguém recebe esse alerta no desktop
+
   setTimeout(verificarAtualizacaoFilaFaturamento, 3000); // dá um tempo pro login/permissões carregarem primeiro
   _filaFatIntervalId = setInterval(verificarAtualizacaoFilaFaturamento, 45000);
 }
@@ -1974,7 +1985,11 @@ async function verificarAtualizacaoFilaFaturamento(){
     var itens = await r.json();
     if(!Array.isArray(itens)) return;
 
-    var chaveVistos = 'faturamento_fila_vista';
+    if(_filaFatEscopo === 'solicitacao'){
+      itens = itens.filter(function(row){ return row.status === 'Aguardando Faturamento'; });
+    }
+
+    var chaveVistos = 'faturamento_fila_vista_' + _filaFatEscopo;
     var vistosRaw = localStorage.getItem(chaveVistos);
     var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
 
