@@ -2167,14 +2167,20 @@ async function buscarCardKanbanFat(prefixo){
     document.getElementById(prefixo+'-motorista').value = card.motorista||"";
     document.getElementById(prefixo+'-vendedor').value = card.vendedor||"";
     document.getElementById(prefixo+'-veiculo').value = card.tipo_veiculo||"";
-    if(document.getElementById(prefixo+'-cliente') && !document.getElementById(prefixo+'-cliente').value) document.getElementById(prefixo+'-cliente').value = card.cliente||"";
+    // Sempre sobrescreve com o cliente do card encontrado agora — nunca
+    // deixa em pé um nome de uma busca anterior (bug grave: alguém buscava
+    // um código, corrigia pra outro e clicava Buscar de novo, e como o
+    // campo já não estava vazio, o cliente antigo ficava "grudado"
+    // enquanto motorista/vendedor/veículo/rota já tinham atualizado pro
+    // card certo — a solicitação ia pro financeiro com o cliente errado).
+    if(document.getElementById(prefixo+'-cliente')) document.getElementById(prefixo+'-cliente').value = card.cliente||"";
     var origemFat_ = cidadeUfDoCardFat_(card.endereco_origem, card.uf_origem);
     var destinoFat_ = cidadeUfDoCardFat_(card.endereco_destino, card.uf_destino);
     if(document.getElementById(prefixo+'-origem')) document.getElementById(prefixo+'-origem').value = origemFat_.cidade;
     if(document.getElementById(prefixo+'-uf')) document.getElementById(prefixo+'-uf').value = origemFat_.uf;
     if(document.getElementById(prefixo+'-destino')) document.getElementById(prefixo+'-destino').value = destinoFat_.cidade;
     if(document.getElementById(prefixo+'-uf2')) document.getElementById(prefixo+'-uf2').value = destinoFat_.uf;
-    if(document.getElementById(prefixo+'-empresa') && !document.getElementById(prefixo+'-empresa').value) document.getElementById(prefixo+'-empresa').value = abaSelect.value;
+    if(document.getElementById(prefixo+'-empresa')) document.getElementById(prefixo+'-empresa').value = abaSelect.value;
 
     var custoOperRaw = card.custo_operacional_total;
     if(custoOperRaw!==undefined && custoOperRaw!==null && custoOperRaw!==''){
