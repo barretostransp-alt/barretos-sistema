@@ -79,6 +79,12 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 }
 .search-inp:focus{border-color:var(--gold)}
 .search-inp::placeholder{color:var(--txt-muted)}
+.filtro-select{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  color:var(--txt);padding:7px 10px;font-size:13px;font-family:"DM Sans",sans-serif;
+  outline:none;cursor:pointer;transition:border-color .15s;
+}
+.filtro-select:focus{border-color:var(--gold)}
 .btn{
   display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;
   border:1px solid var(--border);background:none;color:var(--txt-dim);cursor:pointer;
@@ -375,6 +381,9 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
             placeholder="Buscar por nome, razão social, CNPJ/CPF…"
             oninput="filtrarLista()">
         </div>
+        <select class="filtro-select" id="filtro-vendedor" onchange="filtrarLista()">
+          <option value="">Todos os vendedores</option>
+        </select>
         <button class="btn" onclick="carregarDados()"><i class="ti ti-refresh"></i> Atualizar</button>
         <button class="btn primary" onclick="abrirModalNovo()"><i class="ti ti-plus"></i> Novo Cliente</button>
       </div>
@@ -896,20 +905,29 @@ async function carregarDados() {
 }
 
 // ── STATS ────────────────────────────────────────────────────
-function atualizarStats() {
-  var pj  = allClientes.filter(function(c){ return c.Tipo === 'PJ'; }).length;
-  var pf  = allClientes.filter(function(c){ return c.Tipo === 'PF'; }).length;
-  var at  = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
-  var in_ = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'inativo'; }).length;
-  document.getElementById('s-total').textContent  = allClientes.length;
-  document.getElementById('s-pj').textContent     = pj;
-  document.getElementById('s-pf').textContent     = pf;
-  document.getElementById('s-ativo').textContent  = at;
-  document.getElementById('cnt-todos').textContent  = allClientes.length;
-  document.getElementById('cnt-pj').textContent     = pj;
-  document.getElementById('cnt-pf').textContent     = pf;
-  document.getElementById('cnt-ativo').textContent  = at;
-  document.getElementById('cnt-inativo').textContent = in_;
+// Os contadores da barra lateral (Todos/PJ/PF/Ativos/Inativos) sempre
+// refletem o total geral, sem filtro — são navegação. Os KPIs do topo
+// (stats-row) acompanham o filtro atual (sidebar + busca + vendedor),
+// por isso recebem a lista já filtrada de quem chama.
+function atualizarStats(dadosFiltrados) {
+  var pjTotal = allClientes.filter(function(c){ return c.Tipo === 'PJ'; }).length;
+  var pfTotal = allClientes.filter(function(c){ return c.Tipo === 'PF'; }).length;
+  var atTotal = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
+  var inTotal = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'inativo'; }).length;
+  document.getElementById('cnt-todos').textContent   = allClientes.length;
+  document.getElementById('cnt-pj').textContent      = pjTotal;
+  document.getElementById('cnt-pf').textContent      = pfTotal;
+  document.getElementById('cnt-ativo').textContent   = atTotal;
+  document.getElementById('cnt-inativo').textContent = inTotal;
+
+  var dados = dadosFiltrados || allClientes;
+  var pj = dados.filter(function(c){ return c.Tipo === 'PJ'; }).length;
+  var pf = dados.filter(function(c){ return c.Tipo === 'PF'; }).length;
+  var at = dados.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
+  document.getElementById('s-total').textContent = dados.length;
+  document.getElementById('s-pj').textContent    = pj;
+  document.getElementById('s-pf').textContent    = pf;
+  document.getElementById('s-ativo').textContent = at;
 }
 
 // ── FILTRO SIDEBAR ───────────────────────────────────────────
@@ -923,12 +941,15 @@ function setFiltroSidebar(f, btn) {
 // ── RENDER / FILTRAR ─────────────────────────────────────────
 function filtrarLista() {
   var busca = (document.getElementById('inp-busca').value || '').toLowerCase().trim();
+  var vendedorFiltro = document.getElementById('filtro-vendedor').value;
   var dados = allClientes.filter(function(c) {
     // Filtro sidebar
     if (filtroSidebar === 'PJ' && c.Tipo !== 'PJ') return false;
     if (filtroSidebar === 'PF' && c.Tipo !== 'PF') return false;
     if (filtroSidebar === 'ativo'   && (c.Status||'').toLowerCase() !== 'ativo')   return false;
     if (filtroSidebar === 'inativo' && (c.Status||'').toLowerCase() !== 'inativo') return false;
+    // Filtro vendedor
+    if (vendedorFiltro && c.Vendedor !== vendedorFiltro) return false;
     // Busca textual
     if (busca) {
       var haystack = [c.RazaoSocial||'', c.NomeFantasia||'', c.Doc||'', c.Contato||'', c.Vendedor||''].join(' ').toLowerCase();
@@ -937,6 +958,7 @@ function filtrarLista() {
     return true;
   });
   renderLista(dados);
+  atualizarStats(dados);
 }
 
 function renderLista(dados) {
@@ -1686,11 +1708,17 @@ function exportarExcel() {
   toast('Excel exportado!', 'ok');
 }
 
-// ── POPULARES DATALIST VENDEDORES ────────────────────────────
+// ── POPULARES DATALIST + FILTRO DE VENDEDORES ─────────────────
 function popularVendedores() {
   var vends = [...new Set(allClientes.map(function(c){ return c.Vendedor||''; }).filter(Boolean))].sort();
   var list = document.getElementById('list-vendedores');
   list.innerHTML = vends.map(function(v){ return '<option value="' + esc(v) + '">'; }).join('');
+
+  var selFiltro = document.getElementById('filtro-vendedor');
+  var valorAtual = selFiltro.value;
+  selFiltro.innerHTML = '<option value="">Todos os vendedores</option>' +
+    vends.map(function(v){ return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+  if (vends.indexOf(valorAtual) !== -1) selFiltro.value = valorAtual; // preserva a escolha ao atualizar a lista
 }
 
 // ── ABAS ─────────────────────────────────────────────────────
