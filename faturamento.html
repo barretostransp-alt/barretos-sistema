@@ -2276,7 +2276,7 @@ async function visualizarCardFat(){
       <div class="grid-2">
         ${campo('CT-e', card.cte)}${campo('NF', card.nf)}
         ${campo('MDF', card.mdf)}${campo('Vale Pedágio', card.vale_pedagio)}
-        ${campo('Cotação vinculada', card.cotacao_numero?('#'+String(card.cotacao_numero).padStart(4,'0')):'')}
+        ${campo('Cotação vinculada', card.cotacao_numero?('#'+String(card.cotacao_numero).padStart(4,'0')):'')}${campo('Cadastrado na Bsoft?', card.cadastrado_bsoft?'Sim':'Não')}
       </div>
       ${card.observacao?('<div class="modal-section-title" style="margin-top:14px"><i class="ti ti-note" style="font-size:12px"></i> Observação</div><p style="font-size:12px">'+e(card.observacao)+'</p>'):''}
       <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-paperclip" style="font-size:12px"></i> Anexos do card</div>
