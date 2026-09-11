@@ -149,6 +149,9 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .pr-row.header{background:var(--surface);cursor:default;padding:8px 16px;margin-bottom:2px}
 .pr-badge-novo{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;text-transform:uppercase;
   letter-spacing:.05em;color:var(--gold);background:var(--gold-dim);padding:2px 8px;border-radius:20px}
+.pr-kpi{cursor:pointer;transition:border-color .15s,background .15s}
+.pr-kpi:hover{border-color:var(--gold)}
+.pr-kpi.active{border-color:var(--gold);border-width:2px;background:var(--gold-dim)}
 
 /* ── GRID CLIENTES ── */
 .clientes-grid{display:flex;flex-direction:column;gap:1px}
@@ -472,9 +475,9 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
             </div>
 
             <div class="stats-row" style="margin-top:14px">
-              <div class="stat-card gold"><div class="stat-lbl">Clientes</div><div class="stat-val" id="pr-total">—</div><div class="stat-sub">na seleção atual</div></div>
-              <div class="stat-card blue"><div class="stat-lbl">Obras Ativas</div><div class="stat-val" id="pr-obras-ativas">—</div><div class="stat-sub">somando os clientes</div></div>
-              <div class="stat-card" style="border-color:var(--gold)"><div class="stat-lbl">Atualizados</div><div class="stat-val" id="pr-atualizados">—</div><div class="stat-sub">com novidade não vista</div></div>
+              <div class="stat-card gold" style="cursor:pointer" onclick="prospFiltrarKpi(null)" title="Ver todos os clientes da seleção (limpa o filtro de KPI)"><div class="stat-lbl">Clientes</div><div class="stat-val" id="pr-total">—</div><div class="stat-sub">na seleção atual</div></div>
+              <div class="stat-card blue pr-kpi" data-kpi="obras" onclick="prospFiltrarKpi('obras')" title="Clique pra ver só quem tem obra ativa"><div class="stat-lbl">Obras Ativas</div><div class="stat-val" id="pr-obras-ativas">—</div><div class="stat-sub">somando os clientes</div></div>
+              <div class="stat-card pr-kpi" style="border-color:var(--gold)" data-kpi="atualizados" onclick="prospFiltrarKpi('atualizados')" title="Clique pra ver quem tem atualização não vista"><div class="stat-lbl">Atualizados</div><div class="stat-val" id="pr-atualizados">—</div><div class="stat-sub">com novidade não vista</div></div>
               <div class="stat-card" style="justify-content:center;align-items:flex-start">
                 <div class="dropdown" style="position:relative">
                   <button class="btn primary" onclick="document.getElementById('pr-baixar-menu').classList.toggle('open')"><i class="ti ti-download"></i> Baixar contatos</button>
@@ -484,6 +487,12 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div id="pr-kpi-aviso" style="display:none;align-items:center;justify-content:space-between;gap:8px;
+              background:var(--gold-dim);border:1px solid var(--gold);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px">
+              <span id="pr-kpi-aviso-lbl"></span>
+              <button class="btn" style="padding:4px 10px;font-size:11px" onclick="prospFiltrarKpi(null)">Limpar filtro</button>
             </div>
 
             <div id="pr-lista-wrap">
@@ -2225,7 +2234,13 @@ async function prospCarregarDetalhamento() {
   }
 }
 
-function prospEmpresasFiltradas_() {
+// Base = região/estado/vendedor (os filtros "de contexto"). Os KPIs
+// sempre mostram os totais da base, independente do KPI clicado — só a
+// lista abaixo é que fica restrita, igual o Resumo do Quadro no Kanban.
+var prospKpiFiltro = null; // null | 'obras' | 'atualizados'
+var PROSP_KPI_LABEL = { obras: 'Com obra ativa', atualizados: 'Com atualização não vista' };
+
+function prospEmpresasBase_() {
   var vendedorFiltro = document.getElementById('pr-filtro-vendedor').value || '';
   return prospEmpresasTodas.filter(function(e) {
     if (prospRegiaoAtual && e.regiao !== prospRegiaoAtual) return false;
@@ -2235,12 +2250,31 @@ function prospEmpresasFiltradas_() {
   });
 }
 
+function prospEmpresasFiltradas_() {
+  var base = prospEmpresasBase_();
+  if (prospKpiFiltro === 'obras') return base.filter(function(e){ return e.qtdObrasAtivas > 0; });
+  if (prospKpiFiltro === 'atualizados') return base.filter(function(e){ return e.temAtualizacao; });
+  return base;
+}
+
+function prospFiltrarKpi(tipo) {
+  prospKpiFiltro = (prospKpiFiltro === tipo) ? null : tipo;
+  prospAplicarFiltros_();
+}
+
 function prospAplicarFiltros_() {
-  var dados = prospEmpresasFiltradas_();
-  prospRenderLista(dados);
-  document.getElementById('pr-total').textContent = dados.length;
-  document.getElementById('pr-obras-ativas').textContent = dados.reduce(function(s,e){ return s + (e.qtdObrasAtivas||0); }, 0);
-  document.getElementById('pr-atualizados').textContent = dados.filter(function(e){ return e.temAtualizacao; }).length;
+  var base = prospEmpresasBase_();
+  prospRenderLista(prospEmpresasFiltradas_());
+  document.getElementById('pr-total').textContent = base.length;
+  document.getElementById('pr-obras-ativas').textContent = base.reduce(function(s,e){ return s + (e.qtdObrasAtivas||0); }, 0);
+  document.getElementById('pr-atualizados').textContent = base.filter(function(e){ return e.temAtualizacao; }).length;
+
+  document.querySelectorAll('.pr-kpi').forEach(function(el) {
+    el.classList.toggle('active', el.getAttribute('data-kpi') === prospKpiFiltro);
+  });
+  var aviso = document.getElementById('pr-kpi-aviso');
+  aviso.style.display = prospKpiFiltro ? 'flex' : 'none';
+  if (prospKpiFiltro) document.getElementById('pr-kpi-aviso-lbl').textContent = 'Filtrando: ' + PROSP_KPI_LABEL[prospKpiFiltro];
 }
 
 function prospPopularVendedores_(dados) {
