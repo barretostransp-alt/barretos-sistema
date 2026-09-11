@@ -728,10 +728,9 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <label class="form-label">Prioridade da solicitação <span style="color:var(--red)">*</span></label>
         <select class="form-input" id="sol-prioridade">
           <option value="">— Selecione —</option>
-          <option value="Urgente">🔴 Urgente</option>
-          <option value="Alta">🟡 Prioridade Alta</option>
-          <option value="Media">🟢 Prioridade Média</option>
-          <option value="Baixa">🔵 Prioridade Baixa</option>
+          <option value="Alta">🔴 Prioridade Alta</option>
+          <option value="Media">🟡 Prioridade Média</option>
+          <option value="Baixa">🟢 Prioridade Baixa</option>
         </select>
       </div>
     </div>
@@ -1359,8 +1358,8 @@ var filtroEmpresaAtual = "";
    dois lugares com a fórmula (e portanto nunca dessincronizar). ── */
 // Mesmo sistema de cores de triagem hospitalar pedido pelo Alex, pra
 // sinalizar de relance a prioridade de cada solicitação na fila.
-var CORES_PRIORIDADE_FAT = { Urgente:'var(--red)', Alta:'var(--gold)', Media:'var(--green)', Baixa:'var(--blue)' };
-var ORDEM_PRIORIDADE_FAT = { Urgente:0, Alta:1, Media:2, Baixa:3 };
+var CORES_PRIORIDADE_FAT = { Alta:'var(--red)', Media:'var(--gold)', Baixa:'var(--green)' };
+var ORDEM_PRIORIDADE_FAT = { Alta:0, Media:1, Baixa:2 };
 function bolinhaPrioridadeFat_(prioridade){
   var cor = CORES_PRIORIDADE_FAT[prioridade];
   if(!cor) return '';
