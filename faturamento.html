@@ -2194,6 +2194,28 @@ async function buscarCardsAbaFat_(aba){
   return Array.isArray(data) ? data : [];
 }
 
+// Alguém pode digitar "Cidade, Estado" por extenso no campo Endereço do
+// card (ex: "Itajaí, Santa Catarina") em vez da sigla — sem isso, o campo
+// UF aqui no Financeiro fica com o nome do estado inteiro dentro (e
+// estoura a largura do campinho, que é só de 2 letras).
+var NOME_ESTADO_PARA_UF_FAT_ = {
+  ACRE:'AC', ALAGOAS:'AL', AMAPA:'AP', AMAZONAS:'AM', BAHIA:'BA', CEARA:'CE',
+  'DISTRITO FEDERAL':'DF', 'ESPIRITO SANTO':'ES', GOIAS:'GO', MARANHAO:'MA',
+  'MATO GROSSO':'MT', 'MATO GROSSO DO SUL':'MS', 'MINAS GERAIS':'MG', PARA:'PA',
+  PARAIBA:'PB', PARANA:'PR', PERNAMBUCO:'PE', PIAUI:'PI', 'RIO DE JANEIRO':'RJ',
+  'RIO GRANDE DO NORTE':'RN', 'RIO GRANDE DO SUL':'RS', RONDONIA:'RO', RORAIMA:'RR',
+  'SANTA CATARINA':'SC', 'SAO PAULO':'SP', SERGIPE:'SE', TOCANTINS:'TO',
+};
+function semAcentoFat_(s){
+  var re = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+  return String(s||'').toUpperCase().normalize('NFD').replace(re, '');
+}
+function normalizarUfFat_(uf){
+  uf = String(uf||'').trim();
+  if (/^[A-Za-z]{2}$/.test(uf)) return uf.toUpperCase();
+  return NOME_ESTADO_PARA_UF_FAT_[semAcentoFat_(uf)] || uf;
+}
+
 // O endereço do card pode vir curto ("Arujá", com UF numa coluna à parte
 // — cards antigos) ou completo ("Rua X, Bairro Y, Arujá, SP" — cards
 // novos). Os campos de Cidade/UF aqui no Financeiro são só um resumo
@@ -2201,9 +2223,9 @@ async function buscarCardsAbaFat_(aba){
 // completo dentro do campinho de Cidade.
 function cidadeUfDoCardFat_(endereco, ufFallback){
   var partes = String(endereco||'').split(/,|—/).map(function(p){ return p.trim(); }).filter(Boolean);
-  if(!partes.length) return { cidade: '', uf: ufFallback||'' };
-  if(partes.length===1) return { cidade: partes[0], uf: ufFallback||'' };
-  return { cidade: partes[partes.length-2], uf: partes[partes.length-1] };
+  if(!partes.length) return { cidade: '', uf: normalizarUfFat_(ufFallback) };
+  if(partes.length===1) return { cidade: partes[0], uf: normalizarUfFat_(ufFallback) };
+  return { cidade: partes[partes.length-2], uf: normalizarUfFat_(partes[partes.length-1]) };
 }
 
 async function buscarCardKanbanFat(prefixo){
