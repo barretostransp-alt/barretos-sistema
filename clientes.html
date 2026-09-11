@@ -499,7 +499,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
               <div class="pr-row header">
                 <div class="col-lbl">Cliente</div>
                 <div class="col-lbl">CNPJ</div>
-                <div class="col-lbl">Obras Ativas</div>
+                <div class="col-lbl" style="text-align:center">Obras Ativas</div>
                 <div class="col-lbl">Vendedor</div>
                 <div></div>
               </div>
@@ -2294,7 +2294,7 @@ function prospRenderLista(dados) {
     return '<div class="pr-row" onclick="prospAbrirDetalhe(\'' + esc(e.cnpj) + '\')">' +
       '<div>' + esc(e.razaoSocial || '—') + badge + '</div>' +
       '<div>' + formatDoc(e.cnpj) + '</div>' +
-      '<div>' + (e.qtdObrasAtivas || 0) + '</div>' +
+      '<div style="text-align:center">' + (e.qtdObrasAtivas || 0) + '</div>' +
       '<div title="' + esc(e.vendedorPrimario || '') + '">' + esc(e.vendedorPrimario || '—') + '</div>' +
       '<div><i class="ti ti-chevron-right"></i></div>' +
     '</div>';
