@@ -346,7 +346,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 <div class="app">
 
   <!-- TOPBAR -->
-  <div class="topbar">
+  <div class="topbar" id="topbar">
     <div class="topbar-icon"><i class="ti ti-users"></i></div>
     <span class="topbar-title">Clientes</span>
     <div class="topbar-right">
@@ -1938,6 +1938,7 @@ var PROSP_REGIAO_ESTADOS = {
 function mostrarView(view) {
   document.getElementById('view-clientes').style.display    = view === 'prospeccao' ? 'none' : '';
   document.getElementById('view-prospeccao').style.display   = view === 'prospeccao' ? '' : 'none';
+  document.getElementById('topbar').style.display            = view === 'prospeccao' ? 'none' : '';
   document.querySelectorAll('.sb-btn').forEach(function(b){ b.classList.remove('active'); });
   if (view === 'prospeccao') {
     document.getElementById('sb-prospeccao').classList.add('active');
@@ -2265,6 +2266,10 @@ function prospRenderLista(dados) {
   }).join('');
 }
 
+function prospFormatarData_(iso) {
+  var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : null;
+}
 function prospCampoDetalhe_(rotulo, valor) {
   return '<div><div style="font-size:11px;color:var(--txt-dim);text-transform:uppercase">' + esc(rotulo) + '</div>' +
     '<div style="font-size:13px">' + esc(valor || '—') + '</div></div>';
@@ -2298,9 +2303,9 @@ async function prospAbrirDetalhe(cnpj) {
     var obras = e.obrasAtivas || [];
     document.getElementById('pr-det-obras').innerHTML = obras.length
       ? obras.map(function(o) {
-          return '<div class="pr-row" style="grid-template-columns:2fr 1fr 1fr 1fr;cursor:default;margin-bottom:6px">' +
+          return '<div class="pr-row" style="grid-template-columns:2fr 128px 1fr 1fr;cursor:default;margin-bottom:6px">' +
             '<div><strong>' + esc(o.nomeObra||'—') + '</strong><br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.endereco||'') + ' — ' + esc(o.cidade||'') + '/' + esc(o.estado||'') + '</span></div>' +
-            '<div>Término: ' + esc(o.terminoObra || 'sem informação') + '</div>' +
+            '<div style="white-space:nowrap;font-size:12px">Término:<br>' + esc(prospFormatarData_(o.terminoObra) || 'sem informação') + '</div>' +
             '<div>' + esc(o.contatoNome||'—') + '<br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.cargo||'') + '</span></div>' +
             '<div>' + esc(o.telefone||'—') + '<br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.email||'') + '</span></div>' +
           '</div>';
