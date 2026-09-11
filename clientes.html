@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#0F1117;--surface:#161922;--card:#1C1F2E;--card-hover:#222638;
@@ -122,6 +123,31 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .stat-card.green .stat-val{color:var(--green)}
 .stat-card.blue .stat-val{color:var(--blue)}
 .stat-card.orange .stat-val{color:var(--orange)}
+
+/* ── PROSPECÇÃO ── */
+.pr-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.pr-tab{padding:9px 16px;font-size:13px;font-weight:600;color:var(--txt-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.pr-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.pr-filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.pr-filtro-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--txt-dim);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.pr-filtro-btn:hover{border-color:var(--gold)}
+.pr-filtro-btn.active{background:var(--gold);border-color:var(--gold);color:#111}
+.pr-dropdown-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--border);
+  border-radius:8px;min-width:180px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.35);overflow:hidden}
+.pr-dropdown-menu.open{display:block}
+.pr-dropdown-menu div{padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.pr-dropdown-menu div:hover{background:var(--card-hover)}
+.pr-upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pr-upload-card{background:var(--card);border:1px dashed var(--border);border-radius:var(--r);padding:24px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.pr-upload-card span{font-size:12px;color:var(--txt-dim)}
+.pr-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;
+  display:grid;gap:10px;cursor:pointer;transition:background .15s,border-color .15s;
+  grid-template-columns:minmax(0,1fr) 160px 110px 130px 90px;align-items:center;min-width:0}
+.pr-row:hover{background:var(--card-hover);border-color:var(--border-light)}
+.pr-row.header{background:var(--surface);cursor:default;padding:8px 16px;margin-bottom:2px}
+.pr-badge-novo{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--gold);background:var(--gold-dim);padding:2px 8px;border-radius:20px}
 
 /* ── GRID CLIENTES ── */
 .clientes-grid{display:flex;flex-direction:column;gap:1px}
@@ -356,8 +382,13 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
         <span class="sb-count" id="cnt-inativo">0</span>
       </div>
       <div class="sb-divider"></div>
+      <div class="sb-section">Comercial</div>
+      <div class="sb-btn" id="sb-prospeccao" onclick="mostrarView('prospeccao')">
+        <i class="ti ti-target-arrow"></i> Prospecção
+      </div>
+      <div class="sb-divider"></div>
       <div class="sb-section">Ações</div>
-      <div class="sb-btn" onclick="abrirModalNovo()">
+      <div class="sb-btn" id="sb-acao-novo" onclick="abrirModalNovo()">
         <i class="ti ti-user-plus"></i> Novo Cliente
       </div>
       <div class="sb-btn" onclick="exportarExcel()">
@@ -391,6 +422,9 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
       <!-- CONTENT -->
       <div class="content">
 
+        <!-- VISÃO: CADASTRO DE CLIENTES -->
+        <div id="view-clientes">
+
         <!-- STATS -->
         <div class="stats-row" id="stats-row">
           <div class="stat-card gold"><div class="stat-lbl">Total</div><div class="stat-val" id="s-total">—</div><div class="stat-sub">clientes</div></div>
@@ -416,6 +450,77 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
           <div class="spinner"></div>
           <span>Carregando clientes…</span>
         </div>
+
+        </div><!-- /view-clientes -->
+
+        <!-- VISÃO: PROSPECÇÃO -->
+        <div id="view-prospeccao" style="display:none">
+          <div class="pr-tabs">
+            <div class="pr-tab active" id="pr-tab-detalhamento" onclick="prospMudarAba('detalhamento')">Detalhamento</div>
+            <div class="pr-tab" id="pr-tab-upload" onclick="prospMudarAba('upload')">Upload</div>
+          </div>
+
+          <!-- ── ABA DETALHAMENTO ── -->
+          <div id="pr-view-detalhamento">
+            <div class="pr-filtros" id="pr-filtros-regiao"></div>
+            <div class="pr-filtros" id="pr-filtros-estado" style="display:none"></div>
+            <div style="margin-top:10px;max-width:260px">
+              <select class="filtro-select" id="pr-filtro-vendedor" onchange="prospCarregarDetalhamento()" style="width:100%">
+                <option value="">Todos os vendedores</option>
+              </select>
+            </div>
+
+            <div class="stats-row" style="margin-top:14px">
+              <div class="stat-card gold"><div class="stat-lbl">Clientes</div><div class="stat-val" id="pr-total">—</div><div class="stat-sub">na seleção atual</div></div>
+              <div class="stat-card blue"><div class="stat-lbl">Obras Ativas</div><div class="stat-val" id="pr-obras-ativas">—</div><div class="stat-sub">somando os clientes</div></div>
+              <div class="stat-card" style="border-color:var(--gold)"><div class="stat-lbl">Atualizados</div><div class="stat-val" id="pr-atualizados">—</div><div class="stat-sub">com novidade não vista</div></div>
+              <div class="stat-card" style="justify-content:center;align-items:flex-start">
+                <div class="dropdown" style="position:relative">
+                  <button class="btn primary" onclick="document.getElementById('pr-baixar-menu').classList.toggle('open')"><i class="ti ti-download"></i> Baixar contatos</button>
+                  <div id="pr-baixar-menu" class="pr-dropdown-menu">
+                    <div onclick="prospBaixarContatos('telefones')"><i class="ti ti-phone"></i> Telefones (CSV)</div>
+                    <div onclick="prospBaixarContatos('emails')"><i class="ti ti-mail"></i> E-mails (CSV)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="pr-lista-wrap">
+              <div class="pr-row header">
+                <div class="col-lbl">Cliente</div>
+                <div class="col-lbl">CNPJ</div>
+                <div class="col-lbl">Obras Ativas</div>
+                <div class="col-lbl">Vendedor</div>
+                <div></div>
+              </div>
+              <div id="pr-lista"></div>
+            </div>
+          </div>
+
+          <!-- ── ABA UPLOAD ── -->
+          <div id="pr-view-upload" style="display:none">
+            <div class="pr-upload-grid">
+              <div class="pr-upload-card">
+                <i class="ti ti-building" style="font-size:28px;color:var(--gold)"></i>
+                <strong>Relatório de Empresas</strong>
+                <span>Cadastro-mestre por CNPJ (envie primeiro)</span>
+                <input type="file" id="pr-arquivo-empresa" accept=".xlsx,.xls" style="display:none" onchange="prospUpload('empresa', this)">
+                <button class="btn primary" onclick="document.getElementById('pr-arquivo-empresa').click()">Escolher arquivo</button>
+              </div>
+              <div class="pr-upload-card">
+                <i class="ti ti-crane" style="font-size:28px;color:var(--blue)"></i>
+                <strong>Relatório de Obras</strong>
+                <span>Projetos e vínculo com as empresas</span>
+                <input type="file" id="pr-arquivo-obras" accept=".xlsx,.xls" style="display:none" onchange="prospUpload('obras', this)">
+                <button class="btn primary" onclick="document.getElementById('pr-arquivo-obras').click()">Escolher arquivo</button>
+              </div>
+            </div>
+            <div id="pr-upload-status" style="margin-top:12px"></div>
+
+            <div class="modal-section-title" style="margin-top:24px"><i class="ti ti-history" style="font-size:13px"></i> Histórico de Upload</div>
+            <div id="pr-uploads-lista"></div>
+          </div>
+        </div><!-- /view-prospeccao -->
 
       </div><!-- /content -->
     </div><!-- /main -->
@@ -721,6 +826,32 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
   </div>
 </div>
 
+<!-- ══════════════════════════════════════
+     MODAL — DETALHE DO PROSPECT
+══════════════════════════════════════ -->
+<div class="overlay" id="ov-prospect">
+  <div class="modal" style="max-width:820px">
+    <div class="modal-header">
+      <i class="ti ti-target-arrow" style="color:var(--gold);font-size:18px"></i>
+      <h2 id="pr-det-nome">—</h2>
+      <button class="modal-close" onclick="fecharModal('ov-prospect')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section-title"><i class="ti ti-building" style="font-size:12px"></i> Dados da Empresa</div>
+      <div id="pr-det-empresa" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px"></div>
+
+      <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-address-book" style="font-size:12px"></i> Contatos da Empresa</div>
+      <div id="pr-det-contatos"></div>
+
+      <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-crane" style="font-size:12px"></i> Obras Ativas</div>
+      <div id="pr-det-obras"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('ov-prospect')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -877,6 +1008,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sb-nome').textContent = nome || 'Usuário';
   document.getElementById('sb-role').textContent = (perfil.charAt(0).toUpperCase() + perfil.slice(1)) || 'Colaborador';
   document.getElementById('tb-user').textContent = nome;
+  prospVendedorAtual = nome || null;
 
   if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   carregarDados();
@@ -1781,6 +1913,456 @@ function mascaraMoeda(el) {
   if (!n) { el.value = ''; return; }
   n = (parseInt(n,10)/100).toFixed(2).replace('.',',').replace(/(\d)(?=(\d{3})+(?!\d))/g,'$1.');
   el.value = 'R$ ' + n;
+}
+
+// ── PROSPECÇÃO COMERCIAL ────────────────────────────────────────
+// Le os relatorios (.xlsx) do Intec direto no navegador — só as colunas
+// que o vendedor deixou visíveis na planilha, as ocultas (ex: "Código")
+// nunca sobem pro servidor. O back-end é quem decide criar/mesclar/
+// ignorar por CNPJ (ver prospeccaoService.js); aqui só extrai e envia.
+var prospRegiaoAtual   = null;
+var prospEstadoAtual   = null;
+var prospEmpresasTodas = [];
+var prospInit          = false;
+var prospVendedorAtual = null;
+
+var PROSP_REGIOES_ORDEM = ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'];
+var PROSP_REGIAO_ESTADOS = {
+  'Norte':        ['AC','AP','AM','PA','RO','RR','TO'],
+  'Nordeste':     ['AL','BA','CE','MA','PB','PE','PI','RN','SE'],
+  'Centro-Oeste': ['DF','GO','MT','MS'],
+  'Sudeste':      ['ES','MG','RJ','SP'],
+  'Sul':          ['PR','RS','SC'],
+};
+
+function mostrarView(view) {
+  document.getElementById('view-clientes').style.display    = view === 'prospeccao' ? 'none' : '';
+  document.getElementById('view-prospeccao').style.display   = view === 'prospeccao' ? '' : 'none';
+  document.querySelectorAll('.sb-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (view === 'prospeccao') {
+    document.getElementById('sb-prospeccao').classList.add('active');
+    if (!prospInit) {
+      prospInit = true;
+      prospRenderFiltrosRegiao();
+      prospRenderFiltrosEstado();
+      prospCarregarDetalhamento();
+      prospCarregarUploads();
+    }
+  } else {
+    document.getElementById('sb-todos').classList.add('active');
+  }
+}
+
+function prospMudarAba(aba) {
+  document.getElementById('pr-view-detalhamento').style.display = aba === 'detalhamento' ? '' : 'none';
+  document.getElementById('pr-view-upload').style.display       = aba === 'upload' ? '' : 'none';
+  document.getElementById('pr-tab-detalhamento').classList.toggle('active', aba === 'detalhamento');
+  document.getElementById('pr-tab-upload').classList.toggle('active', aba === 'upload');
+}
+
+// ── LEITURA DO XLSX (só colunas visíveis) ───────────────────────
+function prospLerVisiveisXlsx_(file) {
+  return new Promise(function(resolve, reject) {
+    if (typeof XLSX === 'undefined') { reject(new Error('Biblioteca de leitura de planilha não carregou.')); return; }
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = new Uint8Array(ev.target.result);
+        var wb = XLSX.read(data, { type: 'array', cellStyles: true, cellDates: true });
+        var sheet = wb.Sheets[wb.SheetNames[0]];
+        var brutas = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+        if (!brutas.length) { resolve([]); return; }
+        var cabecalho = brutas[0];
+        var cols = sheet['!cols'] || [];
+        var indicesVisiveis = [];
+        for (var i = 0; i < cabecalho.length; i++) {
+          var oculta = cols[i] && cols[i].hidden;
+          if (!oculta && String(cabecalho[i] || '').trim() !== '') indicesVisiveis.push(i);
+        }
+        var linhas = [];
+        for (var r = 1; r < brutas.length; r++) {
+          var linhaBruta = brutas[r];
+          if (!linhaBruta || !linhaBruta.length) continue;
+          (function(linhaBruta) {
+            var obj = {};
+            var temAlgo = false;
+            indicesVisiveis.forEach(function(idx) {
+              var chave = String(cabecalho[idx]).trim();
+              var valor = linhaBruta[idx];
+              if (typeof valor === 'string') valor = valor.trim();
+              if (valor === undefined) valor = '';
+              obj[chave] = valor;
+              if (valor !== '' && valor !== null) temAlgo = true;
+            });
+            if (temAlgo) linhas.push(obj);
+          })(linhaBruta);
+        }
+        resolve(linhas);
+      } catch (e) { reject(e); }
+    };
+    reader.onerror = function() { reject(new Error('Falha ao ler ' + file.name)); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function prospNormalizarChave_(s) {
+  return String(s || '').normalize('NFD').replace(new RegExp('[̀-ͯ]','g'),'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function prospPegar_(linha, nome) {
+  var alvo = prospNormalizarChave_(nome);
+  var chaves = Object.keys(linha);
+  for (var i = 0; i < chaves.length; i++) {
+    if (prospNormalizarChave_(chaves[i]) === alvo) return linha[chaves[i]];
+  }
+  return '';
+}
+function prospTexto_(v) {
+  if (v === null || v === undefined || v instanceof Date) return '';
+  return String(v).trim();
+}
+function prospData_(v) {
+  if (!v) return null;
+  if (v instanceof Date) {
+    return v.getFullYear() + '-' + String(v.getMonth()+1).padStart(2,'0') + '-' + String(v.getDate()).padStart(2,'0');
+  }
+  var s = String(v).trim();
+  if (!s) return null;
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  return null;
+}
+
+// Relatório "Empresa": CNPJ, Razão social, Estado, Telefone, E-mails +
+// até 5 contatos (Cargo/Email do Contato/Telefone do Contato N).
+function prospMapearLinhaEmpresa_(linha) {
+  var contatos = [];
+  for (var n = 1; n <= 5; n++) {
+    var cargo = prospTexto_(prospPegar_(linha, 'Cargo ' + n));
+    var email = prospTexto_(prospPegar_(linha, 'Email do Contato ' + n));
+    var telefone = prospTexto_(prospPegar_(linha, 'Telefone do Contato ' + n));
+    if (cargo || email || telefone) contatos.push({ cargo: cargo, email: email, telefone: telefone });
+  }
+  return {
+    cnpj: prospTexto_(prospPegar_(linha, 'CNPJ')),
+    razaoSocial: prospTexto_(prospPegar_(linha, 'Razão social')),
+    atividade: prospTexto_(prospPegar_(linha, 'Atividade')),
+    estado: prospTexto_(prospPegar_(linha, 'Estado')),
+    telefone: prospTexto_(prospPegar_(linha, 'Telefone')),
+    email1: prospTexto_(prospPegar_(linha, 'E-mail 1')),
+    email2: prospTexto_(prospPegar_(linha, 'E-mail 2')),
+    contatos: contatos,
+  };
+}
+
+// Relatório "Obras": Nome da Obra + Endereço + Nº formam a chave (sem
+// coluna oculta nenhuma) + até 3 empresas participantes com seu contato.
+function prospMapearLinhaObra_(linha) {
+  var empresas = [];
+  for (var n = 1; n <= 3; n++) {
+    var cnpj = prospTexto_(prospPegar_(linha, 'CNPJ ' + n));
+    var nomeFantasia = prospTexto_(prospPegar_(linha, 'Nome Fantasia da Empresa ' + n));
+    var contatoNome = prospTexto_(prospPegar_(linha, 'Nome do Contato ' + n));
+    var cargo = prospTexto_(prospPegar_(linha, 'Cargo ' + n));
+    var email = prospTexto_(prospPegar_(linha, 'Email do Contato ' + n));
+    var telefone = prospTexto_(prospPegar_(linha, 'Telefone do Contato ' + n));
+    if (cnpj || nomeFantasia) empresas.push({ cnpj: cnpj, nomeFantasia: nomeFantasia, contatoNome: contatoNome, cargo: cargo, email: email, telefone: telefone });
+  }
+  return {
+    nomeObra: prospTexto_(prospPegar_(linha, 'Nome da Obra')),
+    endereco: prospTexto_(prospPegar_(linha, 'Endereço')),
+    numero: prospTexto_(prospPegar_(linha, 'Nº')),
+    bairro: prospTexto_(prospPegar_(linha, 'Bairro')),
+    cep: prospTexto_(prospPegar_(linha, 'Cep')),
+    cidade: prospTexto_(prospPegar_(linha, 'Cidade')),
+    estado: prospTexto_(prospPegar_(linha, 'Estado')),
+    inicioObra: prospData_(prospPegar_(linha, 'Início da Obra')),
+    terminoObra: prospData_(prospPegar_(linha, 'Término da Obra')),
+    estagioAtual: prospTexto_(prospPegar_(linha, 'Estágio Atual')),
+    fase: prospTexto_(prospPegar_(linha, 'Fase')),
+    empresas: empresas,
+  };
+}
+
+// ── UPLOAD ───────────────────────────────────────────────────────
+async function prospUpload(tipo, inputEl) {
+  var arquivo = inputEl.files && inputEl.files[0];
+  if (!arquivo) return;
+  var statusEl = document.getElementById('pr-upload-status');
+  statusEl.innerHTML = '<span style="color:var(--txt-dim)"><i class="ti ti-loader-2"></i> Lendo ' + esc(arquivo.name) + '…</span>';
+  try {
+    var brutas = await prospLerVisiveisXlsx_(arquivo);
+    if (!brutas.length) throw new Error('Nenhuma linha encontrada na planilha.');
+
+    var linhas = tipo === 'empresa'
+      ? brutas.map(prospMapearLinhaEmpresa_).filter(function(l){ return l.cnpj; })
+      : brutas.map(prospMapearLinhaObra_).filter(function(l){ return l.nomeObra; });
+
+    if (!linhas.length) throw new Error('Nenhuma linha válida encontrada (confira as colunas visíveis do arquivo).');
+
+    statusEl.innerHTML = '<span style="color:var(--txt-dim)"><i class="ti ti-loader-2"></i> Enviando ' + linhas.length + ' linhas…</span>';
+
+    var endpoint = tipo === 'empresa' ? '/prospeccao/uploads/empresas' : '/prospeccao/uploads/obras';
+    var res = await apiFetch(API_BASE + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ linhas: linhas, vendedor: prospVendedorAtual, nomeArquivo: arquivo.name }),
+    });
+    var resultado = await res.json();
+    if (!res.ok) throw new Error(resultado.error || 'Erro ao processar upload.');
+
+    // Sobe o arquivo original pro Drive em paralelo — se falhar, fica só
+    // sem o link no histórico, o processamento já foi gravado no banco.
+    prospSubirArquivoOriginal_(arquivo, resultado.id).catch(function(){});
+
+    var resumo = resultado.resumo || {};
+    statusEl.innerHTML = '<span style="color:var(--green)"><i class="ti ti-circle-check"></i> ' + esc(arquivo.name) + ': ' +
+      resumo.novos + ' novas, ' + resumo.atualizados + ' atualizadas, ' + resumo.semMudanca + ' sem mudança.</span>';
+
+    inputEl.value = '';
+    prospCarregarUploads();
+    prospCarregarDetalhamento();
+  } catch (e) {
+    statusEl.innerHTML = '<span style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ' + esc(e.message) + '</span>';
+  }
+}
+
+async function prospSubirArquivoOriginal_(arquivo, uploadId) {
+  var base64 = await lerArquivoBase64_(arquivo);
+  var resultado = await fetchComTentativas_(WEBAPP_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'upload_anexo', chave: 'prospeccao-' + uploadId, nome: arquivo.name,
+      data: base64, mimeType: arquivo.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }),
+  }, 4);
+  if (resultado && resultado.success && resultado.anexo && resultado.anexo.url) {
+    await apiFetch(API_BASE + '/prospeccao/uploads/' + uploadId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arquivoUrl: resultado.anexo.url }),
+    });
+    prospCarregarUploads();
+  }
+}
+
+async function prospCarregarUploads() {
+  var wrap = document.getElementById('pr-uploads-lista');
+  wrap.innerHTML = '<div class="loading-state" style="padding:20px"><div class="spinner"></div></div>';
+  try {
+    var res = await apiFetch(API_BASE + '/prospeccao/uploads');
+    var lista = await res.json();
+    if (!res.ok) throw new Error(lista.error || 'Erro ao carregar histórico.');
+    if (!lista.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--txt-dim);font-size:13px">Nenhum upload realizado ainda.</div>'; return; }
+    lista.sort(function(a,b){ return new Date(b.criado_em) - new Date(a.criado_em); });
+    wrap.innerHTML = lista.map(function(u) {
+      var data = u.criado_em ? new Date(u.criado_em).toLocaleString('pt-BR') : '—';
+      var link = u.arquivo_url
+        ? '<a href="' + esc(u.arquivo_url) + '" target="_blank" style="color:var(--gold)"><i class="ti ti-external-link"></i> arquivo</a>'
+        : '<span style="color:var(--txt-muted)">sem anexo</span>';
+      return '<div class="pr-row" style="grid-template-columns:90px minmax(0,1fr) 140px 150px 110px;cursor:default">' +
+        '<div><span class="pr-badge-novo">' + esc(u.tipo||'') + '</span></div>' +
+        '<div>' + esc(u.nome_arquivo||'—') + '</div>' +
+        '<div>' + esc(u.vendedor||'—') + '</div>' +
+        '<div style="font-size:12px;color:var(--txt-dim)">' + data + '</div>' +
+        '<div>' + link + '</div>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:13px">Erro: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── DETALHAMENTO ─────────────────────────────────────────────────
+function prospRenderFiltrosRegiao() {
+  var el = document.getElementById('pr-filtros-regiao');
+  var botoes = ['<button class="pr-filtro-btn' + (!prospRegiaoAtual ? ' active' : '') + '" onclick="prospSelecionarRegiao(null)">Todas as Regiões</button>'];
+  PROSP_REGIOES_ORDEM.forEach(function(r) {
+    botoes.push('<button class="pr-filtro-btn' + (prospRegiaoAtual === r ? ' active' : '') + '" onclick="prospSelecionarRegiao(\'' + r + '\')">' + r + '</button>');
+  });
+  el.innerHTML = botoes.join('');
+}
+
+function prospRenderFiltrosEstado() {
+  var el = document.getElementById('pr-filtros-estado');
+  if (!prospRegiaoAtual) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var estados = PROSP_REGIAO_ESTADOS[prospRegiaoAtual] || [];
+  el.style.display = 'flex';
+  var botoes = ['<button class="pr-filtro-btn' + (!prospEstadoAtual ? ' active' : '') + '" onclick="prospSelecionarEstado(null)">Todos os Estados</button>'];
+  estados.forEach(function(uf) {
+    botoes.push('<button class="pr-filtro-btn' + (prospEstadoAtual === uf ? ' active' : '') + '" onclick="prospSelecionarEstado(\'' + uf + '\')">' + uf + '</button>');
+  });
+  el.innerHTML = botoes.join('');
+}
+
+function prospSelecionarRegiao(regiao) {
+  prospRegiaoAtual = regiao;
+  prospEstadoAtual = null;
+  prospRenderFiltrosRegiao();
+  prospRenderFiltrosEstado();
+  prospAplicarFiltros_();
+}
+function prospSelecionarEstado(uf) {
+  prospEstadoAtual = uf;
+  prospRenderFiltrosEstado();
+  prospAplicarFiltros_();
+}
+
+async function prospCarregarDetalhamento() {
+  var lista = document.getElementById('pr-lista');
+  lista.innerHTML = '<div class="loading-state" style="padding:24px"><div class="spinner"></div></div>';
+  try {
+    var res = await apiFetch(API_BASE + '/prospeccao/empresas');
+    var dados = await res.json();
+    if (!res.ok) throw new Error(dados.error || 'Erro ao carregar.');
+    prospEmpresasTodas = dados;
+    prospPopularVendedores_(dados);
+    prospAplicarFiltros_();
+  } catch (e) {
+    lista.innerHTML = '<div style="padding:16px;color:var(--red);font-size:13px">Erro: ' + esc(e.message) + '</div>';
+  }
+}
+
+function prospEmpresasFiltradas_() {
+  var vendedorFiltro = document.getElementById('pr-filtro-vendedor').value || '';
+  return prospEmpresasTodas.filter(function(e) {
+    if (prospRegiaoAtual && e.regiao !== prospRegiaoAtual) return false;
+    if (prospEstadoAtual && e.estado !== prospEstadoAtual) return false;
+    if (vendedorFiltro && e.vendedorPrimario !== vendedorFiltro) return false;
+    return true;
+  });
+}
+
+function prospAplicarFiltros_() {
+  var dados = prospEmpresasFiltradas_();
+  prospRenderLista(dados);
+  document.getElementById('pr-total').textContent = dados.length;
+  document.getElementById('pr-obras-ativas').textContent = dados.reduce(function(s,e){ return s + (e.qtdObrasAtivas||0); }, 0);
+  document.getElementById('pr-atualizados').textContent = dados.filter(function(e){ return e.temAtualizacao; }).length;
+}
+
+function prospPopularVendedores_(dados) {
+  var sel = document.getElementById('pr-filtro-vendedor');
+  var atual = sel.value;
+  var vendedores = Array.from(new Set(dados.map(function(e){ return e.vendedorPrimario; }).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">Todos os vendedores</option>' +
+    vendedores.map(function(v){ return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+  if (vendedores.indexOf(atual) !== -1) sel.value = atual;
+}
+
+function prospRenderLista(dados) {
+  var lista = document.getElementById('pr-lista');
+  if (!dados.length) { lista.innerHTML = '<div style="padding:24px;color:var(--txt-dim);font-size:13px;text-align:center">Nenhum cliente na seleção atual.</div>'; return; }
+  lista.innerHTML = dados.map(function(e) {
+    var badge = e.temAtualizacao ? ' <span class="pr-badge-novo">novidade</span>' : '';
+    return '<div class="pr-row" onclick="prospAbrirDetalhe(\'' + esc(e.cnpj) + '\')">' +
+      '<div>' + esc(e.razaoSocial || '—') + badge + '</div>' +
+      '<div>' + formatDoc(e.cnpj) + '</div>' +
+      '<div>' + (e.qtdObrasAtivas || 0) + '</div>' +
+      '<div>' + esc(e.vendedorPrimario || '—') + '</div>' +
+      '<div><i class="ti ti-chevron-right"></i></div>' +
+    '</div>';
+  }).join('');
+}
+
+function prospCampoDetalhe_(rotulo, valor) {
+  return '<div><div style="font-size:11px;color:var(--txt-dim);text-transform:uppercase">' + esc(rotulo) + '</div>' +
+    '<div style="font-size:13px">' + esc(valor || '—') + '</div></div>';
+}
+
+async function prospAbrirDetalhe(cnpj) {
+  try {
+    var res = await apiFetch(API_BASE + '/prospeccao/empresas/' + encodeURIComponent(cnpj));
+    var e = await res.json();
+    if (!res.ok) throw new Error(e.error || 'Erro ao carregar detalhe.');
+
+    document.getElementById('pr-det-nome').textContent = e.razaoSocial || '—';
+    document.getElementById('pr-det-empresa').innerHTML =
+      prospCampoDetalhe_('CNPJ', formatDoc(e.cnpj)) +
+      prospCampoDetalhe_('Atividade', e.atividade) +
+      prospCampoDetalhe_('Estado', e.estado) +
+      prospCampoDetalhe_('Região', e.regiao) +
+      prospCampoDetalhe_('Telefone', e.telefone) +
+      prospCampoDetalhe_('E-mail 1', e.email1) +
+      prospCampoDetalhe_('E-mail 2', e.email2) +
+      prospCampoDetalhe_('Vendedor', e.vendedorPrimario);
+
+    var contatos = e.contatos || [];
+    document.getElementById('pr-det-contatos').innerHTML = contatos.length
+      ? contatos.map(function(c) {
+          return '<div class="pr-row" style="grid-template-columns:1fr 1fr 1fr;cursor:default;margin-bottom:6px">' +
+            '<div>' + esc(c.cargo||'—') + '</div><div>' + esc(c.email||'—') + '</div><div>' + esc(c.telefone||'—') + '</div></div>';
+        }).join('')
+      : '<div style="padding:12px;color:var(--txt-dim);font-size:13px">Nenhum contato registrado.</div>';
+
+    var obras = e.obrasAtivas || [];
+    document.getElementById('pr-det-obras').innerHTML = obras.length
+      ? obras.map(function(o) {
+          return '<div class="pr-row" style="grid-template-columns:2fr 1fr 1fr 1fr;cursor:default;margin-bottom:6px">' +
+            '<div><strong>' + esc(o.nomeObra||'—') + '</strong><br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.endereco||'') + ' — ' + esc(o.cidade||'') + '/' + esc(o.estado||'') + '</span></div>' +
+            '<div>Término: ' + esc(o.terminoObra || 'sem informação') + '</div>' +
+            '<div>' + esc(o.contatoNome||'—') + '<br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.cargo||'') + '</span></div>' +
+            '<div>' + esc(o.telefone||'—') + '<br><span style="font-size:11px;color:var(--txt-dim)">' + esc(o.email||'') + '</span></div>' +
+          '</div>';
+        }).join('')
+      : '<div style="padding:12px;color:var(--txt-dim);font-size:13px">Nenhuma obra ativa no momento.</div>';
+
+    document.getElementById('ov-prospect').classList.add('open');
+
+    if (e.temAtualizacao) {
+      apiFetch(API_BASE + '/prospeccao/empresas/' + encodeURIComponent(cnpj) + '/visualizar', { method: 'POST' }).then(function(){
+        var item = prospEmpresasTodas.find(function(x){ return x.cnpj === e.cnpj; });
+        if (item) item.temAtualizacao = false;
+        prospAplicarFiltros_();
+      });
+    }
+  } catch (err) {
+    toast(err.message, 'erro');
+  }
+}
+
+// ── DOWNLOAD EM MASSA (telefones/e-mails) ───────────────────────
+function prospBaixarContatos(tipo) {
+  document.getElementById('pr-baixar-menu').classList.remove('open');
+  var dados = prospEmpresasFiltradas_();
+  if (!dados.length) { toast('Nenhum cliente na seleção atual.', 'erro'); return; }
+
+  var linhas = [['Cliente', 'Origem', 'Cargo', tipo === 'telefones' ? 'Telefone' : 'E-mail']];
+  dados.forEach(function(e) {
+    if (tipo === 'telefones') {
+      if (e.telefone) linhas.push([e.razaoSocial||'', 'Empresa', '', e.telefone]);
+    } else {
+      if (e.email1) linhas.push([e.razaoSocial||'', 'Empresa', '', e.email1]);
+      if (e.email2) linhas.push([e.razaoSocial||'', 'Empresa', '', e.email2]);
+    }
+    (e.contatos||[]).forEach(function(c) {
+      var v = tipo === 'telefones' ? c.telefone : c.email;
+      if (v) linhas.push([e.razaoSocial||'', 'Empresa', c.cargo||'', v]);
+    });
+    (e.obrasAtivasContatos||[]).forEach(function(o) {
+      var v = tipo === 'telefones' ? o.telefone : o.email;
+      if (v) linhas.push([e.razaoSocial||'', 'Obra: ' + (o.nomeObra||''), o.cargo||'', v]);
+    });
+  });
+
+  if (linhas.length === 1) { toast('Nenhum ' + (tipo === 'telefones' ? 'telefone' : 'e-mail') + ' encontrado na seleção.', 'erro'); return; }
+
+  var csv = linhas.map(function(l) {
+    return l.map(function(campo) { return '"' + String(campo||'').replace(/"/g,'""') + '"'; }).join(';');
+  }).join('\r\n');
+
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var d = new Date();
+  var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'prospeccao_' + tipo + '_' + ymd + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Download iniciado (' + (linhas.length - 1) + ' contatos).', 'ok');
 }
 
 // Fecha overlay clicando fora do modal
