@@ -1013,12 +1013,21 @@ async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
     // arquivo do loop — o Apps Script processa uma requisição por vez, e
     // duas chamadas simultâneas na mesma sessão eram exatamente o que
     // travava o envio quando a solicitação tinha 2+ arquivos.
+    // 4 tentativas em vez das 3 padrão: essa cópia pro card já se provou
+    // mais sujeita a falhar (caso real: CT-e não chegou no card do S26919
+    // enquanto o MDF, na mesma sessão, chegou sem problema).
     try{
       await fetchComTentativas_(WEBAPP_URL, {
         method: 'POST',
         body: JSON.stringify({ action:'upload_anexo', chave: cod, nome: nome, data: base64, mimeType: mimeType })
-      });
-    }catch(err){ console.error('[uploadAnexoFat_] falha ao espelhar anexo no card:', err); }
+      }, 4);
+    }catch(err){
+      console.error('[uploadAnexoFat_] falha ao espelhar anexo no card:', err);
+      // Sinaliza pra quem chamou — antes essa falha era só um log que
+      // ninguém via, e o anexo ficava faltando no card sem ninguém saber
+      // que precisava reenviar.
+      if(j) j.espelhoNoCardFalhou = true;
+    }
   }
   return j;
 }
@@ -1026,7 +1035,8 @@ async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
 // Envia os anexos pendentes pro Drive, agrupados pela "chave" (id real do
 // registro) — só existe DEPOIS que a solicitação já foi criada no banco.
 async function saveAttSol(chave, cod){
-  if(!pendAttSol.length || !chave) return;
+  if(!pendAttSol.length || !chave) return [];
+  var falhasEspelho = [];
   for(var i=0; i<pendAttSol.length; i++){
     var f = pendAttSol[i];
     try{
@@ -1038,9 +1048,11 @@ async function saveAttSol(chave, cod){
       });
       var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsSol.push(j.anexo);
+      if(j.espelhoNoCardFalhou) falhasEspelho.push(f.name);
     }catch(err){ console.error('[saveAttSol] erro:', err); }
   }
   pendAttSol = [];
+  return falhasEspelho;
 }
 
 // Mostra (só leitura) os anexos de NF de uma solicitação — usado no modal
@@ -1170,7 +1182,8 @@ function renderAttListCan(){
 }
 
 async function saveAttCan(chave, cod){
-  if(!pendAttCan.length || !chave) return;
+  if(!pendAttCan.length || !chave) return [];
+  var falhasEspelho = [];
   for(var i=0; i<pendAttCan.length; i++){
     var f = pendAttCan[i];
     try{
@@ -1182,9 +1195,11 @@ async function saveAttCan(chave, cod){
       });
       var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsCan.push(j.anexo);
+      if(j.espelhoNoCardFalhou) falhasEspelho.push(f.name);
     }catch(err){ console.error('[saveAttCan] erro:', err); }
   }
   pendAttCan = [];
+  return falhasEspelho;
 }
 
 /* ── Modal Canhoto ── */
@@ -1276,9 +1291,10 @@ async function finalizarCanhotoUI(){
   var textoOriginal = btn.innerHTML;
   btn.disabled = true;
 
+  var falhasEspelhoCan = [];
   if(pendAttCan.length){
     btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando canhoto…';
-    await saveAttCan(chaveAnexoFat_(r.cod, r._id), r.cod);
+    falhasEspelhoCan = await saveAttCan(chaveAnexoFat_(r.cod, r._id), r.cod);
   }
 
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando pra análise…';
@@ -1294,6 +1310,7 @@ async function finalizarCanhotoUI(){
   closeModalCanhoto();
   await loadAllData();
   if(enviado.avisoKanban) alert('⚠ ' + enviado.avisoKanban);
+  if(falhasEspelhoCan.length) alert('⚠ O canhoto foi enviado, mas ' + (falhasEspelhoCan.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoCan.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
 }
 
 // Chamado pelo painel lateral (Detalhes do Registro) — o responsável pelo
@@ -1996,6 +2013,7 @@ async function enviarSolicitacao(){
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando…';
 
+  var falhasEspelhoSol = [];
   try{
     var res = await apiFetch(API_BASE + '/faturamento/solicitar', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
@@ -2004,7 +2022,7 @@ async function enviarSolicitacao(){
     if(pendAttSol.length){
       btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando anexo(s)…';
       var criado = await res.json();
-      await saveAttSol(chaveAnexoFat_(criado.cod, criado.id), criado.cod);
+      falhasEspelhoSol = await saveAttSol(chaveAnexoFat_(criado.cod, criado.id), criado.cod);
     }
   }catch(e){ alert('Erro de conexão ao enviar solicitação.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
   await loadAllData();
@@ -2013,6 +2031,7 @@ async function enviarSolicitacao(){
   btn.innerHTML = textoOriginal;
   closeModalSolicitacao();
   showView('fila');
+  if(falhasEspelhoSol.length) alert('⚠ A solicitação foi enviada, mas ' + (falhasEspelhoSol.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoSol.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
 }
 
 function atualizarPreviewCalculo(){
@@ -2098,17 +2117,20 @@ async function salvarRegistro(){
   // histórico sem precisar voltar aqui depois só pra anexar o MDF.
   // Melhor-esforço: se falhar, não desfaz o registro que já foi salvo.
   var chaveFatSalvo = chaveAnexoFat_(salvo.cod, salvo.id);
+  var falhasEspelhoReg = [];
   if(pendCteArquivoReg){
     try{
       var base64Cte = await lerArquivoBase64_(pendCteArquivoReg);
-      await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
+      var jCte = await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
+      if(jCte && jCte.espelhoNoCardFalhou) falhasEspelhoReg.push(pendCteArquivoReg.name);
     }catch(errCte){ console.error('[salvarRegistro] falha ao anexar CT-e:', errCte); }
     pendCteArquivoReg = null;
   }
   if(pendMdfArquivoReg){
     try{
       var base64Mdf = await lerArquivoBase64_(pendMdfArquivoReg);
-      await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendMdfArquivoReg.name, base64Mdf, pendMdfArquivoReg.type || 'application/pdf');
+      var jMdf = await uploadAnexoFat_(chaveFatSalvo, salvo.cod, pendMdfArquivoReg.name, base64Mdf, pendMdfArquivoReg.type || 'application/pdf');
+      if(jMdf && jMdf.espelhoNoCardFalhou) falhasEspelhoReg.push(pendMdfArquivoReg.name);
     }catch(errMdf){ console.error('[salvarRegistro] falha ao anexar MDF:', errMdf); }
     pendMdfArquivoReg = null;
   }
@@ -2126,6 +2148,10 @@ async function salvarRegistro(){
   // empresa errada, card excluído) — avisa em vez de deixar passar em
   // silêncio (ver caso do card S26905).
   if(salvo.avisoKanban) alert('⚠ ' + salvo.avisoKanban);
+  // Cópia do CT-e/MDF pro card falhou (ver caso do card S26919: o CT-e não
+  // chegou no card enquanto o MDF, na mesma sessão, chegou sem problema) —
+  // avisa em vez de deixar o card sem o arquivo sem ninguém perceber.
+  if(falhasEspelhoReg.length) alert('⚠ O registro foi salvo, mas ' + (falhasEspelhoReg.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoReg.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
 }
 
 /* ── Busca do card no Kanban ──
