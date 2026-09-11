@@ -722,6 +722,20 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
       </div>
     </div>
 
+    <div class="modal-section-title"><i class="ti ti-alert-circle" style="font-size:13px"></i> Prioridade</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Prioridade da solicitação <span style="color:var(--red)">*</span></label>
+        <select class="form-input" id="sol-prioridade">
+          <option value="">— Selecione —</option>
+          <option value="Urgente">🔴 Urgente</option>
+          <option value="Alta">🟡 Prioridade Alta</option>
+          <option value="Media">🟢 Prioridade Média</option>
+          <option value="Baixa">🔵 Prioridade Baixa</option>
+        </select>
+      </div>
+    </div>
+
     <div class="modal-section-title"><i class="ti ti-file-certificate" style="font-size:13px"></i> MDF-e</div>
     <div class="form-grid form-grid-2">
       <div class="form-group">
@@ -1343,6 +1357,15 @@ var filtroEmpresaAtual = "";
    não vêm do banco — são sempre recalculados aqui na hora, reaproveitando
    a mesma calcularResultado() usada na prévia dos modais, pra nunca haver
    dois lugares com a fórmula (e portanto nunca dessincronizar). ── */
+// Mesmo sistema de cores de triagem hospitalar pedido pelo Alex, pra
+// sinalizar de relance a prioridade de cada solicitação na fila.
+var CORES_PRIORIDADE_FAT = { Urgente:'var(--red)', Alta:'var(--gold)', Media:'var(--green)', Baixa:'var(--blue)' };
+function bolinhaPrioridadeFat_(prioridade){
+  var cor = CORES_PRIORIDADE_FAT[prioridade];
+  if(!cor) return '';
+  return '<span title="Prioridade: '+e(prioridade==='Media'?'Média':prioridade)+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+cor+';flex-shrink:0"></span>';
+}
+
 function fmtDataHoraFat_(isoTimestamp){
   if(!isoTimestamp) return '';
   var d = new Date(isoTimestamp);
@@ -1360,6 +1383,7 @@ function mapearRegistroDoApi_(row){
     valePedagio: row.vale_pedagio||'', gnre: row.gnre, status: row.status, solicitante: row.solicitante||'',
     dataSolicitacao: fmtDataHoraFat_(row.data_solicitacao), solicitaMdf: row.solicita_mdf||'', obsRotaMdf: row.obs_rota_mdf||'',
     custoOperacionalTotal: row.custo_operacional_total, statusCanhoto: row.status_canhoto||'',
+    prioridade: row.prioridade||'',
   };
   Object.assign(r, calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento));
   return r;
@@ -1423,7 +1447,7 @@ function renderFila(){
     var mdfTxt = r.solicitaMdf==='Sim' ? '<span style="display:block"><i class="ti ti-file-certificate" style="font-size:11px"></i> MDF solicitado</span>' : '';
     return `<div class="fila-card" ${ehColaborador?'':`onclick="abrirFinalizacao('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:var(--gold-dim)"><i class="ti ti-file-invoice" style="color:var(--gold)"></i></div>
-      <div class="fila-card-main"><strong>${r.cliente||'—'} · Cód. ${r.cod||'—'}</strong>
+      <div class="fila-card-main"><strong style="display:flex;align-items:center;gap:7px">${bolinhaPrioridadeFat_(r.prioridade)}${r.cliente||'—'} · Cód. ${r.cod||'—'}</strong>
         <span style="display:block">Solicitado por ${r.solicitante||'—'} em ${r.dataSolicitacao||'—'}</span>
         ${mdfTxt}
       </div>
@@ -1967,6 +1991,7 @@ function openModalSolicitacao(){
    'sol-observacoes','sol-cod','sol-natureza-operacao'
   ].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sol-empresa').value = '';
+  document.getElementById('sol-prioridade').value = '';
   document.getElementById('sol-solicita-mdf').value = 'Não';
   document.getElementById('sol-obs-rota-mdf').value = '';
   document.getElementById('grupo-obs-rota-mdf').style.display = 'none';
@@ -1985,8 +2010,13 @@ async function enviarSolicitacao(){
   var cliente = document.getElementById('sol-cliente').value.trim();
   var empresa = document.getElementById('sol-empresa').value;
   var cod = document.getElementById('sol-cod').value.trim();
+  var prioridade = document.getElementById('sol-prioridade').value;
   if(!cliente || !empresa || !cod){
     alert('Preencha ao menos Cliente, Empresa e Código do Card.');
+    return;
+  }
+  if(!prioridade){
+    alert('Selecione a prioridade da solicitação.');
     return;
   }
   var payload = {
@@ -2003,6 +2033,7 @@ async function enviarSolicitacao(){
     observacoes: document.getElementById('sol-observacoes').value.trim(),
     naturezaOperacao: document.getElementById('sol-natureza-operacao').value.trim(),
     solicitante: usuarioAtualNomeFat(),
+    prioridade: prioridade,
     solicitaMdf: document.getElementById('sol-solicita-mdf').value,
     obsRotaMdf: document.getElementById('sol-obs-rota-mdf').value.trim()
   };
