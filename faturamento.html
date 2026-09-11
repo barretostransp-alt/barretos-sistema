@@ -1360,6 +1360,7 @@ var filtroEmpresaAtual = "";
 // Mesmo sistema de cores de triagem hospitalar pedido pelo Alex, pra
 // sinalizar de relance a prioridade de cada solicitação na fila.
 var CORES_PRIORIDADE_FAT = { Urgente:'var(--red)', Alta:'var(--gold)', Media:'var(--green)', Baixa:'var(--blue)' };
+var ORDEM_PRIORIDADE_FAT = { Urgente:0, Alta:1, Media:2, Baixa:3 };
 function bolinhaPrioridadeFat_(prioridade){
   var cor = CORES_PRIORIDADE_FAT[prioridade];
   if(!cor) return '';
@@ -1430,7 +1431,14 @@ function renderFila(){
     pendentes = pendentes.filter(passa);
     aguardandoAnalise = aguardandoAnalise.filter(passa);
   }
-  pendentes.sort(function(a,b){ return (b.dataSolicitacao||'').localeCompare(a.dataSolicitacao||''); });
+  // Ordem de triagem primeiro (Urgente > Alta > Média > Baixa; sem
+  // prioridade fica por último), data de solicitação como desempate.
+  pendentes.sort(function(a,b){
+    var pa = ORDEM_PRIORIDADE_FAT[a.prioridade]; if(pa===undefined) pa = 99;
+    var pb = ORDEM_PRIORIDADE_FAT[b.prioridade]; if(pb===undefined) pb = 99;
+    if(pa !== pb) return pa - pb;
+    return (b.dataSolicitacao||'').localeCompare(a.dataSolicitacao||'');
+  });
   aguardandoAnalise.sort(function(a,b){ return (b.dataFaturamento||'').localeCompare(a.dataFaturamento||''); });
 
   var totalFila = pendentes.length + aguardandoAnalise.length;
