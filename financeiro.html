@@ -220,6 +220,10 @@ select.form-input option{background:var(--surface2);color:var(--txt)}
 .fila-card-main strong{display:block;font-size:13px;font-weight:700}
 .fila-card-main span{font-size:11px;color:var(--txt-dim)}
 .fila-card-val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;white-space:nowrap}
+.fila-card-del{flex-shrink:0;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--txt-dim);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;transition:background .15s,color .15s,border-color .15s}
+.fila-card-del:hover{background:var(--red-dim);color:var(--red);border-color:var(--red-border)}
 .empty-state{text-align:center;padding:48px 20px;color:var(--txt-dim)}
 .empty-state i{font-size:36px;color:var(--txt-muted);margin-bottom:10px;display:block}
 .empty-state strong{display:block;color:var(--txt);font-size:14px;margin-bottom:4px}
@@ -407,7 +411,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
     <!-- ─── FILA DE PAGAMENTOS DO DIA (visível para todos) ─── -->
     <div id="view-fila" class="view">
       <div class="filter-bar">
-        <input class="filter-input" placeholder="Buscar favorecido ou descrição…" oninput="filterFila(this.value)" style="min-width:240px">
+        <input class="filter-input" id="fila-busca-input" placeholder="Buscar favorecido ou descrição…" oninput="filterFila(this.value)" style="min-width:240px">
       </div>
       <div id="fila-list"></div>
     </div>
@@ -1077,7 +1081,9 @@ function mapearDoApi_(row){
     dataCobranca: row.data_cobranca || '',
     responsavel: row.responsavel || '',
     obs: row.observacao || '',
-    historico: Array.isArray(row.historico_cobranca) ? row.historico_cobranca : []
+    historico: Array.isArray(row.historico_cobranca) ? row.historico_cobranca : [],
+    criadoPor: row.criado_por || '',
+    criadoPorId: row.criado_por_id || ''
   };
 }
 
@@ -1382,6 +1388,7 @@ async function renderFila(filtro){
     return;
   }
   var ehColaborador = document.body.getAttribute('data-mode')==='colaborador';
+  var meuId = usuarioIdAtual_();
   el.innerHTML = itens.map(l=>{
     var diff = diffDias(l.vencimento);
     var atrasado = diff<0;
@@ -1390,6 +1397,11 @@ async function renderFila(filtro){
     var sub = atrasado ? `Venceu há ${Math.abs(diff)} dia(s)` : 'Vence hoje';
     var titulo = (l.titular && l.titular.trim()) ? l.titular : l.favorecido;
     var valorPagar = calcValorEnfase(l.valor, l.tipoValor, l.adiantamento);
+    // Colaborador (visão só da Fila) só pode excluir o que ele mesmo lançou
+    // — o back-end reforça essa mesma trava, isso aqui só evita mostrar um
+    // botão que ia dar erro 403 pra quem não é dono do lançamento.
+    var souDono = ehColaborador && l.criadoPorId && meuId && l.criadoPorId===meuId;
+    var botaoExcluir = souDono ? `<button class="fila-card-del" title="Excluir este lançamento" onclick="event.stopPropagation();excluirLancamentoFila('${l.id}')"><i class="ti ti-trash"></i></button>` : '';
     return `<div class="fila-card" ${ehColaborador ? '' : `onclick="openSidePanel('${l.id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:${l.tipo==='Pagar'?'var(--red-dim)':'var(--green-dim)'}">
         <i class="ti ${icon}" style="color:${iconCol}"></i></div>
@@ -1397,10 +1409,28 @@ async function renderFila(filtro){
         ${l.empresaCnpj?`<span style="display:block">${l.empresaCnpj}</span>`:''}
         <span style="display:block">${l.descricao} · ${sub}</span></div>
       <div class="fila-card-val" style="color:${atrasado?'var(--red)':'var(--txt)'}">${fmtMoeda(valorPagar)}</div>
+      ${botaoExcluir}
     </div>`;
   }).join('');
 }
 function filterFila(v){ renderFila(v); }
+function usuarioIdAtual_(){
+  try{
+    var token = getAuthToken();
+    if(!token) return null;
+    var b64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(b64.length%4) b64 += '=';
+    return JSON.parse(atob(b64)).sub || null;
+  }catch(e){ return null; }
+}
+async function excluirLancamentoFila(id){
+  if(!confirm('Excluir este lançamento? Essa ação não pode ser desfeita.')) return;
+  try{
+    var r = await apiFetch(API_BASE + '/financeiro/' + id, { method:'DELETE' });
+    if(!r.ok){ var j = await r.json(); throw new Error(j.error||'Erro ao excluir'); }
+  }catch(e){ alert('Erro ao excluir: '+e.message); return; }
+  renderFila(document.getElementById('fila-busca-input').value);
+}
 
 /* ── Histórico pessoal (só leitura) — pra quem só vê a Fila do Dia
    conferir suas próprias solicitações e não esquecer/duplicar nada.
