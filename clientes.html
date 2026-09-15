@@ -143,7 +143,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .pr-upload-card span{font-size:12px;color:var(--txt-dim)}
 .pr-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;
   display:grid;gap:10px;cursor:pointer;transition:background .15s,border-color .15s;
-  grid-template-columns:minmax(0,1fr) 160px 110px 170px 90px;align-items:center;min-width:0}
+  grid-template-columns:minmax(0,1fr) 160px 110px 170px 130px 90px;align-items:center;min-width:0}
 .pr-row>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pr-row:hover{background:var(--card-hover);border-color:var(--border-light)}
 .pr-row.header{background:var(--surface);cursor:default;padding:8px 16px;margin-bottom:2px}
@@ -483,6 +483,14 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
               <div class="stat-card gold" style="cursor:pointer" onclick="prospFiltrarKpi(null)" title="Ver todos os clientes da seleção (limpa o filtro de KPI)"><div class="stat-lbl">Clientes</div><div class="stat-val" id="pr-total">—</div><div class="stat-sub">na seleção atual</div></div>
               <div class="stat-card blue pr-kpi" data-kpi="obras" onclick="prospFiltrarKpi('obras')" title="Clique pra ver só quem tem obra ativa"><div class="stat-lbl">Obras Ativas</div><div class="stat-val" id="pr-obras-ativas">—</div><div class="stat-sub">somando os clientes</div></div>
               <div class="stat-card pr-kpi" style="border-color:var(--gold)" data-kpi="atualizados" onclick="prospFiltrarKpi('atualizados')" title="Clique pra ver quem tem atualização não vista"><div class="stat-lbl">Atualizados</div><div class="stat-val" id="pr-atualizados">—</div><div class="stat-sub">com novidade não vista</div></div>
+              <div class="stat-card pr-kpi" style="border-color:var(--red)" data-kpi="sem-prospeccao" onclick="prospFiltrarKpi('sem-prospeccao')" title="Clique pra ver quem está sem prospecção há mais do que esse número de dias">
+                <div class="stat-lbl">Sem Prospecção</div>
+                <div class="stat-val" id="pr-sem-prospeccao">—</div>
+                <div class="stat-sub">há mais de <input type="number" id="pr-dias-sem-prospeccao" value="30" min="1" style="width:38px;background:transparent;border:none;border-bottom:1px solid var(--border-light);color:var(--txt);font-size:11px;font-family:inherit;text-align:center" onclick="event.stopPropagation()" onchange="prospAplicarFiltros_()"> dias</div>
+              </div>
+              <div class="stat-card" style="justify-content:center;align-items:flex-start">
+                <button class="btn primary" onclick="prospAbrirModalRegistrar_()"><i class="ti ti-phone-calling"></i> Registrar Prospecção</button>
+              </div>
               <div class="stat-card" style="justify-content:center;align-items:flex-start">
                 <div class="dropdown" style="position:relative">
                   <button class="btn primary" onclick="document.getElementById('pr-baixar-menu').classList.toggle('open')"><i class="ti ti-download"></i> Baixar contatos</button>
@@ -506,6 +514,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
                 <div class="col-lbl">CNPJ</div>
                 <div class="col-lbl" style="text-align:center">Obras Ativas</div>
                 <div class="col-lbl">Vendedor</div>
+                <div class="col-lbl">Última Prospecção</div>
                 <div></div>
               </div>
               <div id="pr-lista"></div>
@@ -860,9 +869,31 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
 
       <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-crane" style="font-size:12px"></i> Obras Ativas</div>
       <div id="pr-det-obras"></div>
+
+      <div class="modal-section-title" style="margin-top:16px"><i class="ti ti-phone-calling" style="font-size:12px"></i> Histórico de Prospecção</div>
+      <div id="pr-det-historico"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="fecharModal('ov-prospect')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmação: Registrar Prospecção em massa -->
+<div class="overlay" id="ov-prospect-registrar">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <i class="ti ti-phone-calling" style="color:var(--gold);font-size:18px"></i>
+      <h2>Registrar Prospecção</h2>
+      <button class="modal-close" onclick="fecharModal('ov-prospect-registrar')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p id="pr-registrar-resumo" style="font-size:13px;color:var(--txt-dim)">0 clientes na seleção atual.</p>
+      <p style="font-size:12px;color:var(--txt-dim);margin-top:8px">Isso grava a data de hoje no histórico de prospecção de cada um desses clientes. Não apaga nem altera nenhum registro anterior.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('ov-prospect-registrar')">Cancelar</button>
+      <button class="btn primary" onclick="prospConfirmarRegistrar_()"><i class="ti ti-check"></i> Registrar</button>
     </div>
   </div>
 </div>
@@ -2242,8 +2273,17 @@ async function prospCarregarDetalhamento() {
 // Base = região/estado/vendedor (os filtros "de contexto"). Os KPIs
 // sempre mostram os totais da base, independente do KPI clicado — só a
 // lista abaixo é que fica restrita, igual o Resumo do Quadro no Kanban.
-var prospKpiFiltro = null; // null | 'obras' | 'atualizados'
-var PROSP_KPI_LABEL = { obras: 'Com obra ativa', atualizados: 'Com atualização não vista' };
+var prospKpiFiltro = null; // null | 'obras' | 'atualizados' | 'sem-prospeccao'
+var PROSP_KPI_LABEL = { obras: 'Com obra ativa', atualizados: 'Com atualização não vista', 'sem-prospeccao': 'Sem prospecção recente' };
+
+function prospDiasSemProspeccaoLimite_() {
+  var v = parseInt(document.getElementById('pr-dias-sem-prospeccao').value, 10);
+  return (isFinite(v) && v > 0) ? v : 30;
+}
+function prospDiasDesde_(dataIso) {
+  if (!dataIso) return Infinity;
+  return Math.floor((Date.now() - new Date(dataIso + 'T00:00:00').getTime()) / 86400000);
+}
 
 function prospEmpresasBase_() {
   var vendedorFiltro = document.getElementById('pr-filtro-vendedor').value || '';
@@ -2278,6 +2318,10 @@ function prospEmpresasFiltradas_() {
   var base = prospEmpresasBase_();
   if (prospKpiFiltro === 'obras') return base.filter(function(e){ return e.qtdObrasAtivas > 0; });
   if (prospKpiFiltro === 'atualizados') return base.filter(function(e){ return e.temAtualizacao; });
+  if (prospKpiFiltro === 'sem-prospeccao') {
+    var limite = prospDiasSemProspeccaoLimite_();
+    return base.filter(function(e){ return prospDiasDesde_(e.ultimaProspeccao) > limite; });
+  }
   return base;
 }
 
@@ -2292,6 +2336,8 @@ function prospAplicarFiltros_() {
   document.getElementById('pr-total').textContent = base.length;
   document.getElementById('pr-obras-ativas').textContent = base.reduce(function(s,e){ return s + (e.qtdObrasAtivas||0); }, 0);
   document.getElementById('pr-atualizados').textContent = base.filter(function(e){ return e.temAtualizacao; }).length;
+  var limiteDias = prospDiasSemProspeccaoLimite_();
+  document.getElementById('pr-sem-prospeccao').textContent = base.filter(function(e){ return prospDiasDesde_(e.ultimaProspeccao) > limiteDias; }).length;
 
   document.querySelectorAll('.pr-kpi').forEach(function(el) {
     el.classList.toggle('active', el.getAttribute('data-kpi') === prospKpiFiltro);
@@ -2320,6 +2366,7 @@ function prospRenderLista(dados) {
       '<div>' + formatDoc(e.cnpj) + '</div>' +
       '<div style="text-align:center">' + (e.qtdObrasAtivas || 0) + '</div>' +
       '<div title="' + esc(e.vendedorPrimario || '') + '">' + esc(e.vendedorPrimario || '—') + '</div>' +
+      '<div>' + esc(prospFormatarData_(e.ultimaProspeccao) || 'Nunca') + '</div>' +
       '<div><i class="ti ti-chevron-right"></i></div>' +
     '</div>';
   }).join('');
@@ -2349,7 +2396,8 @@ async function prospAbrirDetalhe(cnpj) {
       prospCampoDetalhe_('Telefone', e.telefone) +
       prospCampoDetalhe_('E-mail 1', e.email1) +
       prospCampoDetalhe_('E-mail 2', e.email2) +
-      prospCampoDetalhe_('Vendedor', e.vendedorPrimario);
+      prospCampoDetalhe_('Vendedor', e.vendedorPrimario) +
+      prospCampoDetalhe_('Última Prospecção', prospFormatarData_(e.ultimaProspeccao) || 'Nunca prospectado');
 
     var contatos = e.contatos || [];
     document.getElementById('pr-det-contatos').innerHTML = contatos.length
@@ -2370,6 +2418,15 @@ async function prospAbrirDetalhe(cnpj) {
           '</div>';
         }).join('')
       : '<div style="padding:12px;color:var(--txt-dim);font-size:13px">Nenhuma obra ativa no momento.</div>';
+
+    var historico = e.historicoProspeccao || [];
+    document.getElementById('pr-det-historico').innerHTML = historico.length
+      ? historico.map(function(h) {
+          return '<div class="pr-row" style="grid-template-columns:1fr 1fr;cursor:default;margin-bottom:6px">' +
+            '<div>' + esc(prospFormatarData_(h.data) || h.data) + '</div>' +
+            '<div style="color:var(--txt-dim)">' + esc(h.vendedor || '—') + '</div></div>';
+        }).join('')
+      : '<div style="padding:12px;color:var(--txt-dim);font-size:13px">Nenhuma prospecção registrada ainda.</div>';
 
     document.getElementById('ov-prospect').classList.add('open');
 
@@ -2427,6 +2484,41 @@ function prospBaixarContatos(tipo) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   toast('Download iniciado (' + (linhas.length - 1) + ' contatos).', 'ok');
+}
+
+// ── REGISTRAR PROSPECÇÃO EM MASSA ────────────────────────────────
+// Mesma lógica do "Alterar Status em Massa" da Gestão de Frota: pega
+// exatamente os clientes que estão dentro do filtro aplicado agora
+// (região/estado/vendedor/data/KPI) e grava a data de hoje no histórico
+// de prospecção de cada um — sem tocar em nada do Histórico de Upload.
+function prospAbrirModalRegistrar_() {
+  var dados = prospEmpresasFiltradas_();
+  if (!dados.length) { toast('Nenhum cliente na seleção atual.', 'erro'); return; }
+  document.getElementById('pr-registrar-resumo').textContent =
+    dados.length + (dados.length === 1 ? ' cliente na seleção atual.' : ' clientes na seleção atual.');
+  document.getElementById('ov-prospect-registrar').classList.add('open');
+}
+
+async function prospConfirmarRegistrar_() {
+  var dados = prospEmpresasFiltradas_();
+  if (!dados.length) { fecharModal('ov-prospect-registrar'); return; }
+  var cnpjs = dados.map(function(e){ return e.cnpj; });
+  try {
+    var res = await apiFetch(API_BASE + '/prospeccao/registrar-prospeccao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cnpjs: cnpjs, vendedor: prospVendedorAtual }),
+    });
+    var resultado = await res.json();
+    if (!res.ok) throw new Error(resultado.error || 'Erro ao registrar prospecção.');
+    var hojeFmt = prospFormatarData_(resultado.data) || resultado.data;
+    dados.forEach(function(e){ e.ultimaProspeccao = resultado.data; });
+    fecharModal('ov-prospect-registrar');
+    prospAplicarFiltros_();
+    toast('Prospecção registrada em ' + resultado.registrados + ' cliente(s) — ' + hojeFmt + '.', 'ok');
+  } catch (e) {
+    toast(e.message, 'erro');
+  }
 }
 
 // Fecha overlay clicando fora do modal
