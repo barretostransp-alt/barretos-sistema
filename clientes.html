@@ -468,10 +468,15 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
           <div id="pr-view-detalhamento">
             <div class="pr-filtros" id="pr-filtros-regiao"></div>
             <div class="pr-filtros" id="pr-filtros-estado" style="display:none"></div>
-            <div style="margin-top:10px;max-width:260px">
-              <select class="filtro-select" id="pr-filtro-vendedor" onchange="prospCarregarDetalhamento()" style="width:100%">
+            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <select class="filtro-select" id="pr-filtro-vendedor" onchange="prospAplicarFiltros_()" style="width:260px">
                 <option value="">Todos os vendedores</option>
               </select>
+              <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Upload de</span>
+              <input type="datetime-local" class="filtro-select" id="pr-filtro-data-ini" onchange="prospAplicarFiltros_()">
+              <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">até</span>
+              <input type="datetime-local" class="filtro-select" id="pr-filtro-data-fim" onchange="prospAplicarFiltros_()">
+              <button class="btn" style="padding:6px 12px;font-size:12px" onclick="prospLimparFiltroData_()">Limpar</button>
             </div>
 
             <div class="stats-row" style="margin-top:14px">
@@ -2242,12 +2247,31 @@ var PROSP_KPI_LABEL = { obras: 'Com obra ativa', atualizados: 'Com atualização
 
 function prospEmpresasBase_() {
   var vendedorFiltro = document.getElementById('pr-filtro-vendedor').value || '';
+  var dataIniVal = document.getElementById('pr-filtro-data-ini').value;
+  var dataFimVal = document.getElementById('pr-filtro-data-fim').value;
+  var dataIni = dataIniVal ? new Date(dataIniVal) : null;
+  var dataFim = dataFimVal ? new Date(dataFimVal) : null;
   return prospEmpresasTodas.filter(function(e) {
     if (prospRegiaoAtual && e.regiao !== prospRegiaoAtual) return false;
     if (prospEstadoAtual && e.estado !== prospEstadoAtual) return false;
     if (vendedorFiltro && e.vendedorPrimario !== vendedorFiltro) return false;
+    // Filtra por "data/hora do upload" — considera o cliente se ele foi
+    // criado OU atualizado (por qualquer upload) dentro do período.
+    if (dataIni || dataFim) {
+      var criado = e.criadoEm ? new Date(e.criadoEm) : null;
+      var atualizado = e.atualizadoEm ? new Date(e.atualizadoEm) : null;
+      var bateCriado = criado && (!dataIni || criado >= dataIni) && (!dataFim || criado <= dataFim);
+      var bateAtualizado = atualizado && (!dataIni || atualizado >= dataIni) && (!dataFim || atualizado <= dataFim);
+      if (!bateCriado && !bateAtualizado) return false;
+    }
     return true;
   });
+}
+
+function prospLimparFiltroData_() {
+  document.getElementById('pr-filtro-data-ini').value = '';
+  document.getElementById('pr-filtro-data-fim').value = '';
+  prospAplicarFiltros_();
 }
 
 function prospEmpresasFiltradas_() {
