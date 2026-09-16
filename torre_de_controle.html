@@ -769,8 +769,8 @@ function renderKpis(d){
 }
 
 // ── Velocímetro do SLA — SVG desenhado na mão (sem plugin de gauge) ──
-// Zonas fixas: <85% vermelho, 85–89% amarelo, 90%+ verde. O ponteiro é o
-// único elemento que muda de posição conforme o valor.
+// Zonas fixas: <85% vermelho, 85–94,9% amarelo, 95%+ verde. O ponteiro é
+// o único elemento que muda de posição conforme o valor.
 function polarToCartesian(cx, cy, r, angleDeg){
   var rad = angleDeg * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
@@ -782,7 +782,7 @@ function describeArc(cx, cy, r, startAngle, endAngle){
   return 'M '+start.x+' '+start.y+' A '+r+' '+r+' 0 '+largeArcFlag+' 1 '+end.x+' '+end.y;
 }
 function corSla(v){
-  if(v >= 90) return getComputedStyle(document.body).getPropertyValue('--green').trim();
+  if(v >= 95) return getComputedStyle(document.body).getPropertyValue('--green').trim();
   if(v >= 85) return '#EAB308';
   return getComputedStyle(document.body).getPropertyValue('--red').trim();
 }
@@ -790,8 +790,8 @@ function buildGaugeSVG(value){
   var cx=100, cy=95, r=78, sw=18;
   var v = value===null ? 0 : Math.max(0, Math.min(100, value));
   var angRed0=180, angRed1=180-1.8*85;     // 180 -> 27
-  var angYel0=angRed1, angYel1=180-1.8*90; // 27 -> 18
-  var angGrn0=angYel1, angGrn1=0;          // 18 -> 0
+  var angYel0=angRed1, angYel1=180-1.8*95; // 27 -> 9
+  var angGrn0=angYel1, angGrn1=0;          // 9 -> 0
   var needleAngle = 180 - 1.8*v;
   var needleTip = polarToCartesian(cx, cy, r-6, needleAngle);
   var cor = corSla(v);
@@ -819,7 +819,7 @@ function renderSlaChart(d){
     var cor = corSla(d.sla);
     gaugeCol.innerHTML = buildGaugeSVG(d.sla) +
       '<div class="sla-pct" style="color:'+cor+'">'+d.sla.toFixed(1)+'%</div>' +
-      '<div class="sla-sub">'+d.entregasConsideradasSla+' entrega'+(d.entregasConsideradasSla===1?'':'s')+' no mês · meta 90%+</div>';
+      '<div class="sla-sub">'+d.entregasConsideradasSla+' entrega'+(d.entregasConsideradasSla===1?'':'s')+' no mês · meta 95%+</div>';
   }
 
   numEl.textContent = d.entregasAtrasadas;
