@@ -1090,11 +1090,26 @@ function renderAttListReadonly_(elId, anexos){
       '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a></div>';
   }).join('');
 }
+// Antes, uma falha aqui (Drive/Apps Script fora do ar ou sob rate-limit —
+// acontece de verdade em uso rápido/sequencial) deixava o "Carregando…"
+// travado pra sempre, sem erro nenhum — só um F5 resolvia. Agora mostra
+// erro de verdade com botão de tentar de novo, sem precisar recarregar
+// a tela inteira.
+function mostrarErroAnexos_(elId, retryFn){
+  var l = document.getElementById(elId); if(!l) return;
+  l.innerHTML = '<div style="color:var(--red);font-size:12px;padding:8px 0;display:flex;align-items:center;gap:8px">'+
+    '<i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0"></i>'+
+    '<span>Não deu pra carregar os anexos agora (Google Drive demorou pra responder).</span>'+
+    '<button class="btn btn-ghost btn-sm" style="padding:2px 10px;flex-shrink:0" onclick="'+retryFn+'">Tentar de novo</button></div>';
+}
 function carregarAnexosParaExibir_(elId, chave){
   if(!chave) return;
   fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
-    .then(function(j){ if(j.success) renderAttListReadonly_(elId, j.anexos || []); })
-    .catch(function(){});
+    .then(function(j){
+      if(j.success) renderAttListReadonly_(elId, j.anexos || []);
+      else mostrarErroAnexos_(elId, "carregarAnexosParaExibir_('"+elId+"','"+chave.replace(/'/g,"\\'")+"')");
+    })
+    .catch(function(){ mostrarErroAnexos_(elId, "carregarAnexosParaExibir_('"+elId+"','"+chave.replace(/'/g,"\\'")+"')"); });
 }
 
 /* ── Anexos EDITÁVEIS do painel "Detalhes do Registro" — igual ao
@@ -1118,8 +1133,11 @@ function renderAttListEditavel_(elId, anexos, chaveFat){
 function carregarAnexosParaExibirEditavel_(elId, chave){
   if(!chave) return;
   fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave))
-    .then(function(j){ if(j.success) renderAttListEditavel_(elId, j.anexos || [], chave); })
-    .catch(function(){});
+    .then(function(j){
+      if(j.success) renderAttListEditavel_(elId, j.anexos || [], chave);
+      else mostrarErroAnexos_(elId, "carregarAnexosParaExibirEditavel_('"+elId+"','"+chave.replace(/'/g,"\\'")+"')");
+    })
+    .catch(function(){ mostrarErroAnexos_(elId, "carregarAnexosParaExibirEditavel_('"+elId+"','"+chave.replace(/'/g,"\\'")+"')"); });
 }
 function rmAttDriveSp(fileId, chaveFat){
   if(!confirm('Excluir este anexo permanentemente? (a cópia que foi pro card não é afetada)')) return;
@@ -1348,6 +1366,11 @@ async function finalizarCanhotoAnalisado(){
     if(!res.ok){ var j = await res.json(); alert('Erro ao finalizar: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
     var finalizado = await res.json();
   }catch(e){ alert('Erro de conexão ao finalizar.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  // Esse botão é um elemento único, reaproveitado pra todo item da fila
+  // (openSidePanel só alterna o display, nunca o texto/disabled) — sem
+  // isso, depois do primeiro canhoto finalizado com sucesso ele ficava
+  // preso no "Finalizando…" pra sempre, exigindo F5 pra desbloquear.
+  btn.disabled = false; btn.innerHTML = textoOriginal;
   closeSidePanel();
   await loadAllData();
   if(finalizado.avisoKanban) alert('⚠ ' + finalizado.avisoKanban);
