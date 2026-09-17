@@ -1055,8 +1055,13 @@ async function uploadAnexoFat_(chaveFat, cod, nome, base64, mimeType){
 // Envia os anexos pendentes pro Drive, agrupados pela "chave" (id real do
 // registro) — só existe DEPOIS que a solicitação já foi criada no banco.
 async function saveAttSol(chave, cod){
-  if(!pendAttSol.length || !chave) return [];
+  if(!pendAttSol.length || !chave) return { falhasEspelho: [], falhasPrincipal: [] };
   var falhasEspelho = [];
+  // Antes, quando o upload PRINCIPAL falhava (não só a cópia espelhada no
+  // card), o erro só ia pro console — o vendedor achava que tinha anexado
+  // o arquivo, mas ele nunca chegou no Drive de verdade (caso real: card
+  // S26945, anexo sumiu sem ninguém saber que precisava reenviar).
+  var falhasPrincipal = [];
   for(var i=0; i<pendAttSol.length; i++){
     var f = pendAttSol[i];
     try{
@@ -1068,11 +1073,12 @@ async function saveAttSol(chave, cod){
       });
       var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsSol.push(j.anexo);
+      else falhasPrincipal.push(f.name);
       if(j.espelhoNoCardFalhou) falhasEspelho.push(f.name);
-    }catch(err){ console.error('[saveAttSol] erro:', err); }
+    }catch(err){ console.error('[saveAttSol] erro:', err); falhasPrincipal.push(f.name); }
   }
   pendAttSol = [];
-  return falhasEspelho;
+  return { falhasEspelho: falhasEspelho, falhasPrincipal: falhasPrincipal };
 }
 
 // Mostra (só leitura) os anexos de NF de uma solicitação — usado no modal
@@ -1220,8 +1226,9 @@ function renderAttListCan(){
 }
 
 async function saveAttCan(chave, cod){
-  if(!pendAttCan.length || !chave) return [];
+  if(!pendAttCan.length || !chave) return { falhasEspelho: [], falhasPrincipal: [] };
   var falhasEspelho = [];
+  var falhasPrincipal = [];
   for(var i=0; i<pendAttCan.length; i++){
     var f = pendAttCan[i];
     try{
@@ -1233,11 +1240,12 @@ async function saveAttCan(chave, cod){
       });
       var j = await uploadAnexoFat_(chave, cod, f.name, base64, f.type || 'application/octet-stream');
       if(j.success && j.anexo) driveAttsCan.push(j.anexo);
+      else falhasPrincipal.push(f.name);
       if(j.espelhoNoCardFalhou) falhasEspelho.push(f.name);
-    }catch(err){ console.error('[saveAttCan] erro:', err); }
+    }catch(err){ console.error('[saveAttCan] erro:', err); falhasPrincipal.push(f.name); }
   }
   pendAttCan = [];
-  return falhasEspelho;
+  return { falhasEspelho: falhasEspelho, falhasPrincipal: falhasPrincipal };
 }
 
 /* ── Modal Canhoto ── */
@@ -1330,9 +1338,12 @@ async function finalizarCanhotoUI(){
   btn.disabled = true;
 
   var falhasEspelhoCan = [];
+  var falhasPrincipalCan = [];
   if(pendAttCan.length){
     btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando canhoto…';
-    falhasEspelhoCan = await saveAttCan(chaveAnexoFat_(r.cod, r._id), r.cod);
+    var resultadoAttCan = await saveAttCan(chaveAnexoFat_(r.cod, r._id), r.cod);
+    falhasEspelhoCan = resultadoAttCan.falhasEspelho;
+    falhasPrincipalCan = resultadoAttCan.falhasPrincipal;
   }
 
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando pra análise…';
@@ -1348,6 +1359,7 @@ async function finalizarCanhotoUI(){
   closeModalCanhoto();
   await loadAllData();
   if(enviado.avisoKanban) alert('⚠ ' + enviado.avisoKanban);
+  if(falhasPrincipalCan.length) alert('⚠ O canhoto foi enviado, mas ' + (falhasPrincipalCan.length===1 ? 'este arquivo NÃO foi salvo' : 'estes arquivos NÃO foram salvos') + ': ' + falhasPrincipalCan.join(', ') + '. Abra o registro e anexe de novo.');
   if(falhasEspelhoCan.length) alert('⚠ O canhoto foi enviado, mas ' + (falhasEspelhoCan.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoCan.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
 }
 
@@ -2089,6 +2101,7 @@ async function enviarSolicitacao(){
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando…';
 
   var falhasEspelhoSol = [];
+  var falhasPrincipalSol = [];
   try{
     var res = await apiFetch(API_BASE + '/faturamento/solicitar', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
@@ -2097,7 +2110,9 @@ async function enviarSolicitacao(){
     if(pendAttSol.length){
       btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando anexo(s)…';
       var criado = await res.json();
-      falhasEspelhoSol = await saveAttSol(chaveAnexoFat_(criado.cod, criado.id), criado.cod);
+      var resultadoAttSol = await saveAttSol(chaveAnexoFat_(criado.cod, criado.id), criado.cod);
+      falhasEspelhoSol = resultadoAttSol.falhasEspelho;
+      falhasPrincipalSol = resultadoAttSol.falhasPrincipal;
     }
   }catch(e){ alert('Erro de conexão ao enviar solicitação.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
   await loadAllData();
@@ -2106,6 +2121,7 @@ async function enviarSolicitacao(){
   btn.innerHTML = textoOriginal;
   closeModalSolicitacao();
   showView('fila');
+  if(falhasPrincipalSol.length) alert('⚠ A solicitação foi enviada, mas ' + (falhasPrincipalSol.length===1 ? 'este arquivo NÃO foi salvo' : 'estes arquivos NÃO foram salvos') + ': ' + falhasPrincipalSol.join(', ') + '. Abra o registro na Fila e anexe de novo.');
   if(falhasEspelhoSol.length) alert('⚠ A solicitação foi enviada, mas ' + (falhasEspelhoSol.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoSol.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
 }
 
