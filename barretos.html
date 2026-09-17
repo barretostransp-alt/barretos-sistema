@@ -819,7 +819,7 @@ function enderecoResumo_(endereco, ufFallback){
 function rCard(c){
   var key=c["DT CODIGO"]||c["Chave"]||"";
   var cli=c["CLIENTE"]||"",vend=c["VENDEDOR"]||"?";
-  var fret=c["FRETE COBRADO"]||"",acomp=c["ACOMPANHAMENTO"]||"",tip=c["TIPO DE VEICULO"]||"";
+  var fret=c["FRETE COBRADO"]||"",acomp=c["ACOMPANHAMENTO"]||"",tip=c["TIPO DE VEICULO"]||"",modal=c["MODALIDADE"]||"";
   var ro=enderecoResumo_(c["ENDEREÇO ORIGEM"],c["UF ORIGEM"]);
   var roDestino=enderecoResumo_(c["ENDEREÇO DESTINO"],c["UF DESTINO"]);
   if(roDestino)ro+=(ro?" → ":"")+roDestino;
@@ -855,6 +855,7 @@ function rCard(c){
     "<div class=\"kcard-foot\">"+
     (fret?"<span class=\"ktag tg\">"+e(fret)+"</span>":"")+
     (tip?"<span class=\"ktag\" style=\"background:rgba(34,197,94,.1);color:#22C55E;border:1px solid rgba(34,197,94,.3)\">"+tip.slice(0,14)+"</span>":"")+
+    (modal?"<span class=\"ktag\" style=\"background:rgba(20,184,166,.1);color:#0D9488;border:1px solid rgba(20,184,166,.35)\">"+e(modal)+"</span>":"")+
     (att.length?"<span class=\"ktag tp\"><i class=\"ti ti-paperclip\" style=\"font-size:9px\"></i> "+att.length+"</span>":"")+
     "<div class=\"kav\" title=\""+e(vend)+"\">"+vend[0].toUpperCase()+"</div>"+
     "</div></div>";
