@@ -426,7 +426,13 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <!-- ─── MOTORISTAS ─── -->
     <div id="view-motoristas" class="view">
       <div class="filter-bar">
-        <input class="filter-input" placeholder="Buscar nome ou CNH…" oninput="filterMotoristas(this.value)">
+        <input class="filter-input" id="f-motorista-busca" placeholder="Buscar nome ou CNH…" oninput="filterMotoristas()">
+        <select class="filter-input" id="f-motorista-status" onchange="filterMotoristas()">
+          <option value="Ativo" selected>Ativo</option>
+          <option value="Afastado">Afastado</option>
+          <option value="Inativo">Inativo</option>
+          <option value="">Todos status</option>
+        </select>
         <button class="btn btn-ghost btn-sm" onclick="exportMotoristasExcel()" style="white-space:nowrap"><i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel</button>
       </div>
       <div class="panel">
@@ -1934,9 +1940,15 @@ function filterVeiculoStatus(s){ renderVeiculos(document.getElementById('filter-
 /* ═══════════════════════════════════════
    MOTORISTAS
 ════════════════════════════════════════ */
-function renderMotoristas(q='') {
+function renderMotoristas() {
   const tb=document.getElementById('tbody-motoristas'); if(!tb)return;
-  const rows=db.motoristas.filter(m=>!q||(m['Nome']||'').toLowerCase().includes(q.toLowerCase())||(m['CNH']||'').includes(q));
+  const q=(document.getElementById('f-motorista-busca')?.value||'').toLowerCase();
+  const statusFiltro=document.getElementById('f-motorista-status')?.value||'';
+  const rows=db.motoristas.filter(m=>{
+    const okBusca=!q||(m['Nome']||'').toLowerCase().includes(q)||(m['CNH']||'').includes(q);
+    const okStatus=!statusFiltro||(m['Status']||'Ativo')===statusFiltro;
+    return okBusca&&okStatus;
+  });
   window.filteredMotoristas=rows;
   if(!rows.length){ tb.innerHTML=`<tr><td colspan="9" class="tbl-empty">${db.motoristas.length?'Nenhum resultado':'Nenhum motorista cadastrado'}</td></tr>`; return; }
   tb.innerHTML=rows.map(m=>{
@@ -1962,7 +1974,7 @@ function renderMotoristas(q='') {
     </tr>`;
   }).join('');
 }
-function filterMotoristas(q){ renderMotoristas(q); }
+function filterMotoristas(){ renderMotoristas(); }
 
 /* ═══════════════════════════════════════
    VIAGENS
