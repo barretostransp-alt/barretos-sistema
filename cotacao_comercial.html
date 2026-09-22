@@ -4538,9 +4538,12 @@ async function calcRoute() {
 
   try {
     // OSRM — rota por caminhão (driving profile). steps=true também traz
-    // o nome de cada trecho/rodovia percorrido — usado só pra sugerir
-    // praças de pedágio (não precisa da geometria completa da rota).
-    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?overview=false&steps=true`;
+    // o nome de cada trecho/rodovia percorrido — usado pra sugerir praças
+    // de pedágio. overview=full+geometries=geojson traz a geometria
+    // completa do traçado (um ponto a cada poucos metros/km, não só nas
+    // curvas) — o backend precisa disso pra medir distância e sentido
+    // reais até cada praça candidata, não só o nome da rodovia.
+    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?overview=full&geometries=geojson&steps=true`;
     const res  = await fetch(url);
     const data = await res.json();
 
@@ -4569,16 +4572,21 @@ async function calcRoute() {
     // é o que realmente bate com o jeito que a Sem Parar identifica a
     // rodovia — o "name" (ex: "Rodovia Presidente Dutra") quase nunca bate.
     // "ref" pode vir composto tipo "SP-060; BR-116", por isso o split.
-    // Coordenadas de cada passo — mandadas junto pro backend decidir por
-    // quais estados a rota realmente passa (não só origem/destino), em
-    // vez de tentar adivinhar isso no navegador.
     const nomesRodovia = new Set();
-    const pontosRota = [];
     (data.routes[0].legs||[]).forEach(leg => (leg.steps||[]).forEach(s => {
       if(s.name) nomesRodovia.add(s.name);
       if(s.ref) s.ref.split(';').forEach(r => { r = r.trim(); if(r) nomesRodovia.add(r); });
-      if(s.maneuver && Array.isArray(s.maneuver.location)) pontosRota.push(s.maneuver.location); // [lon,lat]
     }));
+
+    // Geometria completa do traçado (não só os pontos de manobra/curva) —
+    // mandada pro backend medir distância e sentido reais até cada praça
+    // candidata. Reduz a uma amostra de no máximo ~400 pontos (mantém boa
+    // resolução mesmo numa rota de milhares de km, sem mandar um payload
+    // gigante) — nunca deixa passar de 1 a cada N pontos originais.
+    const coordsCompletas = data.routes[0].geometry?.coordinates || []; // [[lon,lat], ...]
+    const passo = Math.max(1, Math.ceil(coordsCompletas.length / 400));
+    const pontosRota = coordsCompletas.filter((_, i) => i % passo === 0);
+
     carregarSugestoesPedagio(Array.from(nomesRodovia), pontosRota);
 
     calc(); // Atualiza o resultado
@@ -4630,12 +4638,12 @@ async function carregarSugestoesPedagio(nomesRodovia, pontosRota){
   try{
     var estadoOrigem = estadoDoEndereco_(addrState.origem.label);
     var estadoDestino = estadoDoEndereco_(addrState.destino.label);
-    var pontosStr = (pontosRota||[]).map(function(p){ return p[1].toFixed(3)+','+p[0].toFixed(3); }).join(';');
-    var qs = 'rodovias='+encodeURIComponent(nomesRodovia.join(','))+
-      '&estadoOrigem='+encodeURIComponent(estadoOrigem)+
-      '&estadoDestino='+encodeURIComponent(estadoDestino)+
-      '&pontos='+encodeURIComponent(pontosStr);
-    var res = await apiFetch(API_BASE+'/semparar/pracas-sugeridas?'+qs);
+    var pontos = (pontosRota||[]).map(function(p){ return { lat: p[1], lon: p[0] }; });
+    var res = await apiFetch(API_BASE+'/semparar/pracas-sugeridas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rodovias: nomesRodovia, estadoOrigem: estadoOrigem, estadoDestino: estadoDestino, pontos: pontos })
+    });
     var lista = await res.json();
     if(Array.isArray(lista)) pedagioPracasSelecionadas = lista;
     statusEl.textContent = lista.length ? '' : 'Nenhuma praça sugerida automaticamente — busque manualmente se souber que a rota tem pedágio.';
