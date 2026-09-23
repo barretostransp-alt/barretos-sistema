@@ -16,6 +16,9 @@
 <!-- Fontes do padrão visual Grupo Barreto's -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Leaflet (mapa de Distribuição por Destino) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
 /* ============================================================
@@ -573,8 +576,8 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
         <div class="col-lg-6"><div class="card p-3"><h6 class="mb-3">Ticket Médio (6 meses)</h6><div style="position:relative;height:260px;"><canvas id="chart-ticket"></canvas></div></div></div>
       </div>
       <div class="row g-3 mb-3">
-        <div class="col-lg-6"><div class="card p-3"><h6 class="mb-3">Distribuição por Destino</h6><div style="position:relative;height:340px;"><canvas id="chart-destino"></canvas></div></div></div>
-        <div class="col-lg-6"><div class="card p-3"><h6 class="mb-3">Distribuição por Segmento</h6><div style="position:relative;height:280px;"><canvas id="chart-segmento"></canvas></div></div></div>
+        <div class="col-lg-6"><div class="card p-3"><h6 class="mb-3">Distribuição por Destino</h6><div id="mapa-destino" style="position:relative;height:340px;border-radius:8px;overflow:hidden;"></div></div></div>
+        <div class="col-lg-6"><div class="card p-3"><h6 class="mb-3">Distribuição por Segmento</h6><div style="position:relative;height:340px;"><canvas id="chart-segmento"></canvas></div></div></div>
       </div>
       <div class="card p-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1222,6 +1225,49 @@ function makeChart(canvasId, config){
   return chartRegistry[canvasId];
 }
 const PALETTE = ['#D97706','#22c55e','#f59e0b','#ef4444','#0ea5e9','#a855f7','#14b8a6','#fb923c','#64748b','#10b981'];
+
+/* ---------------------------------------------------------------------
+   4b. MAPA DE DISTRIBUIÇÃO POR DESTINO (círculos proporcionais por UF)
+--------------------------------------------------------------------- */
+const MAPTILER_KEY_CRM = '2gPpvsZ6R8GUuSyfewet';
+// Centro aproximado de cada UF — suficiente pra um mapa de visão geral
+// (não precisa ser o centroide geográfico exato).
+const UF_CENTROIDE = {
+  AC:[-9.00,-70.55], AL:[-9.57,-36.78], AP:[1.41,-51.77], AM:[-3.47,-65.10],
+  BA:[-12.58,-41.70], CE:[-5.20,-39.53], DF:[-15.78,-47.93], ES:[-19.19,-40.34],
+  GO:[-15.98,-49.86], MA:[-5.42,-45.44], MT:[-12.64,-55.42], MS:[-20.51,-54.54],
+  MG:[-18.10,-44.38], PA:[-3.79,-52.48], PB:[-7.06,-36.72], PR:[-24.89,-51.55],
+  PE:[-8.38,-37.86], PI:[-7.72,-42.73], RJ:[-22.25,-42.66], RN:[-5.81,-36.59],
+  RS:[-30.03,-53.42], RO:[-10.83,-63.34], RR:[2.05,-61.40], SC:[-27.24,-50.21],
+  SP:[-22.19,-48.79], SE:[-10.57,-37.45], TO:[-9.46,-48.26],
+};
+let mapaDestinoLeaflet_ = null;
+let mapaDestinoCamadas_ = [];
+function renderizarMapaDestino(destinos){
+  const container = document.getElementById('mapa-destino');
+  if(!container || !window.L) return;
+  if(!mapaDestinoLeaflet_){
+    mapaDestinoLeaflet_ = L.map('mapa-destino', { zoomControl:true, attributionControl:false }).setView([-15.5,-52], 3.6);
+    L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key='+MAPTILER_KEY_CRM, { maxZoom:18 }).addTo(mapaDestinoLeaflet_);
+  }
+  mapaDestinoCamadas_.forEach(function(c){ mapaDestinoLeaflet_.removeLayer(c); });
+  mapaDestinoCamadas_ = [];
+  const labels = destinos.labels||[], data = destinos.data||[];
+  const max = Math.max(1, ...data);
+  labels.forEach(function(uf, i){
+    const centro = UF_CENTROIDE[uf];
+    if(!centro) return;
+    const valor = data[i];
+    // Raio proporcional à raiz do valor — assim é a ÁREA do círculo (não
+    // o raio) que fica proporcional ao valor, do jeito certo pra leitura
+    // visual de um mapa de círculos proporcionais.
+    const raioPx = 6 + Math.sqrt(valor / max) * 34;
+    const circulo = L.circleMarker(centro, { radius: raioPx, color:'#B45309', weight:1, fillColor:'#D97706', fillOpacity:.55 }).addTo(mapaDestinoLeaflet_);
+    circulo.bindTooltip('<b>'+uf+'</b>: '+valor, { direction:'top' });
+    mapaDestinoCamadas_.push(circulo);
+  });
+  setTimeout(function(){ mapaDestinoLeaflet_.invalidateSize(); }, 60);
+}
 
 /* ---------------------------------------------------------------------
    5. SEED DATA
@@ -2490,7 +2536,7 @@ async function renderIndicadores(){
 
   makeChart('chart-conversao', {type:'line', data:{labels:resp.mesesLabels, datasets:[{label:'Conversão %', data:resp.conversaoData, borderColor:'#D97706', backgroundColor:'#D9770622', fill:true, tension:.35}]}, options:{maintainAspectRatio:false, plugins:{legend:{display:false}}}});
   makeChart('chart-ticket', {type:'line', data:{labels:resp.mesesLabels, datasets:[{label:'Ticket Médio', data:resp.ticketData, borderColor:'#22c55e', backgroundColor:'#22c55e22', fill:true, tension:.35}]}, options:{maintainAspectRatio:false, plugins:{legend:{display:false}}}});
-  makeChart('chart-destino', {type:'bar', data:{labels:resp.destinos.labels, datasets:[{data:resp.destinos.data, backgroundColor:'#D97706'}]}, options:{indexAxis:'y', maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{precision:0}}}}});
+  renderizarMapaDestino(resp.destinos);
   makeChart('chart-segmento', {type:'pie', data:{labels:resp.segmentos.labels, datasets:[{data:resp.segmentos.data, backgroundColor:PALETTE}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right', labels:{boxWidth:10,font:{size:10}}}}}});
 
   renderRanking();
