@@ -31,20 +31,6 @@ body.tema-claro .logo-claro{display:block}
 .theme-toggle{width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--txt-mid);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;flex-shrink:0}
 .theme-toggle:hover{color:var(--gold);border-color:var(--gold)}
 
-/* ── LOGIN ── */
-#login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
-.login-box{width:340px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:32px}
-.login-logo{margin-bottom:14px}
-.login-logo img{height:64px;width:auto}
-.login-sub{font-size:12px;color:var(--txt-dim);margin-bottom:24px}
-.login-field{margin-bottom:14px}
-.login-field label{display:block;font-size:11px;color:var(--txt-mid);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
-.login-field input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--txt);font-size:14px;outline:none}
-.login-field input:focus{border-color:var(--gold)}
-.login-btn{width:100%;margin-top:8px;padding:11px;background:var(--gold);color:#111;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer}
-.login-btn:disabled{opacity:.5;cursor:not-allowed}
-.login-err{color:var(--red);font-size:12px;margin-top:10px;min-height:16px}
-
 /* ── TV SHELL ── */
 #tv{display:none;height:100vh;flex-direction:column;padding:22px 28px}
 .tv-hd{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-shrink:0}
@@ -108,20 +94,6 @@ body.tema-claro .logo-claro{display:block}
 </style>
 </head>
 <body>
-
-<div id="login-overlay">
-  <div class="login-box">
-    <div class="login-logo">
-      <img class="logo-escuro" src="assets/logo-escuro.png" alt="Barreto's Transportes">
-      <img class="logo-claro" src="assets/logo-claro.png" alt="Barreto's Transportes">
-    </div>
-    <div class="login-sub">Torre de Controle — acesso da TV</div>
-    <div class="login-field"><label>Usuário</label><input id="lg-login" type="text" autocomplete="username"></div>
-    <div class="login-field"><label>Senha</label><input id="lg-senha" type="password" autocomplete="current-password"></div>
-    <button class="login-btn" id="btn-login" onclick="fazerLogin()">Entrar</button>
-    <div class="login-err" id="lg-err"></div>
-  </div>
-</div>
 
 <div id="tv">
   <div class="tv-hd">
@@ -255,72 +227,61 @@ var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
 var REFRESH_MS = 60000; // recarrega os dados a cada 1 minuto
 
-function loginParaEmail(login){
-  if(login.indexOf('@')!==-1) return login;
-  var normalizado = login.toLowerCase().trim()
-    .normalize('NFD').replace(/\p{M}/gu,'')
-    .replace(/\s+/g,'.').replace(/[^a-z0-9.]/g,'');
-  return normalizado + '@barretos.sistema';
-}
+// Essa tela não tem login próprio mais — agora é só mais uma aba dentro
+// do shell (menu principal), então usa o mesmo token que o shell já
+// deixou salvo no login dele, igual todo o resto do sistema. Acesso é
+// controlado pela permissão "torre_controle" na Configuração de Acesso,
+// não por credencial separada.
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
 
-function getAuthToken()    { return localStorage.getItem('tv_auth_token'); }
-function getRefreshToken() { return localStorage.getItem('tv_auth_refresh'); }
-
-async function tentarRenovarToken(){
+async function tentarRenovarToken() {
   var refresh = getRefreshToken();
-  if(!refresh) return false;
-  try{
+  if (!refresh) return false;
+  // Evita duas abas/telas tentarem renovar ao mesmo tempo: se alguem ja
+  // renovou nos ultimos 5s, usa o token que ja foi salvo em vez de tentar
+  // de novo com o refresh token antigo (ele so vale uma vez).
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
     var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-      method:'POST', headers:{'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY},
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
       body: JSON.stringify({ refresh_token: refresh }),
     });
-    if(!r.ok) return false;
+    if (!r.ok) return false;
     var j = await r.json();
-    localStorage.setItem('tv_auth_token', j.access_token);
-    localStorage.setItem('tv_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
     return true;
-  }catch(e){ return false; }
+  } catch (e) { return false; }
 }
 
-async function apiFetch(url, options){
+async function apiFetch(url, options) {
   options = options || {};
   var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
   var res = await fetch(url, Object.assign({}, options, { headers: headers }));
-  if(res.status === 401){
-    if(await tentarRenovarToken()){
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
       headers.Authorization = 'Bearer ' + getAuthToken();
       res = await fetch(url, Object.assign({}, options, { headers: headers }));
     }
+    if (res.status === 401) { mostrarTelaSemAcesso(); throw new Error('Sessão expirada'); }
   }
   return res;
 }
 
-async function fazerLogin(){
-  var login = document.getElementById('lg-login').value.trim();
-  var senha = document.getElementById('lg-senha').value;
-  var erroEl = document.getElementById('lg-err');
-  var btn = document.getElementById('btn-login');
-  erroEl.textContent = '';
-  if(!login || !senha){ erroEl.textContent = 'Preencha usuário e senha.'; return; }
-  btn.disabled = true; btn.textContent = 'Entrando…';
-  try{
-    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
-      method:'POST', headers:{'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY},
-      body: JSON.stringify({ email: loginParaEmail(login), password: senha }),
-    });
-    var j = await r.json();
-    if(!r.ok || !j.access_token){
-      erroEl.textContent = 'Usuário ou senha inválidos.';
-      btn.disabled = false; btn.textContent = 'Entrar';
-      return;
-    }
-    localStorage.setItem('tv_auth_token', j.access_token);
-    localStorage.setItem('tv_auth_refresh', j.refresh_token);
-    iniciarTV();
-  }catch(e){
-    erroEl.textContent = 'Erro de conexão. Tente novamente.';
-    btn.disabled = false; btn.textContent = 'Entrar';
-  }
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
 }
 
 function aplicarTema(t){
@@ -377,7 +338,6 @@ function mostrarPainel(idx){
 function rotacionar(){ mostrarPainel((painelAtual+1) % PAINEIS.length); }
 
 function iniciarTV(){
-  document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('tv').style.display = 'flex';
   aplicarTema(localStorage.getItem('barretos_tema') || 'escuro');
   atualizarRelogio();
@@ -940,7 +900,19 @@ function renderVeiculoChart(d){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-  if(getAuthToken()){ iniciarTV(); }
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+  iniciarTV();
+});
+
+// Sincroniza com o toggle de tema do shell (menu principal) — essa tela
+// já tinha o próprio botão de tema (alternarTema, pro uso antigo como TV
+// solta, sem shell); isso só garante que trocar o tema pelo shell também
+// reflita aqui na hora, igual todos os outros módulos.
+window.addEventListener('message', function(ev){
+  if (ev.data && ev.data.type === 'barretos_tema') {
+    localStorage.setItem('barretos_tema', ev.data.tema);
+    aplicarTema(ev.data.tema);
+  }
 });
 </script>
 </body>

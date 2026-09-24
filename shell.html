@@ -342,7 +342,7 @@ body.tema-claro #login-screen .logo-claro{display:block!important}
 /* Todos os itens do menu visíveis por padrão — JS oculta se sem permissão */
 #nav-kanban_pin,#nav-kanban_inf,#nav-kanban_bar,#nav-kanban_gon,
 #nav-ideias,#nav-helpdesk,#nav-diarias,#nav-recrutamento,#nav-cotacao,#nav-relatorio,
-#nav-frota,#nav-mapa_operacoes{display:flex;}
+#nav-frota,#nav-mapa_operacoes,#nav-torre_controle{display:flex;}
 </style>
 
 <style>
@@ -457,6 +457,9 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
       <div class="sb-section" id="section-geral">Geral</div>
       <div class="sb-item" id="nav-dashboard" onclick="navigate('dashboard')">
         <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
+      </div>
+      <div class="sb-item" id="nav-torre_controle" onclick="navigate('torre_controle')">
+        <i class="ti ti-device-tv"></i><span>Indicadores TV</span>
       </div>
       <div class="sb-item" id="nav-calendario" onclick="navigate('calendario')">
         <i class="ti ti-calendar"></i><span>Calendário</span>
@@ -696,6 +699,7 @@ async function doLogin() {
 var TOOLS = {
   inicio:    { src:"inicio.html",               cat:"",            label:"Início",                icon:"ti-home"             },
   dashboard: { src:"dashbord_home.html",         cat:"Geral",       label:"Dashboard",             icon:"ti-layout-dashboard" },
+  torre_controle: { src:"torre_de_controle.html", cat:"Geral",      label:"Indicadores TV",         icon:"ti-device-tv"        },
   calendario:{ src:"calendario.html",            cat:"Geral",       label:"Calendário",            icon:"ti-calendar"         },
   despesas:  { src:"despesas.html",              cat:"Geral",       label:"Despesas",              icon:"ti-wallet"           },
   diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
@@ -823,7 +827,7 @@ function aplicarMenuPermissoes(p){
   // nunca deveria acessar. Se uma ferramenta nova precisar ser liberada
   // pra alguém, isso deve ser feito atualizando a permissão dela mesmo,
   // não escondendo o controle de acesso inteiro.)
-  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","mapa_operacoes","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","log_atividades","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","mapa_operacoes","torre_controle","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","log_atividades","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     el.style.display=p.includes(k)?"flex":"none";
@@ -836,7 +840,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","crm","clientes","calendario","frota","mapa_operacoes","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","frota","mapa_operacoes","torre_controle","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-geral","section-rh","section-comercial","section-financeiro","section-operacional","section-melhoria"].forEach(function(s){
