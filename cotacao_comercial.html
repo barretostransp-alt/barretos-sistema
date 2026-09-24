@@ -711,6 +711,26 @@
   .pedagio-total-row { display:flex; align-items:center; justify-content:space-between; margin-top:4px; font-weight:700; }
   .pedagio-total-row span:last-child { color: var(--gold); }
 
+  /* Mapa da rota + opções alternativas */
+  .route-map-panel {
+    background: var(--charcoal-light, #1a1c22);
+    border: 1px solid var(--charcoal-border);
+    border-radius: 7px; padding: 10px; margin-top: 8px;
+  }
+  .route-map-titulo { display:flex; align-items:center; gap:6px; font-weight:700; color: var(--txt-dim,#9a9dac); font-size:12px; margin-bottom: 8px; }
+  #route-map { height: 420px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+  .route-opcoes { display:flex; flex-direction:column; gap:6px; }
+  .route-opcao {
+    border: 1px solid var(--charcoal-border); border-radius: 6px; padding: 7px 10px;
+    cursor: pointer; transition: border-color .15s, background .15s; font-size: 11.5px;
+  }
+  .route-opcao:hover { border-color: var(--gold); }
+  .route-opcao.ativa { border-color: var(--gold); background: rgba(245,184,0,.08); }
+  .route-opcao .ro-linha1 { display:flex; justify-content:space-between; align-items:baseline; }
+  .route-opcao .ro-tempo { font-weight: 700; font-size: 13px; }
+  .route-opcao .ro-km { color: var(--txt-dim,#9a9dac); }
+  .route-opcao .ro-via { color: var(--text-secondary,#9CA3AF); margin-top: 2px; }
+
   .vend-wrap { position: relative; }
   .vend-wrap input { width: 100%; }
 
@@ -1028,6 +1048,8 @@
 .refazer-error{color:#E24B4A;font-size:11px;margin-top:6px;display:none;}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     #btn-pdf { display: none; }
     #btn-pdf.visible { display: inline-flex !important; }
@@ -1323,6 +1345,13 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
     </div>
     <div id="route-loading" style="display:none" class="route-loading">
       <span class="spinner"></span> Calculando rota...
+    </div>
+
+    <!-- Mapa da rota + opções alternativas -->
+    <div id="route-map-panel" class="route-map-panel" style="display:none">
+      <div class="route-map-titulo"><i class="ti ti-map-2" style="color:var(--gold)"></i> Trajeto no mapa</div>
+      <div id="route-map"></div>
+      <div id="route-opcoes" class="route-opcoes"></div>
     </div>
 
     <!-- Pedágio estimado (Sem Parar) -->
@@ -4236,6 +4265,13 @@ function buildObsCell(r, rowKey) {
 // (buildObsCell/abrirDetalheCotacao, que registra movimentações com
 // autor e data). Essa aqui é só um texto simples, visível de cara pra
 // quem olhar a tabela, sem precisar abrir nada. Salva ao sair do campo.
+// Dropdown-que-também-aceita-texto-novo (mesmo padrão de Descrição/
+// Fornecedor na Gestão da Frota) — é este campo (Observação Interna, a
+// coluna visível na tabela) que o Painel do Gestor do CRM garimpa por
+// palavra-chave pra montar o gráfico "Motivos Mais Frequentes de Perda"
+// (ver crmAnaliseService.js). populateDatalistMotivoPerda() é chamado uma
+// vez em renderHistory(), não aqui, pra não reconstruir o <datalist> a
+// cada linha da tabela.
 function buildObsInternaCell(r, rowKey) {
   const valor = String(r['ObservacaoInterna']||'').replace(/"/g,'&quot;');
   return `<td class="obsint-cell"><input type="text" value="${valor}" placeholder="Anotação visível pra todos..."
@@ -4541,6 +4577,7 @@ function clearAddr(side) {
   document.getElementById('clear-' + side).style.display = 'none';
   document.getElementById('route-result').style.display = 'none';
   document.getElementById('route-error').style.display = 'none';
+  document.getElementById('route-map-panel').style.display = 'none';
   document.getElementById('km-auto-badge').style.display = 'none';
   closeDrop(side);
 }
@@ -4573,23 +4610,31 @@ async function geocodeSilencioso(side, texto) {
   } catch(e) { /* silencioso */ }
 }
 
+// Estado das opções de rota calculadas (OSRM alternatives=true) — usado
+// pra desenhar o mapa e re-sugerir pedágio quando o usuário troca de rota.
+let rotaOpcoes = [];
+let mapaRota = null;
+let camadasRotaMapa = [];
+
 async function calcRoute() {
   const o = addrState.origem;
   const d = addrState.destino;
   if (!o.lat || !d.lat) return;
 
-  document.getElementById('route-result').style.display  = 'none';
-  document.getElementById('route-error').style.display   = 'none';
-  document.getElementById('route-loading').style.display = 'flex';
+  document.getElementById('route-result').style.display     = 'none';
+  document.getElementById('route-error').style.display      = 'none';
+  document.getElementById('route-map-panel').style.display  = 'none';
+  document.getElementById('route-loading').style.display    = 'flex';
 
   try {
-    // OSRM — rota por caminhão (driving profile). steps=true também traz
-    // o nome de cada trecho/rodovia percorrido — usado pra sugerir praças
-    // de pedágio. overview=full+geometries=geojson traz a geometria
-    // completa do traçado (um ponto a cada poucos metros/km, não só nas
-    // curvas) — o backend precisa disso pra medir distância e sentido
-    // reais até cada praça candidata, não só o nome da rodovia.
-    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?overview=full&geometries=geojson&steps=true`;
+    // OSRM — rota por caminhão (driving profile). alternatives=true traz
+    // até 2-3 opções de trajeto (nem sempre acha mais de uma). steps=true
+    // também traz o nome de cada trecho/rodovia percorrido — usado pra
+    // sugerir praças de pedágio. overview=full+geometries=geojson traz a
+    // geometria completa do traçado (um ponto a cada poucos metros/km, não
+    // só nas curvas) — usado pra desenhar o mapa e pro backend medir
+    // distância e sentido reais até cada praça candidata de pedágio.
+    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?alternatives=true&overview=full&geometries=geojson&steps=true`;
     const res  = await fetch(url);
     const data = await res.json();
 
@@ -4600,46 +4645,109 @@ async function calcRoute() {
       return;
     }
 
-    const distKm   = Math.round(data.routes[0].distance / 1000);
-    const durSec   = data.routes[0].duration;
-    const hours    = Math.floor(durSec / 3600);
-    const minutes  = Math.floor((durSec % 3600) / 60);
-    const durLabel = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+    rotaOpcoes = data.routes.map(r => {
+      // Nomes das rodovias percorridas (dos steps do OSRM) — pra sugerir
+      // praças de pedágio da Sem Parar por essa rota. O "ref" (ex:
+      // "BR-116") é o que realmente bate com o jeito que a Sem Parar
+      // identifica a rodovia — o "name" (ex: "Rodovia Presidente Dutra")
+      // quase nunca bate. "ref" pode vir composto tipo "SP-060; BR-116".
+      const nomesRodovia = new Set();
+      (r.legs||[]).forEach(leg => (leg.steps||[]).forEach(s => {
+        if(s.name) nomesRodovia.add(s.name);
+        if(s.ref) s.ref.split(';').forEach(x => { x = x.trim(); if(x) nomesRodovia.add(x); });
+      }));
 
-    // Preenche o campo km
-    document.getElementById('km').value = distKm;
-    document.getElementById('km-auto-badge').style.display = 'inline';
-    document.getElementById('route-km-label').textContent  = distKm.toLocaleString('pt-BR') + ' km';
-    document.getElementById('route-dur-label').textContent = '· ~' + durLabel + ' de viagem';
-    document.getElementById('route-result').style.display  = 'flex';
+      // Amostra a no máximo ~400 pontos (mantém boa resolução mesmo numa
+      // rota de milhares de km, sem mandar um payload gigante pro backend).
+      const coordsCompletas = r.geometry?.coordinates || []; // [[lon,lat], ...]
+      const passo = Math.max(1, Math.ceil(coordsCompletas.length / 400));
+      const pontosRota = coordsCompletas.filter((_, i) => i % passo === 0);
 
-    // Nomes das rodovias percorridas (dos steps do OSRM) — pra sugerir
-    // praças de pedágio da Sem Parar por essa rota. O "ref" (ex: "BR-116")
-    // é o que realmente bate com o jeito que a Sem Parar identifica a
-    // rodovia — o "name" (ex: "Rodovia Presidente Dutra") quase nunca bate.
-    // "ref" pode vir composto tipo "SP-060; BR-116", por isso o split.
-    const nomesRodovia = new Set();
-    (data.routes[0].legs||[]).forEach(leg => (leg.steps||[]).forEach(s => {
-      if(s.name) nomesRodovia.add(s.name);
-      if(s.ref) s.ref.split(';').forEach(r => { r = r.trim(); if(r) nomesRodovia.add(r); });
-    }));
+      const km = Math.round(r.distance / 1000);
+      const horas = Math.floor(r.duration / 3600);
+      const minutos = Math.floor((r.duration % 3600) / 60);
+      return {
+        km,
+        durLabel: horas > 0 ? `${horas}h ${minutos}min` : `${minutos}min`,
+        nomesRodovia: Array.from(nomesRodovia),
+        via: Array.from(nomesRodovia).filter(Boolean).slice(0, 2).join(' / ') || '—',
+        pontosRota,
+        coordsCompletas,
+      };
+    });
 
-    // Geometria completa do traçado (não só os pontos de manobra/curva) —
-    // mandada pro backend medir distância e sentido reais até cada praça
-    // candidata. Reduz a uma amostra de no máximo ~400 pontos (mantém boa
-    // resolução mesmo numa rota de milhares de km, sem mandar um payload
-    // gigante) — nunca deixa passar de 1 a cada N pontos originais.
-    const coordsCompletas = data.routes[0].geometry?.coordinates || []; // [[lon,lat], ...]
-    const passo = Math.max(1, Math.ceil(coordsCompletas.length / 400));
-    const pontosRota = coordsCompletas.filter((_, i) => i % passo === 0);
-
-    carregarSugestoesPedagio(Array.from(nomesRodovia), pontosRota);
-
-    calc(); // Atualiza o resultado
+    renderRotaOpcoes();
+    selecionarRotaOpcao(0);
   } catch(e) {
     document.getElementById('route-loading').style.display = 'none';
     showRouteError('Erro de conexão. Verifique sua internet e tente novamente.');
   }
+}
+
+function renderRotaOpcoes() {
+  const cont = document.getElementById('route-opcoes');
+  cont.innerHTML = rotaOpcoes.map((op, i) => `
+    <div class="route-opcao" onclick="selecionarRotaOpcao(${i})">
+      <div class="ro-linha1">
+        <span class="ro-tempo">${op.durLabel}</span>
+        <span class="ro-km">${op.km.toLocaleString('pt-BR')} km</span>
+      </div>
+      <div class="ro-via">via ${op.via}</div>
+    </div>
+  `).join('');
+}
+
+function inicializarMapaRota_() {
+  if (mapaRota) return;
+  const MAPTILER_KEY = '2gPpvsZ6R8GUuSyfewet';
+  mapaRota = L.map('route-map', { zoomControl: true, attributionControl: false });
+  L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
+    maxZoom: 20,
+    attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+  }).addTo(mapaRota);
+}
+
+function desenharLinhaRota_(coordsLonLat, cor, peso, opacidade) {
+  const latlngs = coordsLonLat.map(c => [c[1], c[0]]);
+  const linha = L.polyline(latlngs, { color: cor, weight: peso, opacity: opacidade }).addTo(mapaRota);
+  camadasRotaMapa.push(linha);
+  return linha;
+}
+
+// Troca a rota usada na cotação (km + sugestão de pedágio) e redesenha o
+// mapa com a opção escolhida em destaque — chamada tanto pelo cálculo
+// inicial (opção 0, a "melhor") quanto por clique numa opção alternativa.
+function selecionarRotaOpcao(i) {
+  const op = rotaOpcoes[i];
+  if (!op) return;
+
+  document.querySelectorAll('#route-opcoes .route-opcao').forEach((el, idx) => el.classList.toggle('ativa', idx === i));
+
+  document.getElementById('km').value = op.km;
+  document.getElementById('km-auto-badge').style.display = 'inline';
+  document.getElementById('route-km-label').textContent = op.km.toLocaleString('pt-BR') + ' km';
+  document.getElementById('route-dur-label').textContent = '· ~' + op.durLabel + ' de viagem';
+  document.getElementById('route-result').style.display = 'flex';
+  document.getElementById('route-map-panel').style.display = 'block';
+
+  inicializarMapaRota_();
+  camadasRotaMapa.forEach(c => mapaRota.removeLayer(c));
+  camadasRotaMapa = [];
+
+  const o = addrState.origem, d = addrState.destino;
+  camadasRotaMapa.push(L.circleMarker([o.lat, o.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#3B82F6', fillOpacity: 1 }).addTo(mapaRota));
+  camadasRotaMapa.push(L.circleMarker([d.lat, d.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#E24B4A', fillOpacity: 1 }).addTo(mapaRota));
+  // Alternativas por baixo, esmaecidas; a escolhida por cima, com contorno
+  // branco (contrasta com o mapa claro e com as rodovias já coloridas).
+  rotaOpcoes.forEach((outra, idx) => { if (idx !== i) desenharLinhaRota_(outra.coordsCompletas, '#7a8699', 4, 0.65); });
+  desenharLinhaRota_(op.coordsCompletas, '#ffffff', 9, 0.9);
+  const linhaEscolhida = desenharLinhaRota_(op.coordsCompletas, '#3B82F6', 6, 1);
+
+  mapaRota.invalidateSize();
+  mapaRota.fitBounds(linhaEscolhida.getBounds(), { padding: [30, 30] });
+
+  carregarSugestoesPedagio(op.nomesRodovia, op.pontosRota);
+  calc(); // Atualiza o resultado
 }
 
 function showRouteError(msg) {
@@ -4692,16 +4800,22 @@ async function carregarSugestoesPedagio(nomesRodovia, pontosRota){
     });
     var lista = await res.json();
     if(Array.isArray(lista)) pedagioPracasSelecionadas = lista;
-    statusEl.textContent = lista.length ? '' : 'Nenhuma praça sugerida automaticamente — busque manualmente se souber que a rota tem pedágio.';
+    if(!lista.length) statusEl.textContent = 'Nenhuma praça sugerida automaticamente — busque manualmente se souber que a rota tem pedágio.';
   }catch(e){
     statusEl.textContent = 'Não foi possível buscar sugestões de pedágio agora.';
   }
   renderPedagioChips();
+  // Já calcula o valor de pedágio direto da rota sugerida — sem precisar
+  // clicar em "Calcular Pedágio" pra ver o total assim que a rota é
+  // escolhida (só falta o clique manual quando o usuário edita as praças
+  // à mão, ver removerPracaPedagio/adicionarPracaPedagioPorIndice_ abaixo).
+  if(pedagioPracasSelecionadas.length) await calcularPedagio();
 }
 
 function removerPracaPedagio(i){
   pedagioPracasSelecionadas.splice(i,1);
   renderPedagioChips();
+  if(pedagioPracasSelecionadas.length) calcularPedagio();
 }
 
 var pedagioBuscaTimer_ = null;
@@ -4732,6 +4846,7 @@ function adicionarPracaPedagioPorIndice_(i){
   document.getElementById('pedagio-busca-input').value = '';
   document.getElementById('pedagio-busca-drop').classList.remove('open');
   renderPedagioChips();
+  if(pedagioPracasSelecionadas.length) calcularPedagio();
 }
 
 document.addEventListener('click', function(ev){
