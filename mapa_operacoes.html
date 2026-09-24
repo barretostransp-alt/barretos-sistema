@@ -205,13 +205,17 @@ function mostrarTelaSemPermissao() {
 
 function e(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
-/* ── Cor = vendedor (matiz fixa); status = estilo do traço ── */
-var HUE_VENDEDOR = { Filipe:210, Sabrina:330, 'Jessé':160, Diego:25, Leonardo:270, Gabriel:48 };
+/* ── Cor = vendedor (cor fixa, escolhida pelo Alex); status = estilo do traço ── */
+var COR_VENDEDOR = {
+  Diego: '#3B82F6',      // Azul
+  'Jessé': '#FACC15',    // Amarelo
+  Filipe: '#22C55E',     // Verde
+  Sabrina: '#EC4899',    // Rosa
+  Gabriel: '#F97316',    // Laranja
+  Leonardo: '#18181B',   // Preto
+};
 function corDoVendedor(vendedor){
-  var hue = HUE_VENDEDOR[vendedor];
-  var sat = (hue===undefined) ? 0 : 68;
-  if (hue===undefined) hue = 0;
-  return 'hsl(' + hue + ',' + sat + '%,50%)';
+  return COR_VENDEDOR[vendedor] || '#9CA3AF';
 }
 // Pontilhado (Operacional) / tracejado (Coleta) / sólido (Faturado) —
 // dashArray no formato Leaflet/SVG "traço,vão"; pontilhado usa traço bem
