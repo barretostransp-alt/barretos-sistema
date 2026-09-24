@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa das Operações</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Montserrat:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --bg:#090A0D;--surface:#0F1117;--card:#151820;--border:#1E2130;
+  --gold:#F5B800;--gold-dim:rgba(245,184,0,.12);--gold-b:rgba(245,184,0,.28);
+  --txt:#E8EAF0;--txt-dim:#6B7280;--txt-mid:#9CA3AF;
+  --green:#22C55E;--red:#EF4444;--blue:#3B82F6;--r:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;overflow:hidden;}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;}
+.tb-logo{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:var(--gold);white-space:nowrap;}
+.tb-sep{color:var(--border);font-size:18px;}
+.tb-sub{font-size:11.5px;color:var(--txt-dim);}
+.tb-r{margin-left:auto;display:flex;align-items:center;gap:7px;}
+.bsm{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--txt-dim);
+  padding:5px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;
+  transition:all .15s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.bsm:hover{border-color:var(--gold);color:var(--gold);}
+
+.corpo{display:flex;height:calc(100vh - 52px);}
+.painel-esq{width:30%;max-width:380px;min-width:230px;flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:20px;}
+.mapa-wrap{position:relative;flex:1;width:70%;}
+#mapa{position:absolute;inset:0;}
+
+.filtro-grupo{display:flex;flex-direction:column;gap:8px;}
+.filtro-lbl{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim);}
+.filtro-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-size:10.5px;padding:4px 10px;border-radius:20px;cursor:pointer;user-select:none;
+  border:1px solid var(--border);background:var(--card);color:var(--txt-mid);transition:all .15s;display:flex;align-items:center;gap:5px;}
+.chip:hover{border-color:var(--gold-b);}
+.chip.ativo{color:#111;font-weight:700;border-color:transparent;}
+.chip .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.chip .traco-prev{width:18px;height:0;border-bottom:3px solid var(--txt-mid);flex-shrink:0;}
+/* Status não tem mais cor própria (virou estilo de traço) — o "ativo"
+   genérico (fundo colorido, texto preto) é feito pro chip de vendedor;
+   aqui só destaca borda/fundo neutro. */
+#chips-status .chip.ativo{color:var(--txt);background:var(--gold-dim);border-color:var(--gold);}
+#chips-status .chip.ativo .traco-prev{border-bottom-color:var(--gold);}
+#status-carregando{font-size:11px;color:var(--txt-dim);}
+
+.legenda{border-top:1px solid var(--border);padding-top:16px;}
+.legenda h3{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-dim);margin-bottom:10px;}
+.leg-vendedor{margin-bottom:12px;}
+.leg-vendedor-nome{font-size:11.5px;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:6px;}
+.leg-vendedor-nome .sw{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.leg-status-row{display:flex;gap:5px;padding-left:16px;flex-wrap:wrap;}
+.leg-status-item{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--txt-dim);}
+.leg-status-item .bar{width:16px;height:0;border-bottom-width:3px;}
+
+/* Tooltip do card (mesmo visual do card no quadro Kanban) — largura fixa
+   e quebra de linha, sem isso o texto da rota (às vezes bem comprida)
+   ultrapassava a caixa em vez de quebrar (Leaflet deixa tooltip com
+   white-space:nowrap por padrão). */
+.leaflet-tooltip.rota-tip{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;color:var(--txt);box-shadow:0 6px 20px rgba(0,0,0,.5);opacity:1!important;
+  width:230px;white-space:normal;}
+.leaflet-tooltip.rota-tip::before{display:none;}
+.kcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:4px;flex-wrap:wrap;}
+.kcard-code{font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.05em;white-space:normal;word-break:break-word;}
+.kcard-cli{font-size:11px;color:var(--txt);font-weight:600;margin-bottom:3px;white-space:normal;word-break:break-word;overflow-wrap:break-word;}
+.kcard-foot{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.ktag{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:normal;word-break:break-word;}
+.tg{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-b);}
+.tb{background:rgba(59,130,246,.1);color:#3B82F6;border:1px solid rgba(59,130,246,.3);}
+.kav{width:18px;height:18px;border-radius:4px;background:var(--gold);display:flex;align-items:center;
+  justify-content:center;font-size:8px;font-weight:800;color:#111;flex-shrink:0;margin-left:auto;font-family:'Syne',sans-serif;}
+
+#sem-dados{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
+  color:var(--txt-dim);font-size:12.5px;flex-direction:column;gap:8px;pointer-events:none;}
+
+/* ── TEMA CLARO ── mesma paleta usada nos outros módulos (pinheiro.html
+   etc.) — como quase tudo aqui já usa var(--...), só redefinir as
+   variáveis já re-pinta a página inteira. */
+body.tema-claro{
+  --bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--border:#E2E6ED;
+  --gold:#D97706;--gold-dim:rgba(217,119,6,.10);--gold-b:rgba(217,119,6,.28);
+  --txt:#111827;--txt-dim:#6B7280;--txt-mid:#6B7280;
+}
+body.tema-claro .chip{color:#374151;}
+body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="tb-logo">Mapa das Operações</span>
+  <span class="tb-sep">|</span>
+  <span class="tb-sub" id="tb-resumo">Carregando...</span>
+  <div class="tb-r">
+    <button class="bsm" onclick="carregarTudo()"><i class="ti ti-refresh"></i> Atualizar</button>
+  </div>
+</div>
+
+<div class="corpo">
+  <div class="painel-esq">
+    <div class="filtro-grupo">
+      <span class="filtro-lbl">Vendedor</span>
+      <div id="chips-vendedor" class="filtro-chips"></div>
+    </div>
+    <div class="filtro-grupo">
+      <span class="filtro-lbl">Status</span>
+      <div id="chips-status" class="filtro-chips"></div>
+    </div>
+    <span id="status-carregando"></span>
+    <div class="legenda">
+      <h3>Legenda</h3>
+      <div id="legenda-corpo"></div>
+    </div>
+  </div>
+  <div class="mapa-wrap">
+    <div id="mapa"></div>
+    <div id="sem-dados"><i class="ti ti-map-off" style="font-size:26px"></i><span>Nenhuma rota pra mostrar com esse filtro.</span></div>
+  </div>
+</div>
+
+<script>
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+var MAPTILER_KEY = '2gPpvsZ6R8GUuSyfewet';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) { mostrarTelaSemAcesso(); throw new Error('Sessão expirada'); }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+// Trava específica dessa tela: mesma permissão que controla o item no
+// menu lateral (shell.html), conferida aqui também pra quem tentar abrir
+// o arquivo direto pela URL sem passar pelo menu não conseguir entrar.
+// Client-side (dá pra editar localStorage no console) — a proteção que
+// realmente importa continua sendo o backend, que já só libera os cards
+// de cada empresa pra quem tem a permissão daquele quadro Kanban
+// especificamente; isso aqui é só pra a TELA em si não abrir à toa.
+function temPermissaoMapaOperacoes() {
+  try {
+    var perms = JSON.parse(localStorage.getItem('barretos_permissoes') || '[]');
+    return Array.isArray(perms) && perms.includes('mapa_operacoes');
+  } catch (e) { return false; }
+}
+
+function mostrarTelaSemPermissao() {
+  var el = document.createElement('div');
+  el.id = 'sem-permissao-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sem permissão pra esta tela</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Fale com o administrador do sistema se acha que deveria ter acesso ao Mapa das Operações.</div></div>';
+  document.body.appendChild(el);
+}
+
+function e(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+/* ── Cor = vendedor (matiz fixa); status = estilo do traço ── */
+var HUE_VENDEDOR = { Filipe:210, Sabrina:330, 'Jessé':160, Diego:25, Leonardo:270, Gabriel:48 };
+function corDoVendedor(vendedor){
+  var hue = HUE_VENDEDOR[vendedor];
+  var sat = (hue===undefined) ? 0 : 68;
+  if (hue===undefined) hue = 0;
+  return 'hsl(' + hue + ',' + sat + '%,50%)';
+}
+// Pontilhado (Operacional) / tracejado (Coleta) / sólido (Faturado) —
+// dashArray no formato Leaflet/SVG "traço,vão"; pontilhado usa traço bem
+// curto + lineCap redondo pra virar bolinha em vez de tracinho.
+var TRACO_STATUS = {
+  OPERACIONAL: { dashArray: '1,9', lineCap: 'round' },
+  COLETA:      { dashArray: '11,7', lineCap: 'butt' },
+  FATURADO:    { dashArray: null, lineCap: 'round' },
+};
+var ESTILO_CSS_STATUS = { OPERACIONAL: 'dotted', COLETA: 'dashed', FATURADO: 'solid' };
+
+/* ── Geocodificação (Nominatim) com cache em localStorage ── */
+var GEO_CACHE_KEY = 'mapaop_geocache_v1';
+var geoCache = {};
+try { geoCache = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || '{}'); } catch(e){ geoCache = {}; }
+function salvarGeoCache(){ try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(geoCache)); } catch(e){} }
+
+var ultimaChamadaNominatim = 0;
+async function geocodificar(texto){
+  var chave = texto.trim().toLowerCase();
+  if (!chave) return null;
+  if (geoCache[chave] !== undefined) return geoCache[chave];
+  var espera = 1100 - (Date.now() - ultimaChamadaNominatim);
+  if (espera > 0) await new Promise(function(r){ setTimeout(r, espera); });
+  ultimaChamadaNominatim = Date.now();
+  var resultado = null;
+  try {
+    var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(texto + ', Brasil') + '&format=json&limit=1&countrycodes=br';
+    var res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+    var json = await res.json();
+    var item = json && json[0];
+    if (item) {
+      var lat = Number(item.lat), lon = Number(item.lon);
+      var dentroDoBrasil = Number.isFinite(lat) && Number.isFinite(lon) && lat>=-34 && lat<=6 && lon>=-74 && lon<=-32;
+      if (dentroDoBrasil) resultado = { lat: lat, lon: lon };
+    }
+  } catch (e) { resultado = null; }
+  geoCache[chave] = resultado;
+  salvarGeoCache();
+  return resultado;
+}
+
+/* ── Rota (OSRM) com cache em localStorage ── */
+var ROTA_CACHE_KEY = 'mapaop_rotacache_v1';
+var rotaCache = {};
+try { rotaCache = JSON.parse(localStorage.getItem(ROTA_CACHE_KEY) || '{}'); } catch(e){ rotaCache = {}; }
+function salvarRotaCache(){ try { localStorage.setItem(ROTA_CACHE_KEY, JSON.stringify(rotaCache)); } catch(e){} }
+
+async function obterGeometriaRota(origem, destino){
+  var chave = origem.lat.toFixed(4)+','+origem.lon.toFixed(4)+';'+destino.lat.toFixed(4)+','+destino.lon.toFixed(4);
+  if (rotaCache[chave] !== undefined) return rotaCache[chave];
+  var geometria = null;
+  try {
+    var url = 'https://router.project-osrm.org/route/v1/driving/'+origem.lon+','+origem.lat+';'+destino.lon+','+destino.lat+'?overview=full&geometries=geojson';
+    var res = await fetch(url);
+    var data = await res.json();
+    if (data.code === 'Ok' && data.routes && data.routes.length) {
+      geometria = data.routes[0].geometry.coordinates; // [[lon,lat],...]
+    }
+  } catch (e) { geometria = null; }
+  rotaCache[chave] = geometria;
+  salvarRotaCache();
+  return geometria;
+}
+
+/* ── Mapa ── */
+var mapa = L.map('mapa', { zoomControl: true }).setView([-15.5, -47.9], 5);
+L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=' + MAPTILER_KEY, {
+  maxZoom: 20,
+  attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
+}).addTo(mapa);
+
+var todosOsCards = [];
+var camadasAtivas = [];
+var filtroVendedores = null; // null = todos
+var filtroStatus = null;
+
+var EMPRESAS = ['GONCALVES', 'INFRA', "BARRETO'S", 'PINHEIRO'];
+var STATUS_ABERTOS = ['OPERACIONAL', 'COLETA', 'FATURADO'];
+
+function enderecoResumo_(endereco, ufFallback){
+  var partes = String(endereco||'').split(/,|—/).map(function(s){return s.trim();}).filter(Boolean);
+  if (!partes.length) return '';
+  if (partes.length===1) return partes[0] + (ufFallback ? '/'+ufFallback : '');
+  var cidade = partes[partes.length-2], uf = partes[partes.length-1];
+  return cidade + (uf ? '/'+uf : '');
+}
+
+async function buscarCards(){
+  var promessas = EMPRESAS.map(function(emp){
+    return apiFetch(API_BASE + '/kanban?empresa=' + encodeURIComponent(emp)).then(function(r){ return r.json(); }).catch(function(){ return []; });
+  });
+  var listas = await Promise.all(promessas);
+  var todos = [].concat.apply([], listas);
+  return todos.filter(function(c){
+    return STATUS_ABERTOS.indexOf(c.status) !== -1 && c.endereco_origem && c.endereco_destino;
+  });
+}
+
+function tooltipHtml(c){
+  var origemResumo = enderecoResumo_(c.endereco_origem, c.uf_origem);
+  var destinoResumo = enderecoResumo_(c.endereco_destino, c.uf_destino);
+  var rota = origemResumo + (destinoResumo ? ' X ' + destinoResumo : '');
+  var vend = c.vendedor || '?';
+  return '<div class="kcard-top"><span class="kcard-code">'+e(c.codigo)+(c.cte?' · CTE '+e(c.cte):'')+'</span></div>'+
+    (c.cotacao_numero ? '<div style="margin-bottom:5px"><span class="ktag tg"><i class="ti ti-file-invoice" style="font-size:9px"></i> Cotação #'+String(c.cotacao_numero).padStart(4,'0')+'</span></div>' : '')+
+    '<div class="kcard-cli">'+e(rota||c.titulo||'(sem rota)')+'</div>'+
+    (c.cliente ? '<div style="margin-bottom:5px"><span class="ktag tb" style="font-size:10px">'+e(c.cliente)+'</span></div>' : '')+
+    '<div class="kcard-foot">'+
+    (c.frete_cobrado ? '<span class="ktag tg">'+e(c.frete_cobrado)+'</span>' : '')+
+    (c.tipo_veiculo ? '<span class="ktag" style="background:rgba(34,197,94,.1);color:#22C55E;border:1px solid rgba(34,197,94,.3)">'+e(String(c.tipo_veiculo).slice(0,14))+'</span>' : '')+
+    (c.modalidade ? '<span class="ktag" style="background:rgba(20,184,166,.1);color:#0D9488;border:1px solid rgba(20,184,166,.35)">'+e(c.modalidade)+'</span>' : '')+
+    '<div class="kav" title="'+e(vend)+'">'+vend[0].toUpperCase()+'</div>'+
+    '</div>';
+}
+
+function limparCamadas(){
+  camadasAtivas.forEach(function(c){ mapa.removeLayer(c); });
+  camadasAtivas = [];
+}
+
+function renderizarMapa(){
+  limparCamadas();
+  var grupo = [];
+  var algumaVisivel = false;
+  todosOsCards.forEach(function(c){
+    if (!c._geometria) return;
+    if (filtroVendedores && !filtroVendedores.has(c.vendedor||'?')) return;
+    if (filtroStatus && !filtroStatus.has(c.status)) return;
+    algumaVisivel = true;
+    var latlngs = c._geometria.map(function(p){ return [p[1], p[0]]; });
+    var traco = TRACO_STATUS[c.status] || TRACO_STATUS.FATURADO;
+    var linha = L.polyline(latlngs, { color: corDoVendedor(c.vendedor), weight: 4, opacity: .85, dashArray: traco.dashArray, lineCap: traco.lineCap }).addTo(mapa);
+    linha.bindTooltip(tooltipHtml(c), { className: 'rota-tip', sticky: true, direction: 'top' });
+    linha.on('mouseover', function(){ linha.setStyle({ weight: 7, opacity: 1 }); });
+    linha.on('mouseout', function(){ linha.setStyle({ weight: 4, opacity: .85 }); });
+    camadasAtivas.push(linha);
+    grupo.push(linha);
+  });
+  document.getElementById('sem-dados').style.display = algumaVisivel ? 'none' : 'flex';
+  if (grupo.length) {
+    var bounds = grupo[0].getBounds();
+    grupo.forEach(function(l){ bounds.extend(l.getBounds()); });
+    mapa.fitBounds(bounds, { padding: [30,30] });
+  }
+}
+
+function renderizarFiltros(){
+  var vendedoresPresentes = Array.from(new Set(todosOsCards.map(function(c){ return c.vendedor || '?'; })));
+  var elV = document.getElementById('chips-vendedor');
+  elV.innerHTML = vendedoresPresentes.map(function(v){
+    return '<span class="chip" data-v="'+e(v)+'" onclick="toggleFiltroVendedor(\''+e(v).replace(/'/g,"\\'")+'\')" style="margin-right:6px">'+
+      '<span class="dot" style="background:'+corDoVendedor(v==='?'?undefined:v)+'"></span>'+e(v)+'</span>';
+  }).join('');
+  var elS = document.getElementById('chips-status');
+  elS.innerHTML = STATUS_ABERTOS.map(function(s){
+    return '<span class="chip" data-s="'+s+'" onclick="toggleFiltroStatus(\''+s+'\')">'+
+      '<span class="traco-prev" style="border-bottom-style:'+ESTILO_CSS_STATUS[s]+'"></span>'+s+'</span>';
+  }).join('');
+  atualizarClassesChips();
+}
+
+function atualizarClassesChips(){
+  document.querySelectorAll('#chips-vendedor .chip').forEach(function(el){
+    var v = el.getAttribute('data-v');
+    var ativo = !filtroVendedores || filtroVendedores.has(v);
+    el.classList.toggle('ativo', ativo);
+    el.style.background = ativo ? corDoVendedor(v==='?'?undefined:v) : '';
+  });
+  document.querySelectorAll('#chips-status .chip').forEach(function(el){
+    var s = el.getAttribute('data-s');
+    var ativo = !filtroStatus || filtroStatus.has(s);
+    el.classList.toggle('ativo', ativo);
+  });
+}
+
+function toggleFiltroVendedor(v){
+  var todos = Array.from(new Set(todosOsCards.map(function(c){ return c.vendedor || '?'; })));
+  if (!filtroVendedores) filtroVendedores = new Set(todos);
+  if (filtroVendedores.has(v)) filtroVendedores.delete(v); else filtroVendedores.add(v);
+  if (filtroVendedores.size === todos.length) filtroVendedores = null;
+  atualizarClassesChips();
+  renderizarMapa();
+}
+function toggleFiltroStatus(s){
+  if (!filtroStatus) filtroStatus = new Set(STATUS_ABERTOS);
+  if (filtroStatus.has(s)) filtroStatus.delete(s); else filtroStatus.add(s);
+  if (filtroStatus.size === STATUS_ABERTOS.length) filtroStatus = null;
+  atualizarClassesChips();
+  renderizarMapa();
+}
+
+function renderizarLegenda(){
+  var vendedoresPresentes = Array.from(new Set(todosOsCards.map(function(c){ return c.vendedor || '?'; })));
+  document.getElementById('legenda-corpo').innerHTML = vendedoresPresentes.map(function(v){
+    var cor = corDoVendedor(v==='?'?undefined:v);
+    return '<div class="leg-vendedor">'+
+      '<div class="leg-vendedor-nome"><span class="sw" style="background:'+cor+'"></span>'+e(v)+'</div>'+
+      '<div class="leg-status-row">'+STATUS_ABERTOS.map(function(s){
+        return '<span class="leg-status-item"><span class="bar" style="border-bottom-style:'+ESTILO_CSS_STATUS[s]+';border-bottom-color:'+cor+'"></span>'+s.slice(0,4)+'</span>';
+      }).join('')+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function carregarTudo(){
+  var statusEl = document.getElementById('status-carregando');
+  var resumoEl = document.getElementById('tb-resumo');
+  statusEl.textContent = 'Buscando cards...';
+  todosOsCards = await buscarCards();
+  resumoEl.textContent = todosOsCards.length + ' operação(ões) em aberto';
+  renderizarFiltros();
+  renderizarLegenda();
+
+  var pendentes = 0, total = todosOsCards.length;
+  for (var i = 0; i < todosOsCards.length; i++) {
+    var c = todosOsCards[i];
+    statusEl.textContent = 'Traçando rotas... ' + (i+1) + '/' + total;
+    var origem = await geocodificar(c.endereco_origem + ', ' + (c.uf_origem||''));
+    var destino = await geocodificar(c.endereco_destino + ', ' + (c.uf_destino||''));
+    if (origem && destino) {
+      c._geometria = await obterGeometriaRota(origem, destino);
+    }
+    // Renderiza incrementalmente pra já mostrar algo enquanto o resto carrega.
+    if (i % 5 === 0 || i === total - 1) renderizarMapa();
+  }
+  statusEl.textContent = '';
+  renderizarMapa();
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+  if (!temPermissaoMapaOperacoes()) { mostrarTelaSemPermissao(); return; }
+  carregarTudo();
+});
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
+</script>
+</body>
+</html>

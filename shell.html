@@ -342,7 +342,7 @@ body.tema-claro #login-screen .logo-claro{display:block!important}
 /* Todos os itens do menu visíveis por padrão — JS oculta se sem permissão */
 #nav-kanban_pin,#nav-kanban_inf,#nav-kanban_bar,#nav-kanban_gon,
 #nav-ideias,#nav-helpdesk,#nav-diarias,#nav-recrutamento,#nav-cotacao,#nav-relatorio,
-#nav-frota{display:flex;}
+#nav-frota,#nav-mapa_operacoes{display:flex;}
 </style>
 
 <style>
@@ -497,6 +497,9 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
       <div class="sb-section" id="section-operacional">Operacional</div>
       <div class="sb-item" id="nav-frota" onclick="navigate('frota')">
         <i class="ti ti-truck"></i><span>Gestão da Frota</span>
+      </div>
+      <div class="sb-item" id="nav-mapa_operacoes" onclick="navigate('mapa_operacoes')">
+        <i class="ti ti-map-2"></i><span>Mapa das Operações</span>
       </div>
       <div class="sb-item" id="nav-kanban_pin" onclick="navigate('kanban_pin')">
         <i class="ti ti-columns"></i><span>Pinheiro</span>
@@ -705,6 +708,7 @@ var TOOLS = {
   faturamento:{ src:"faturamento.html",          cat:"Financeiro",  label:"Faturamento",            icon:"ti-file-invoice"     },
   conciliacao:{ src:"conciliacao_bancaria.html", cat:"Financeiro",  label:"Conciliação Bancária",  icon:"ti-building-bank"    },
   frota:     { src:"gestao_da_frota.html",       cat:"Operacional", label:"Gestão da Frota",       icon:"ti-truck"            },
+  mapa_operacoes: { src:"mapa_operacoes.html",   cat:"Operacional", label:"Mapa das Operações",   icon:"ti-map-2"            },
   kanban_pin: { src:"pinheiro.html",              cat:"Operacional", label:"Pinheiro",              icon:"ti-columns"          },
   kanban_inf: { src:"infra.html",                 cat:"Operacional", label:"Infra",                 icon:"ti-columns"          },
   kanban_bar: { src:"barretos.html",              cat:"Operacional", label:"Barreto's",            icon:"ti-columns"          },
@@ -819,12 +823,12 @@ function aplicarMenuPermissoes(p){
   // nunca deveria acessar. Se uma ferramenta nova precisar ser liberada
   // pra alguém, isso deve ser feito atualizando a permissão dela mesmo,
   // não escondendo o controle de acesso inteiro.)
-  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","log_atividades","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","despesas","frota","mapa_operacoes","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","config","log_atividades","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k);
     if(!el) return;
     el.style.display=p.includes(k)?"flex":"none";
   });
-  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","crm","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","log_atividades"]};
+  var sm={rh:["diarias","recrutamento"],comercial:["cotacao","relatorio","crm","clientes"],financeiro:["financeiro","faturamento","conciliacao"],operacional:["frota","mapa_operacoes","kanban_pin","kanban_inf","kanban_bar","kanban_gon"],melhoria:["ideias","helpdesk"],admin:["config","log_atividades"]};
   Object.keys(sm).forEach(function(s){
     var el=document.getElementById("section-"+s); if(!el) return;
     el.style.display=sm[s].some(function(k){return p.includes(k);})?"flex":"none";
@@ -832,7 +836,7 @@ function aplicarMenuPermissoes(p){
 }
 
 function mostrarTudo(){
-  ["cotacao","relatorio","crm","clientes","calendario","frota","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
+  ["cotacao","relatorio","crm","clientes","calendario","frota","mapa_operacoes","kanban_pin","kanban_inf","kanban_bar","kanban_gon","ideias","helpdesk","diarias","recrutamento","financeiro","faturamento","conciliacao"].forEach(function(k){
     var el=document.getElementById("nav-"+k); if(el) el.style.display="flex";
   });
   ["section-geral","section-rh","section-comercial","section-financeiro","section-operacional","section-melhoria"].forEach(function(s){
