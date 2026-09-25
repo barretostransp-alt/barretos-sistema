@@ -625,7 +625,7 @@ var IS_ATENDENTE = false;
 var USUARIO_NOME = '';
 
 // ── INIT ────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', function() {
+window.addEventListener('DOMContentLoaded', async function() {
   if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
 
   // Lê o objeto completo do usuário (salvo pelo shell no login)
@@ -633,14 +633,18 @@ window.addEventListener('DOMContentLoaded', function() {
   var user = {};
   try { if (rawUser) user = JSON.parse(rawUser); } catch(e) {}
 
-  // Fallbacks individuais para compatibilidade
-  var nome   = user.nome   || sessionStorage.getItem('barretos_nome')   || localStorage.getItem('barretos_nome')   || '';
-  var perfil = user.perfil || sessionStorage.getItem('barretos_perfil') || localStorage.getItem('barretos_perfil') || '';
+  // Fallback individual para compatibilidade
+  var nome = user.nome || sessionStorage.getItem('barretos_nome') || localStorage.getItem('barretos_nome') || '';
 
   USUARIO_NOME = nome || 'Convidado';
 
-  // Atendente = perfil gestor ou admin (independente do nome)
-  IS_ATENDENTE = (perfil === 'gestor' || perfil === 'admin');
+  // Atendente (vê todos os chamados) = só o admin do sistema (o Alex);
+  // qualquer outro perfil, mesmo gestor, vê só os próprios chamados.
+  try {
+    var r = await apiFetch(API_BASE + '/usuarios/me');
+    var d = await r.json();
+    IS_ATENDENTE = r.ok && !!d.eh_admin;
+  } catch(e) { IS_ATENDENTE = false; }
 
   document.getElementById('sb-user').textContent = USUARIO_NOME;
   document.getElementById('sb-role').textContent = IS_ATENDENTE ? 'Atendente' : 'Solicitante';

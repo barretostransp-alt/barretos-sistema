@@ -417,6 +417,7 @@ try { _barretos_user = JSON.parse(sessionStorage.getItem('barretos_user') || loc
 let USER_NOME   = (_barretos_user && _barretos_user.nome)   || localStorage.getItem('mc_nome')   || '';
 let USER_PERFIL = (_barretos_user && _barretos_user.perfil) || localStorage.getItem('mc_perfil') || 'colaborador';
 let USER_LOGIN  = (_barretos_user && _barretos_user.login)  || '';
+let IS_ADMIN    = false; // só o admin do sistema (o Alex) vê "Todas as Ideias" — vem de /usuarios/me
 let db = [];
 let filtered = [];
 let editingId = null;
@@ -437,14 +438,14 @@ function statusClass(s) {
 /* ═══════════════════════════
    INIT
 ═══════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
-  applyUserUI();
+  await applyUserUI();
   setConn(true);
   loadData();
 });
 
-function applyUserUI() {
+async function applyUserUI() {
   const n = USER_NOME || '?';
   document.getElementById('sb-nm').textContent = n;
   document.getElementById('sb-role').textContent = USER_PERFIL === 'gestor' ? 'Gestor' : 'Colaborador';
@@ -456,7 +457,14 @@ function applyUserUI() {
   } else {
     avEl.textContent = n[0]?.toUpperCase() || '?';
   }
-  document.getElementById('nav-todas').style.display = USER_PERFIL === 'gestor' ? 'flex' : 'none';
+  // "Todas as Ideias" (vê de todo mundo) = só o admin do sistema (o Alex);
+  // qualquer outro perfil, mesmo gestor, vê só as próprias ideias.
+  try {
+    const r = await apiFetch(API_BASE + '/usuarios/me');
+    const d = await r.json();
+    IS_ADMIN = r.ok && !!d.eh_admin;
+  } catch(e) { IS_ADMIN = false; }
+  document.getElementById('nav-todas').style.display = IS_ADMIN ? 'flex' : 'none';
   if (USER_NOME) document.getElementById('id-colab').value = USER_NOME;
 }
 
