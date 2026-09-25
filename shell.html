@@ -2061,11 +2061,7 @@ function iniciarAlertaCardFaturado(user){
   if(_cardFaturadoIntervalId){ clearInterval(_cardFaturadoIntervalId); _cardFaturadoIntervalId = null; }
   var nome = ((user && user.nome)||'').trim();
   var login = ((user && user.login)||'').trim();
-  var base = normNomeLogin_(nome) + ' ' + normNomeLogin_(login);
-  // Vicentte Gabriel Bernardini aparece como "Gabriel" no campo Vendedor
-  // do card (não pelo primeiro nome de cadastro) — sem esse ajuste o
-  // token viraria "Vicentte" e nunca bateria com os cards dele.
-  _cardFaturadoToken = contemTodosTokens_(base, ['vicentte','gabriel']) ? 'Gabriel' : (nome || login || '').split(' ')[0]; // primeiro nome, igual ao campo Vendedor do card
+  _cardFaturadoToken = (nome || login || '').split(' ')[0]; // primeiro nome, igual ao campo Vendedor do card
   if(!_cardFaturadoToken) return;
 
   setTimeout(verificarCardFaturado, 3000);
@@ -2308,7 +2304,7 @@ function fecharAlertaAprovacaoCotacao(){
 }
 
 /* ── ALERTA DE ATIVIDADE NA PRÓPRIA COTAÇÃO (pro vendedor) ──
-   Pra Sabrina Ferreira, Leonardo e Vicentte Gabriel: fica de olho só nas
+   Pra Sabrina Ferreira, Leonardo e Vicentte: fica de olho só nas
    cotações onde Vendedor é o próprio login, e compara um "retrato"
    (quantidade de linhas do histórico de observação + StatusAprovacao)
    contra o que foi visto da última vez. Qualquer mudança — novo
@@ -2325,11 +2321,8 @@ function iniciarAlertaAtividadeCotacao(user){
 
   if(contemTodosTokens_(base, ['sabrina'])){ _ativCotLoginKey = 'sabrina_ferreira'; _ativCotCandidato = 'sabrina'; }
   else if(contemTodosTokens_(base, ['leonardo'])){ _ativCotLoginKey = 'leonardo'; _ativCotCandidato = 'leonardo'; }
-  // 'gabriel' sozinho bateria também com "Gabriel Pinheiro" — usa 'vicentte'+'gabriel'
-  // pra identificar só esse usuário, mas consulta o backend com o token 'gabriel'
-  // (valor real do campo Vendedor nas cotações dele).
-  else if(contemTodosTokens_(base, ['vicentte','gabriel'])){ _ativCotLoginKey = 'vicentte_gabriel'; _ativCotCandidato = 'gabriel'; }
-  else return; // só Sabrina Ferreira, Leonardo e Vicentte Gabriel recebem esse alerta
+  else if(contemTodosTokens_(base, ['vicentte'])){ _ativCotLoginKey = 'vicentte'; _ativCotCandidato = 'vicentte'; }
+  else return; // só Sabrina Ferreira, Leonardo e Vicentte recebem esse alerta
 
   setTimeout(verificarAtividadeCotacao, 3000);
   _ativCotIntervalId = setInterval(verificarAtividadeCotacao, 45000);
