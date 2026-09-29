@@ -385,6 +385,9 @@ function atualizarClassesChips(){
     var ativo = !filtroVendedores || filtroVendedores.has(v);
     el.classList.toggle('ativo', ativo);
     el.style.background = ativo ? corDoVendedor(v==='?'?undefined:v) : '';
+    // Leonardo é o único com fundo preto — texto preto padrão fica
+    // ilegível nele, então só o dele usa texto branco.
+    el.style.color = (ativo && v === 'Leonardo') ? '#fff' : '';
   });
   document.querySelectorAll('#chips-status .chip').forEach(function(el){
     var s = el.getAttribute('data-s');
