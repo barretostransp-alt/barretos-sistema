@@ -336,7 +336,15 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
   <div class="filter-bar" id="global-filter-bar" style="margin:16px 24px 0">
     <div class="row g-3 align-items-end">
       <div class="col-md-4"><label class="form-label">Período</label><input type="text" class="form-control" id="global-f-periodo" placeholder="Selecione o intervalo"></div>
-      <div class="col-md-4"><label class="form-label">Vendedor</label><select class="form-select" id="global-f-vendedor"><option value="">Todos os vendedores</option></select></div>
+      <div class="col-md-4">
+        <label class="form-label">Vendedor</label>
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary w-100 text-start dropdown-toggle" type="button" id="global-f-vendedor-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+            <span id="global-f-vendedor-label">Todos os vendedores</span>
+          </button>
+          <div class="dropdown-menu p-2" id="global-f-vendedor-menu" style="max-height:280px;overflow:auto;min-width:100%"></div>
+        </div>
+      </div>
       <div class="col-md-2"><button class="btn btn-accent w-100" onclick="aplicarFiltroGlobal()"><i class="fa-solid fa-filter me-1"></i>Filtrar</button></div>
       <div class="col-md-2"><button class="btn btn-outline-secondary w-100" onclick="aplicarFiltroGlobal(true)"><i class="fa-solid fa-rotate me-1"></i>Atualizar</button></div>
     </div>
@@ -351,7 +359,7 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
           <h3>Dashboard</h3>
           <div class="subtitle" id="dash-date-subtitle"></div>
         </div>
-        <button class="btn btn-accent" onclick="navigateTo('comercial')"><i class="fa-solid fa-plus me-1"></i> Lançar Produtividade</button>
+        <button class="btn btn-accent" onclick="navigateTo('comercial')"><i class="fa-solid fa-chart-line me-1"></i> Ver Produtividade</button>
       </div>
       <div class="row g-3 mb-3">
         <div class="col-lg-4">
@@ -379,7 +387,14 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
       <div class="row g-3 mb-3">
         <div class="col-12">
           <div class="card p-3 h-100">
-            <h6 class="mb-3">Produtividade — Últimos 14 dias</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">Horas por Seção — Últimos 14 dias (estimado)</h6>
+              <div class="d-flex gap-3 small">
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#F5B800;margin-right:4px"></span>Comercial</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px"></span>Cards</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Faturamento/Financeiro</span>
+              </div>
+            </div>
             <div style="position:relative;height:300px;"><canvas id="chart-produtividade"></canvas></div>
           </div>
         </div>
@@ -419,17 +434,22 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
       </div>
 
       <div id="com-tab-produtividade" class="d-none">
-        <div class="d-flex justify-content-end mb-3">
-          <button class="btn btn-accent" onclick="openProdutividadeModal()"><i class="fa-solid fa-plus me-1"></i>Lançar Produtividade</button>
-        </div>
         <div class="card p-3 mb-3">
-          <h6 class="mb-3">Evolução (30 dias)</h6>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Horas por Seção (estimado — Log de Atividades, só vendedores)</h6>
+            <div class="d-flex gap-3 small">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#F5B800;margin-right:4px"></span>Comercial</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px"></span>Cards</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px"></span>Faturamento/Financeiro</span>
+            </div>
+          </div>
+          <div class="small text-muted mb-2">Estimativa por proximidade entre ações (até 30min sem mexer em nada = parou) — não é um controle de ponto exato.</div>
           <div style="position:relative;height:260px;"><canvas id="chart-produtividade-tab"></canvas></div>
         </div>
         <div class="card p-3">
           <div class="table-responsive">
             <table class="table table-hover align-middle" id="table-produtividade" style="width:100%">
-              <thead><tr><th>Data</th><th>Vendedor</th><th>Prospectados</th><th>Ligações</th><th>Mensagens</th><th>Retornos</th><th>Positivos</th><th>Fechados</th><th>Valor Vendido</th><th>Horas</th><th></th></tr></thead>
+              <thead><tr><th>Data</th><th>Vendedor</th><th>Propostas</th><th>Fechados</th><th>Perdidos</th><th>Valor Vendido</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -443,6 +463,12 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
         <div><h3>Clientes</h3><div class="subtitle">Base completa de prospects e clientes</div></div>
         <button class="btn btn-accent" onclick="openClienteModal()"><i class="fa-solid fa-plus me-1"></i>Novo Cliente</button>
       </div>
+
+      <!-- Carteira: clientes esfriando (45/90 dias sem cotação) e cadastros
+           incompletos — calculado no backend (ver /api/crm/carteira),
+           some sozinho quando não tem nada nesse grupo. -->
+      <div id="carteira-crm" class="row g-3 mb-3"></div>
+
       <div class="card p-3">
         <div class="table-responsive">
           <table class="table table-hover align-middle" id="table-clientes" style="width:100%">
@@ -696,41 +722,6 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
         </form>
       </div>
       <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" onclick="saveCliente()">Salvar</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- ============ MODAL: PRODUTIVIDADE ============ -->
-<div class="modal fade" id="modalProdutividade" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Lançamento de Produtividade</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <form id="formProdutividade">
-          <input type="hidden" id="p-id">
-          <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Data</label><input type="text" class="form-control flatpickr-date" id="p-data"></div>
-            <div class="col-md-6"><label class="form-label">Vendedor</label><select class="form-select" id="p-vendedor"></select></div>
-            <div class="col-md-3"><label class="form-label">Clientes Prospectados</label><input type="number" class="form-control" id="p-prospectados" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Ligações</label><input type="number" class="form-control" id="p-ligacoes" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Mensagens</label><input type="number" class="form-control" id="p-mensagens" value="0"></div>
-            <div class="col-md-3"><label class="form-label">E-mails</label><input type="number" class="form-control" id="p-emails" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Retornos</label><input type="number" class="form-control" id="p-retornos" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Clientes Ignorados</label><input type="number" class="form-control" id="p-ignorados" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Clientes Positivos</label><input type="number" class="form-control" id="p-positivos" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Clientes Negativos</label><input type="number" class="form-control" id="p-negativos" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Propostas</label><input type="number" class="form-control" id="p-propostas" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Visitas</label><input type="number" class="form-control" id="p-visitas" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Reuniões</label><input type="number" class="form-control" id="p-reunioes" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Horas Trabalhadas</label><input type="number" step="0.5" class="form-control" id="p-horas" value="8"></div>
-            <div class="col-md-3"><label class="form-label">Serviços Fechados</label><input type="number" class="form-control" id="p-fechados" value="0"></div>
-            <div class="col-md-3"><label class="form-label">Serviços Perdidos</label><input type="number" class="form-control" id="p-perdidos" value="0"></div>
-            <div class="col-md-6"><label class="form-label">Valor Vendido (R$)</label><input type="number" class="form-control" id="p-valor-vendido" value="0"></div>
-            <div class="col-md-12"><label class="form-label">Observações</label><textarea class="form-control" id="p-obs" rows="2"></textarea></div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-accent" onclick="saveProdutividade()">Salvar</button></div>
     </div>
   </div>
 </div>
@@ -1065,19 +1056,6 @@ function mapClienteParaApi_(c){
     proximo_contato:c.proximoContato||null, ultimo_contato:c.ultimoContato||null, data_fechamento:c.dataFechamento||null,
     status_cotacao_data:c.statusCotacaoData||null };
 }
-function mapProdutividadeDoApi_(p){
-  return { id:p.id, data:p.data, vendedor:p.vendedor_id, prospectados:p.prospectados||0, ligacoes:p.ligacoes||0,
-    mensagens:p.mensagens||0, emails:p.emails||0, retornos:p.retornos||0, ignorados:p.ignorados||0,
-    positivos:p.positivos||0, negativos:p.negativos||0, propostas:p.propostas||0, visitas:p.visitas||0,
-    reunioes:p.reunioes||0, horas:p.horas||0, fechados:p.fechados||0, perdidos:p.perdidos||0,
-    valorVendido:p.valor_vendido||0, obs:p.obs||'' };
-}
-function mapProdutividadeParaApi_(p){
-  return { data:p.data, vendedor_id:p.vendedor, prospectados:p.prospectados, ligacoes:p.ligacoes,
-    mensagens:p.mensagens, emails:p.emails, retornos:p.retornos, ignorados:p.ignorados, positivos:p.positivos,
-    negativos:p.negativos, propostas:p.propostas, visitas:p.visitas, reunioes:p.reunioes, horas:p.horas,
-    fechados:p.fechados, perdidos:p.perdidos, valor_vendido:p.valorVendido, obs:p.obs||null };
-}
 function mapEntrevistaDoApi_(e){
   return { id:e.id, data:e.data, vendedor:e.vendedor_id, comoFoiSeuDia:e.como_foi_seu_dia||'',
     prospectados:e.prospectados||0, ligacoes:e.ligacoes||0, mensagens:e.mensagens||0, retornos:e.retornos||0,
@@ -1115,18 +1093,17 @@ function mapTarefaParaApi_(t){
    igual sempre foi), só a carga inicial e as mutações que viram chamada
    de rede.
 --------------------------------------------------------------------- */
-const CRM_DATA = { vendedores:[], clientes:[], produtividade:[], entrevistas:[], tarefas:[], metasEquipe:{mensal:0, anual:0} };
+const CRM_DATA = { vendedores:[], clientes:[], entrevistas:[], tarefas:[], metasEquipe:{mensal:0, anual:0} };
 
 async function recarregarVendedores_(){ CRM_DATA.vendedores = (await crmFetch('/vendedores')).map(mapVendedorDoApi_); }
 async function recarregarClientes_(){ CRM_DATA.clientes = (await crmFetch('/clientes')).map(mapClienteDoApi_); }
-async function recarregarProdutividade_(){ CRM_DATA.produtividade = (await crmFetch('/produtividade')).map(mapProdutividadeDoApi_); }
 async function recarregarEntrevistas_(){ CRM_DATA.entrevistas = (await crmFetch('/entrevistas')).map(mapEntrevistaDoApi_); }
 async function recarregarTarefas_(){ CRM_DATA.tarefas = (await crmFetch('/tarefas')).map(mapTarefaDoApi_); }
 async function recarregarMetasEquipe_(){ const m = await crmFetch('/metas-equipe'); CRM_DATA.metasEquipe = {mensal:m.mensal, anual:m.anual}; }
 
 async function carregarDadosCRM(){
   await Promise.all([
-    recarregarVendedores_(), recarregarClientes_(), recarregarProdutividade_(),
+    recarregarVendedores_(), recarregarClientes_(),
     recarregarEntrevistas_(), recarregarTarefas_(), recarregarMetasEquipe_(),
   ]);
 }
@@ -1135,7 +1112,6 @@ const DB = {
   vendedores(){ return CRM_DATA.vendedores; },
   clientes(){ return CRM_DATA.clientes; },
   entrevistas(){ return CRM_DATA.entrevistas; },
-  produtividade(){ return CRM_DATA.produtividade; },
   metasEquipe(){ return CRM_DATA.metasEquipe; },
   tarefas(){ return CRM_DATA.tarefas; }
 };
@@ -1291,7 +1267,7 @@ function renderPage(page){
   switch(page){
     case 'dashboard': renderDashboard(); break;
     case 'comercial': renderVendedores(); renderProdutividade(); break;
-    case 'clientes': renderClientes(); break;
+    case 'clientes': renderClientes(); renderCarteiraCrm(); break;
     case 'cotacoes': renderCotacoes(); break;
     case 'entrevistas': renderEntrevistas(); break;
     case 'metas': renderMetas(); break;
@@ -1306,12 +1282,16 @@ function renderPage(page){
 // dentro de cada tela. Cada render function lê os valores atuais daqui.
 let globalRangePicker = null;
 function initGlobalFilters(){
-  const sel = document.getElementById('global-f-vendedor');
-  if(!sel) return;
+  const menu = document.getElementById('global-f-vendedor-menu');
+  if(!menu) return;
   const vendedores = DB.vendedores();
-  const atual = sel.value;
-  sel.innerHTML = '<option value="">Todos os vendedores</option>' + vendedores.map(v=>`<option value="${v.id}">${escapeHtml(v.nome)}</option>`).join('');
-  if(vendedores.some(v=>v.id===atual)) sel.value = atual;
+  const selecionadosAntes = getGlobalVendedorIds(); // preserva a seleção ao trocar de aba (menu é reconstruído toda vez)
+  menu.innerHTML = vendedores.map(v=>`
+    <label class="dropdown-item form-check py-1 mb-0" style="cursor:pointer">
+      <input class="form-check-input me-2" type="checkbox" value="${v.id}" ${selecionadosAntes.includes(v.id)?'checked':''} onchange="atualizarLabelVendedorGlobal_()">
+      ${escapeHtml(v.nome)}
+    </label>`).join('');
+  atualizarLabelVendedorGlobal_();
   if(!globalRangePicker){ globalRangePicker = flatpickr('#global-f-periodo', {mode:'range', dateFormat:'Y-m-d', locale:'pt'}); }
 }
 // {dIni, dFim} como objetos Date (ou null/null se nenhum período selecionado)
@@ -1323,8 +1303,21 @@ function getGlobalPeriodo(){
   }
   return {dIni:null, dFim:null};
 }
-function getGlobalVendedorId(){ return document.getElementById('global-f-vendedor')?.value || ''; }
-function getGlobalVendedorNome(){ const id=getGlobalVendedorId(); return id ? (vendedorNome(id)||'').trim().toLowerCase() : ''; }
+// Array de ids selecionados (vazio = "todos os vendedores").
+function getGlobalVendedorIds(){
+  return Array.from(document.querySelectorAll('#global-f-vendedor-menu input:checked')).map(el=>el.value);
+}
+function getGlobalVendedorNomes(){
+  return getGlobalVendedorIds().map(id=>(vendedorNome(id)||'').trim().toLowerCase()).filter(Boolean);
+}
+function atualizarLabelVendedorGlobal_(){
+  const ids = getGlobalVendedorIds();
+  const label = document.getElementById('global-f-vendedor-label');
+  if(!label) return;
+  if(!ids.length) label.textContent = 'Todos os vendedores';
+  else if(ids.length===1) label.textContent = vendedorNome(ids[0]);
+  else label.textContent = ids.length + ' vendedores selecionados';
+}
 function aplicarFiltroGlobal(force){
   if(force){ _relatorioVendedorRowsCache = null; _cotacoesCache = null; }
   const ativa = PAGES.find(p=>document.getElementById('page-'+p)?.classList.contains('active')) || 'dashboard';
@@ -1369,10 +1362,10 @@ async function renderDashboard(){
   const now = new Date();
   document.getElementById('dash-date-subtitle').textContent = 'Hoje é ' + now.toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
 
-  const vendedorIdFiltro = getGlobalVendedorId();
+  const vendedorIdsFiltro = getGlobalVendedorIds();
   const {dIni, dFim} = getGlobalPeriodo();
   const qs = new URLSearchParams();
-  if(vendedorIdFiltro) qs.set('vendedorId', vendedorIdFiltro);
+  if(vendedorIdsFiltro.length) qs.set('vendedorIds', vendedorIdsFiltro.join(','));
   if(dIni) qs.set('dataInicio', dateToISO(dIni));
   if(dFim) qs.set('dataFim', dateToISO(dFim));
   let d;
@@ -1411,11 +1404,11 @@ async function renderDashboard(){
   makeChart('chart-produtividade', {
     type:'line',
     data:{labels:d.produtividade14dias.labels.map(fmtDateBR), datasets:[
-      {label:'Prospectados', data:d.produtividade14dias.prospectados, borderColor:PALETTE[0], backgroundColor:PALETTE[0]+'22', tension:.35, fill:true},
-      {label:'Ligações', data:d.produtividade14dias.ligacoes, borderColor:PALETTE[4], backgroundColor:PALETTE[4]+'22', tension:.35, fill:true},
-      {label:'Fechados', data:d.produtividade14dias.fechados, borderColor:PALETTE[1], backgroundColor:PALETTE[1]+'22', tension:.35, fill:true}
+      {label:'Comercial', data:d.produtividade14dias.comercial, borderColor:'#F5B800', backgroundColor:'#F5B80022', tension:.35, fill:true},
+      {label:'Cards', data:d.produtividade14dias.cards, borderColor:'#ef4444', backgroundColor:'#ef444422', tension:.35, fill:true},
+      {label:'Faturamento/Financeiro', data:d.produtividade14dias.financeiro, borderColor:'#3b82f6', backgroundColor:'#3b82f622', tension:.35, fill:true}
     ]},
-    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true}}}
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtHorasMin_(c.parsed.y)}`}}}, scales:{y:{beginAtZero:true, ticks:{callback:fmtHorasMin_}}}}
   });
 
   const medals = ['#f59e0b','#94a3b8','#b45309','#D97706','#D97706'];
@@ -1465,8 +1458,8 @@ function renderQualidadeRelacionamento(q){
 --------------------------------------------------------------------- */
 async function renderVendedores(){
   const todosVendedores = DB.vendedores();
-  const vendedorIdFiltro = getGlobalVendedorId();
-  const vendedores = vendedorIdFiltro ? todosVendedores.filter(v=>v.id===vendedorIdFiltro) : todosVendedores;
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const vendedores = vendedorIdsFiltro.length ? todosVendedores.filter(v=>vendedorIdsFiltro.includes(v.id)) : todosVendedores;
   const grid = document.getElementById('vendedores-grid');
   if(todosVendedores.length===0){ grid.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-tie"></i><div>Nenhum vendedor cadastrado</div></div>'; return; }
   if(vendedores.length===0){ grid.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-tie"></i><div>Nenhum vendedor cadastrado bate com o filtro selecionado</div></div>'; return; }
@@ -1476,7 +1469,7 @@ async function renderVendedores(){
   // selecionado, cai no mês atual (comportamento de sempre).
   const {dIni, dFim} = getGlobalPeriodo();
   const qs = new URLSearchParams();
-  if(vendedorIdFiltro) qs.set('vendedorId', vendedorIdFiltro);
+  if(vendedorIdsFiltro.length) qs.set('vendedorIds', vendedorIdsFiltro.join(','));
   if(dIni) qs.set('periodoInicio', dateToISO(dIni));
   if(dFim) qs.set('periodoFim', dateToISO(dFim));
   let resumo;
@@ -1721,100 +1714,57 @@ function deleteVendedor(id){
 }
 
 /* ---------------------------------------------------------------------
-   10. COMERCIAL — PRODUTIVIDADE
+   10. COMERCIAL — PRODUTIVIDADE (automática — Log de Atividades +
+   cotações/fretes reais; ver GET /api/crm/produtividade-diaria,
+   src/services/crmProdutividadeService.js. Não tem mais lançamento
+   manual — a antiga crm_produtividade nunca teve um registro sequer).
 --------------------------------------------------------------------- */
 let dtProdutividade = null;
-function renderProdutividade(){
-  const prod = DB.produtividade().slice().sort((a,b)=>b.data.localeCompare(a.data));
-  const rowsData = prod.map(p=>[
-    fmtDateBR(p.data), escapeHtml(vendedorNome(p.vendedor)),
-    p.prospectados, p.ligacoes, p.mensagens, p.retornos,
-    p.positivos, p.fechados, fmtMoney(p.valorVendido), p.horas,
-    `<button class="btn btn-sm btn-outline-secondary" onclick="openProdutividadeModal('${p.id}')"><i class="fa-solid fa-pen"></i></button>
-     <button class="btn btn-sm btn-outline-danger" onclick="deleteProdutividade('${p.id}')"><i class="fa-solid fa-trash"></i></button>`
+// Formata horas decimais (0.96) como "horas.minutos" (0.58h) em vez de
+// fração decimal — minuto sempre 00-59, sem precisar fazer conta de
+// cabeça pra saber quanto é 0.96 de hora.
+function fmtHorasMin_(horasDecimais){
+  const totalMin = Math.round((Number(horasDecimais)||0) * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h + '.' + String(m).padStart(2,'0') + 'h';
+}
+async function renderProdutividade(){
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const {dIni, dFim} = getGlobalPeriodo();
+  const qs = new URLSearchParams();
+  if(vendedorIdsFiltro.length) qs.set('vendedorIds', vendedorIdsFiltro.join(','));
+  if(dIni) qs.set('dataInicio', dateToISO(dIni));
+  if(dFim) qs.set('dataFim', dateToISO(dFim));
+  let resp;
+  try { resp = await crmFetch('/produtividade-diaria' + (qs.toString() ? '?'+qs.toString() : '')); }
+  catch(e){ console.error('[produtividade] falha ao buscar dados:', e); return; }
+
+  const s = resp.series;
+  makeChart('chart-produtividade-tab', {
+    type:'line',
+    data:{labels:s.labels.map(fmtDateBR), datasets:[
+      {label:'Comercial', data:s.comercial, borderColor:'#F5B800', backgroundColor:'#F5B80022', tension:.3, fill:true},
+      {label:'Cards', data:s.cards, borderColor:'#ef4444', backgroundColor:'#ef444422', tension:.3, fill:true},
+      {label:'Faturamento/Financeiro', data:s.financeiro, borderColor:'#3b82f6', backgroundColor:'#3b82f622', tension:.3, fill:true},
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtHorasMin_(c.parsed.y)}`}}}, scales:{y:{beginAtZero:true, ticks:{callback:fmtHorasMin_}}}}
+  });
+
+  const rowsData = resp.tabela.map(p=>[
+    fmtDateBR(p.data), escapeHtml(p.vendedor), p.propostas, p.fechados, p.perdidos, fmtMoney(p.valorVendido),
   ]);
   // Troca as linhas pela API do DataTables (clear + rows.add + draw) em
   // vez de destruir/recriar a cada render — evita o aviso "Incorrect
   // column count" que acontece quando o innerHTML da tabela é mexido por
   // fora enquanto uma instância do DataTables ainda está presa a ela.
   if(!dtProdutividade){
-    dtProdutividade = $('#table-produtividade').DataTable({data: rowsData, order:[[0,'desc']], pageLength:8, language:DT_PT});
+    dtProdutividade = $('#table-produtividade').DataTable({data: rowsData, order:[], pageLength:8, language:DT_PT});
   } else {
     dtProdutividade.clear();
     dtProdutividade.rows.add(rowsData);
     dtProdutividade.draw();
   }
-
-  const hoje = todayISO();
-  const dias30 = []; for(let i=29;i>=0;i--) dias30.push(addDays(hoje,-i));
-  const all = DB.produtividade();
-  const sumDay = (d,f)=>all.filter(p=>p.data===d).reduce((s,x)=>s+(Number(x[f])||0),0);
-  makeChart('chart-produtividade-tab', {
-    type:'bar',
-    data:{labels:dias30.map(fmtDateBR), datasets:[
-      {label:'Valor Vendido', data:dias30.map(d=>sumDay(d,'valorVendido')), backgroundColor:'#D97706'}
-    ]},
-    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
-  });
-}
-function openProdutividadeModal(id){
-  const m = new bootstrap.Modal('#modalProdutividade');
-  document.getElementById('formProdutividade').reset();
-  document.getElementById('p-data')._flatpickr?.setDate(todayISO());
-  if(id){
-    const p = DB.produtividade().find(x=>x.id===id);
-    document.getElementById('p-id').value = p.id;
-    document.getElementById('p-data')._flatpickr?.setDate(p.data);
-    document.getElementById('p-vendedor').value = p.vendedor;
-    ['prospectados','ligacoes','mensagens','emails','retornos','ignorados','positivos','negativos','propostas','visitas','reunioes','horas','fechados','perdidos'].forEach(f=>{
-      document.getElementById('p-'+f).value = p[f]||0;
-    });
-    document.getElementById('p-valor-vendido').value = p.valorVendido||0;
-    document.getElementById('p-obs').value = p.obs||'';
-  } else {
-    document.getElementById('p-id').value = '';
-  }
-  m.show();
-}
-async function saveProdutividade(){
-  const vendedor = document.getElementById('p-vendedor').value;
-  if(!vendedor){ toast('Selecione um vendedor','warning'); return; }
-  const id = document.getElementById('p-id').value;
-  const payload = mapProdutividadeParaApi_({
-    data: document.getElementById('p-data').value || todayISO(), vendedor,
-    prospectados:Number(document.getElementById('p-prospectados').value)||0,
-    ligacoes:Number(document.getElementById('p-ligacoes').value)||0,
-    mensagens:Number(document.getElementById('p-mensagens').value)||0,
-    emails:Number(document.getElementById('p-emails').value)||0,
-    retornos:Number(document.getElementById('p-retornos').value)||0,
-    ignorados:Number(document.getElementById('p-ignorados').value)||0,
-    positivos:Number(document.getElementById('p-positivos').value)||0,
-    negativos:Number(document.getElementById('p-negativos').value)||0,
-    propostas:Number(document.getElementById('p-propostas').value)||0,
-    visitas:Number(document.getElementById('p-visitas').value)||0,
-    reunioes:Number(document.getElementById('p-reunioes').value)||0,
-    horas:Number(document.getElementById('p-horas').value)||0,
-    fechados:Number(document.getElementById('p-fechados').value)||0,
-    perdidos:Number(document.getElementById('p-perdidos').value)||0,
-    valorVendido:Number(document.getElementById('p-valor-vendido').value)||0,
-    obs:document.getElementById('p-obs').value.trim()
-  });
-  try{
-    if(id) await crmFetch('/produtividade/'+id, {method:'PUT', headers:CRM_JSON_HEADERS, body:JSON.stringify(payload)});
-    else await crmFetch('/produtividade', {method:'POST', headers:CRM_JSON_HEADERS, body:JSON.stringify(payload)});
-  }catch(e){ toast('Erro ao salvar produtividade.','error'); return; }
-  await recarregarProdutividade_();
-  bootstrap.Modal.getInstance(document.getElementById('modalProdutividade')).hide();
-  toast('Produtividade lançada com sucesso!');
-  renderProdutividade();
-}
-function deleteProdutividade(id){
-  confirmDelete().then(async r=>{ if(!r.isConfirmed) return;
-    try{ await crmFetch('/produtividade/'+id, {method:'DELETE'}); }
-    catch(e){ toast('Erro ao excluir registro.','error'); return; }
-    await recarregarProdutividade_();
-    toast('Registro excluído.','info'); renderProdutividade();
-  });
 }
 
 /* ---------------------------------------------------------------------
@@ -1822,10 +1772,10 @@ function deleteProdutividade(id){
 --------------------------------------------------------------------- */
 let dtClientes = null;
 function renderClientes(){
-  const vendedorIdFiltro = getGlobalVendedorId();
+  const vendedorIdsFiltro = getGlobalVendedorIds();
   const {dIni, dFim} = getGlobalPeriodo();
   const clientes = DB.clientes().filter(c=>{
-    if(vendedorIdFiltro && c.responsavel!==vendedorIdFiltro) return false;
+    if(vendedorIdsFiltro.length && !vendedorIdsFiltro.includes(c.responsavel)) return false;
     if(dIni || dFim){
       if(!c.dataCadastro) return false;
       const d = new Date(c.dataCadastro+'T00:00:00');
@@ -1859,6 +1809,99 @@ function renderClientes(){
     dtClientes.clear();
     dtClientes.rows.add(rowsData);
     dtClientes.draw();
+  }
+}
+
+/* ---------------------------------------------------------------------
+   CARTEIRA — clientes esfriando (45/90 dias sem cotação) e cadastros
+   incompletos (ver GET /api/crm/carteira, src/services/crmCarteiraService.js
+   no backend). A virada de status (Inativo/desvínculo de vendedor) já é
+   automática (job diário) — aqui só mostra o resultado e permite
+   reatribuir vendedor pros clientes órfãos (90 dias).
+--------------------------------------------------------------------- */
+function nomeClienteCarteira_(item){
+  return item.nome_fantasia ? `${escapeHtml(item.razao_social)} <span class="text-muted small">(${escapeHtml(item.nome_fantasia)})</span>` : escapeHtml(item.razao_social);
+}
+async function renderCarteiraCrm(){
+  const el = document.getElementById('carteira-crm');
+  let dados;
+  try{
+    dados = await crmFetch('/carteira');
+  }catch(e){
+    el.innerHTML = '';
+    return;
+  }
+  const { alerta45, critico90 } = dados;
+  // "Dados incompletos" respeita o filtro global de vendedor (os outros
+  // dois cards não, de propósito — só esse foi pedido).
+  const nomesVendedorFiltro = getGlobalVendedorNomes();
+  const dadosIncompletos = nomesVendedorFiltro.length
+    ? dados.dadosIncompletos.filter(item=>nomesVendedorFiltro.includes((item.vendedor||'').trim().toLowerCase()))
+    : dados.dadosIncompletos;
+  if(!alerta45.length && !critico90.length && !dadosIncompletos.length){
+    el.innerHTML = '';
+    return;
+  }
+
+  const vendedores = DB.vendedores();
+  const optsVendedor = vendedores.map(v=>`<option value="${escapeHtml(v.nome)}">${escapeHtml(v.nome)}</option>`).join('');
+
+  let html = '';
+
+  if(alerta45.length){
+    html += `<div class="col-lg-4"><div class="card p-3 h-100" style="border-left:3px solid #f59e0b">
+      <h6 class="mb-2"><i class="fa-solid fa-clock text-warning me-1"></i>45 dias sem cotação (${alerta45.length})</h6>
+      <div class="small text-muted mb-2">Já marcado como Inativo na aba Clientes.</div>
+      <div style="max-height:220px;overflow:auto">${alerta45.map(item=>`
+        <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+          <div>${nomeClienteCarteira_(item)}</div>
+          <span class="badge bg-warning text-dark">${item.dias_sem_cotacao}d</span>
+        </div>`).join('')}</div>
+    </div></div>`;
+  }
+
+  if(critico90.length){
+    html += `<div class="col-lg-4"><div class="card p-3 h-100" style="border-left:3px solid #ef4444">
+      <h6 class="mb-2"><i class="fa-solid fa-user-slash text-danger me-1"></i>90 dias — sem vendedor fixo (${critico90.length})</h6>
+      <div class="small text-muted mb-2">Vendedor já foi desvinculado automaticamente — escolha quem assume.</div>
+      <div style="max-height:220px;overflow:auto">${critico90.map(item=>`
+        <div class="py-2 border-bottom">
+          <div class="mb-1">${nomeClienteCarteira_(item)} <span class="badge bg-danger">${item.dias_sem_cotacao}d</span></div>
+          <div class="d-flex gap-1">
+            <select class="form-select form-select-sm" id="carteira-vend-${item.id}"><option value="">Atribuir a...</option>${optsVendedor}</select>
+            <button class="btn btn-sm btn-outline-primary" onclick="atribuirVendedorCarteira('${item.id}')">OK</button>
+          </div>
+        </div>`).join('')}</div>
+    </div></div>`;
+  }
+
+  if(dadosIncompletos.length){
+    html += `<div class="col-lg-4"><div class="card p-3 h-100" style="border-left:3px solid #6366f1">
+      <h6 class="mb-2"><i class="fa-solid fa-clipboard-question text-indigo me-1"></i>Dados incompletos (${dadosIncompletos.length})</h6>
+      <div class="small text-muted mb-2">Peça ao vendedor responsável pra completar.${nomesVendedorFiltro.length?' <span class="fst-italic">(filtrado por vendedor)</span>':''}</div>
+      <div style="max-height:220px;overflow:auto">${dadosIncompletos.map(item=>`
+        <div class="py-1 border-bottom">
+          <div>${nomeClienteCarteira_(item)}</div>
+          <div>${item.campos_faltantes.map(c=>`<span class="badge me-1" style="background:rgba(99,102,241,.18);color:#a5b4fc;border:1px solid rgba(99,102,241,.4)">${escapeHtml(c)}</span>`).join('')}</div>
+        </div>`).join('')}</div>
+    </div></div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+async function atribuirVendedorCarteira(clienteId){
+  const sel = document.getElementById('carteira-vend-'+clienteId);
+  const vendedor = sel ? sel.value : '';
+  if(!vendedor){ toast('Escolha um vendedor', 'warning'); return; }
+  try{
+    await crmFetch(`/carteira/${clienteId}/vendedor`, { method:'PUT', headers:CRM_JSON_HEADERS, body: JSON.stringify({ vendedor }) });
+    toast('Vendedor atribuído');
+    await renderCarteiraCrm();
+    await recarregarClientes_();
+    renderClientes();
+  }catch(e){
+    toast(e.message || 'Erro ao atribuir vendedor', 'error');
   }
 }
 function fillStatusSelect(sel, current){
@@ -1928,10 +1971,10 @@ async function renderCotacoes(force){
     return;
   }
   // Filtro global de Período (Data da cotação) e Vendedor.
-  const nomeVendedorFiltro = getGlobalVendedorNome();
+  const nomesVendedorFiltro = getGlobalVendedorNomes();
   const {dIni, dFim} = getGlobalPeriodo();
   const rows = rowsBrutas.filter(r=>{
-    if(nomeVendedorFiltro && (r['Vendedor']||'').trim().toLowerCase()!==nomeVendedorFiltro) return false;
+    if(nomesVendedorFiltro.length && !nomesVendedorFiltro.includes((r['Vendedor']||'').trim().toLowerCase())) return false;
     if(dIni || dFim){
       const d = parseDataCotacao_(r['Data']);
       if(!d) return false;
@@ -1940,7 +1983,7 @@ async function renderCotacoes(force){
     }
     return true;
   });
-  statusEl.textContent = rows.length + ' cotação(ões)' + (nomeVendedorFiltro||dIni ? ' (filtrado de '+rowsBrutas.length+')' : ' no histórico') + ' · atualizado ' + new Date().toLocaleTimeString('pt-BR');
+  statusEl.textContent = rows.length + ' cotação(ões)' + (nomesVendedorFiltro.length||dIni ? ' (filtrado de '+rowsBrutas.length+')' : ' no histórico') + ' · atualizado ' + new Date().toLocaleTimeString('pt-BR');
 
   // Agrupa por vendedor
   const porVendedor = {};
@@ -2258,10 +2301,10 @@ async function saveTimelineEntry(){
    14. ENTREVISTAS
 --------------------------------------------------------------------- */
 function renderEntrevistas(){
-  const filtro = getGlobalVendedorId();
+  const filtroIds = getGlobalVendedorIds();
   const {dIni, dFim} = getGlobalPeriodo();
   let entrevistas = DB.entrevistas().slice().sort((a,b)=>b.data.localeCompare(a.data));
-  if(filtro) entrevistas = entrevistas.filter(e=>e.vendedor===filtro);
+  if(filtroIds.length) entrevistas = entrevistas.filter(e=>filtroIds.includes(e.vendedor));
   if(dIni || dFim){
     entrevistas = entrevistas.filter(e=>{
       if(!e.data) return false;
@@ -2426,15 +2469,15 @@ function deleteEntrevista(id){
 // dois lugares sempre mostram o mesmo número.
 async function renderMetas(){
   const todosVendedores = DB.vendedores();
-  const vendedorIdFiltro = getGlobalVendedorId();
-  const vendedores = vendedorIdFiltro ? todosVendedores.filter(v=>v.id===vendedorIdFiltro) : todosVendedores;
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const vendedores = vendedorIdsFiltro.length ? todosVendedores.filter(v=>vendedorIdsFiltro.includes(v.id)) : todosVendedores;
 
   const metaEquipe = DB.metasEquipe();
   // Diária/Semanal/Mensal/Anual da equipe e por vendedor, tudo calculado
   // no backend (ver GET /api/crm/resumo-vendedores) direto do Relatório
   // de Vendedor real.
   let resumo;
-  try { resumo = await crmFetch('/resumo-vendedores' + (vendedorIdFiltro ? '?vendedorId='+encodeURIComponent(vendedorIdFiltro) : '')); }
+  try { resumo = await crmFetch('/resumo-vendedores' + (vendedorIdsFiltro.length ? '?vendedorIds='+encodeURIComponent(vendedorIdsFiltro.join(',')) : '')); }
   catch(e){ console.error('[metas] falha ao buscar resumo:', e); return; }
   const porVendedorId = {}; resumo.porVendedor.forEach(r=> porVendedorId[r.vendedorId]=r);
   const valorMesEquipe = resumo.valorMesEquipe;
@@ -2529,9 +2572,9 @@ function parseDataCotacao_(valor){
 // Médio e Conversão vêm direto do Relatório de Vendedor/Cotação
 // Comercial reais, sem passar mais por nenhum Apps Script.
 async function renderIndicadores(){
-  const vendedorIdFiltro = getGlobalVendedorId();
+  const vendedorIdsFiltro = getGlobalVendedorIds();
   let resp;
-  try { resp = await crmFetch('/indicadores' + (vendedorIdFiltro ? '?vendedorId='+encodeURIComponent(vendedorIdFiltro) : '')); }
+  try { resp = await crmFetch('/indicadores' + (vendedorIdsFiltro.length ? '?vendedorIds='+encodeURIComponent(vendedorIdsFiltro.join(',')) : '')); }
   catch(e){ console.error('[indicadores] falha ao buscar dados:', e); return; }
 
   makeChart('chart-conversao', {type:'line', data:{labels:resp.mesesLabels, datasets:[{label:'Conversão %', data:resp.conversaoData, borderColor:'#D97706', backgroundColor:'#D9770622', fill:true, tension:.35}]}, options:{maintainAspectRatio:false, plugins:{legend:{display:false}}}});
@@ -2584,11 +2627,11 @@ let dtGestorCotacoes = null;
 
 // Tudo calculado no backend (ver GET /api/crm/painel-gestor).
 async function renderPainelGestor(){
-  const vendedorIdFiltro = getGlobalVendedorId();
-  const nomeVendedorFiltro = getGlobalVendedorNome();
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const nomesVendedorFiltro = getGlobalVendedorNomes();
   const {dIni, dFim} = getGlobalPeriodo();
   const qs = new URLSearchParams();
-  if(vendedorIdFiltro) qs.set('vendedorId', vendedorIdFiltro);
+  if(vendedorIdsFiltro.length) qs.set('vendedorIds', vendedorIdsFiltro.join(','));
   if(dIni) qs.set('dataInicio', dateToISO(dIni));
   if(dFim) qs.set('dataFim', dateToISO(dFim));
   let resp;
@@ -2632,7 +2675,7 @@ async function renderPainelGestor(){
 
   const statusEl = document.getElementById('gestor-cotacoes-status');
   const detalhado = resp.cotacoesDetalhado;
-  statusEl.textContent = detalhado.length + ' cotação(ões) em aberto' + (nomeVendedorFiltro?(' · vendedor: '+vendedorNome(vendedorIdFiltro)):'');
+  statusEl.textContent = detalhado.length + ' cotação(ões) em aberto' + (vendedorIdsFiltro.length?(' · vendedor(es): '+vendedorIdsFiltro.map(vendedorNome).join(', ')):'');
   const rowsGestorCot = detalhado.map(r=>{
     const dataFmt = r.data ? new Date(r.data).toLocaleDateString('pt-BR') : '';
     return [
@@ -2735,12 +2778,12 @@ async function renderFretesFechados(force){
     return;
   }
 
-  const vendedorId = getGlobalVendedorId();
-  const nomeVendedorFiltro = getGlobalVendedorNome();
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const nomesVendedorFiltro = getGlobalVendedorNomes();
   const {dIni, dFim} = getGlobalPeriodo();
 
   const filtradas = rows.filter(r=>{
-    if(nomeVendedorFiltro && (r['Vendedor']||'').trim().toLowerCase()!==nomeVendedorFiltro) return false;
+    if(nomesVendedorFiltro.length && !nomesVendedorFiltro.includes((r['Vendedor']||'').trim().toLowerCase())) return false;
     if(dIni || dFim){
       const d = parseDataColeta_(r['Data Coleta']);
       if(!d) return false;
@@ -2751,7 +2794,7 @@ async function renderFretesFechados(force){
   });
   _ultimasFretesFiltradas = filtradas;
 
-  statusEl.textContent = filtradas.length + ' frete(s) fechado(s)' + (nomeVendedorFiltro?(' · vendedor: '+vendedorNome(vendedorId)):'') + ' · atualizado ' + new Date().toLocaleTimeString('pt-BR');
+  statusEl.textContent = filtradas.length + ' frete(s) fechado(s)' + (vendedorIdsFiltro.length?(' · vendedor(es): '+vendedorIdsFiltro.map(vendedorNome).join(', ')):'') + ' · atualizado ' + new Date().toLocaleTimeString('pt-BR');
 
   let fat=0, custo=0, icms=0;
   filtradas.forEach(r=>{ fat+=parseBRL_(r['Frete Cobrado']); custo+=parseBRL_(r['Custo Operacional']); icms+=parseBRL_(r['ICMS']); });
@@ -2865,6 +2908,11 @@ function setupTabs(){
       tab.classList.add('active');
       document.getElementById('com-tab-vendedores').classList.toggle('d-none', tab.dataset.comTab!=='vendedores');
       document.getElementById('com-tab-produtividade').classList.toggle('d-none', tab.dataset.comTab!=='produtividade');
+      // O gráfico é desenhado com o canvas escondido (d-none) na primeira
+      // carga da página — Chart.js não redesenha sozinho quando o canvas
+      // vira visível depois. Re-renderiza só ao abrir a aba, já com o
+      // tamanho certo.
+      if(tab.dataset.comTab==='produtividade') renderProdutividade();
     });
   });
 }

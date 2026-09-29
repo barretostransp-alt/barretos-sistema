@@ -364,7 +364,7 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
     <div class="sidebar">
       <div class="sb-section">Visão</div>
       <div class="sb-btn active" id="sb-todos" onclick="setFiltroSidebar('todos',this)">
-        <i class="ti ti-users"></i> Todos os Clientes
+        <i class="ti ti-alert-triangle"></i> Dados Faltantes
         <span class="sb-count" id="cnt-todos">0</span>
       </div>
       <div class="sb-btn" id="sb-pj" onclick="setFiltroSidebar('PJ',this)">
@@ -389,6 +389,11 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *,body.tema-claro .t
       <div class="sb-section">Comercial</div>
       <div class="sb-btn" id="sb-prospeccao" onclick="mostrarView('prospeccao')">
         <i class="ti ti-target-arrow"></i> Prospecção
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-section" id="sb-secao-gestao" style="display:none">Gestão</div>
+      <div class="sb-btn" id="sb-ver-completos" onclick="toggleVerCompletos()" style="display:none">
+        <i class="ti ti-eye"></i> <span id="sb-ver-completos-label">Ver Cadastros Completos</span>
       </div>
       <div class="sb-divider"></div>
       <div class="sb-section">Ações</div>
@@ -1041,6 +1046,31 @@ var filtroSidebar = 'todos';
 var clienteAtual  = null;
 var editandoId    = null;
 var tipoAtual     = 'PJ';
+var isGestor         = false;
+var modoVerCompletos = false; // só tem efeito se isGestor — "aba oculta" dos cadastros completos
+
+// Cliente com pelo menos um desses campos vazio é "cadastro incompleto"
+// — mesmo checklist usado no CRM (ver CAMPOS_CADASTRO em
+// src/services/crmCarteiraService.js), pra não ter dois critérios
+// diferentes de "dado faltando" no sistema.
+function temDadosFaltantes_(c) {
+  return !c.Doc || !c.Contato || !c.Telefone || !c.Email || !c.Cidade || !c.UF;
+}
+
+// Todo colaborador só vê cadastro incompleto (é o que precisa completar);
+// só gestor tem o botão pra revelar os completos também (aba oculta).
+function baseClientesVisiveis() {
+  if (isGestor && modoVerCompletos) return allClientes;
+  return allClientes.filter(temDadosFaltantes_);
+}
+
+function toggleVerCompletos() {
+  if (!isGestor) return;
+  modoVerCompletos = !modoVerCompletos;
+  document.getElementById('sb-ver-completos').classList.toggle('active', modoVerCompletos);
+  document.getElementById('sb-ver-completos-label').textContent = modoVerCompletos ? 'Voltar pra Dados Faltantes' : 'Ver Cadastros Completos';
+  filtrarLista();
+}
 
 // ── INIT ────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
@@ -1056,6 +1086,12 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('tb-user').textContent = nome;
   prospVendedorAtual = nome || null;
 
+  isGestor = perfil === 'gestor';
+  if (isGestor) {
+    document.getElementById('sb-secao-gestao').style.display = '';
+    document.getElementById('sb-ver-completos').style.display = '';
+  }
+
   if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
   carregarDados();
 });
@@ -1070,8 +1106,7 @@ async function carregarDados() {
     var rows = await res.json();
     if (!res.ok) throw new Error(rows.error || 'Erro ao carregar');
     allClientes = rows.map(mapearDoApi_);
-    atualizarStats();
-    renderLista();
+    filtrarLista();
     popularVendedores();
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('lista-wrap').style.display    = 'block';
@@ -1084,21 +1119,24 @@ async function carregarDados() {
 
 // ── STATS ────────────────────────────────────────────────────
 // Os contadores da barra lateral (Todos/PJ/PF/Ativos/Inativos) sempre
-// refletem o total geral, sem filtro — são navegação. Os KPIs do topo
-// (stats-row) acompanham o filtro atual (sidebar + busca + vendedor),
-// por isso recebem a lista já filtrada de quem chama.
+// refletem o total da base visível (dados faltantes, ou tudo se o gestor
+// ligou "Ver Cadastros Completos"), sem os filtros de busca/vendedor —
+// são navegação. Os KPIs do topo (stats-row) acompanham o filtro atual
+// (sidebar + busca + vendedor), por isso recebem a lista já filtrada de
+// quem chama.
 function atualizarStats(dadosFiltrados) {
-  var pjTotal = allClientes.filter(function(c){ return c.Tipo === 'PJ'; }).length;
-  var pfTotal = allClientes.filter(function(c){ return c.Tipo === 'PF'; }).length;
-  var atTotal = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
-  var inTotal = allClientes.filter(function(c){ return (c.Status||'').toLowerCase() === 'inativo'; }).length;
-  document.getElementById('cnt-todos').textContent   = allClientes.length;
+  var base = baseClientesVisiveis();
+  var pjTotal = base.filter(function(c){ return c.Tipo === 'PJ'; }).length;
+  var pfTotal = base.filter(function(c){ return c.Tipo === 'PF'; }).length;
+  var atTotal = base.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
+  var inTotal = base.filter(function(c){ return (c.Status||'').toLowerCase() === 'inativo'; }).length;
+  document.getElementById('cnt-todos').textContent   = base.length;
   document.getElementById('cnt-pj').textContent      = pjTotal;
   document.getElementById('cnt-pf').textContent      = pfTotal;
   document.getElementById('cnt-ativo').textContent   = atTotal;
   document.getElementById('cnt-inativo').textContent = inTotal;
 
-  var dados = dadosFiltrados || allClientes;
+  var dados = dadosFiltrados || base;
   var pj = dados.filter(function(c){ return c.Tipo === 'PJ'; }).length;
   var pf = dados.filter(function(c){ return c.Tipo === 'PF'; }).length;
   var at = dados.filter(function(c){ return (c.Status||'').toLowerCase() === 'ativo'; }).length;
@@ -1120,7 +1158,7 @@ function setFiltroSidebar(f, btn) {
 function filtrarLista() {
   var busca = (document.getElementById('inp-busca').value || '').toLowerCase().trim();
   var vendedorFiltro = document.getElementById('filtro-vendedor').value;
-  var dados = allClientes.filter(function(c) {
+  var dados = baseClientesVisiveis().filter(function(c) {
     // Filtro sidebar
     if (filtroSidebar === 'PJ' && c.Tipo !== 'PJ') return false;
     if (filtroSidebar === 'PF' && c.Tipo !== 'PF') return false;
