@@ -1915,6 +1915,13 @@ function ultimoDiaMes_(chave){
   const [y,m] = chave.split('-').map(Number);
   return dateToISO(new Date(y, m, 0));
 }
+// Override fixo do Filipe: 2% sobre a margem líquida de CADA outro
+// vendedor do quadro de comissão, somado à comissão normal dele (pela
+// própria faixa). Sempre calculado sobre o time inteiro, sem respeitar
+// o filtro de vendedor da tela — senão o valor do Filipe mudaria só
+// porque alguém filtrou a visualização pra outra pessoa.
+const PCT_OVERRIDE_FILIPE = 2;
+
 let dtComissoes = null;
 async function renderComissoes(){
   await popularMesesComissao_();
@@ -1923,10 +1930,9 @@ async function renderComissoes(){
   const periodoInicio = chave + '-01';
   const periodoFim = ultimoDiaMes_(chave);
 
-  const vendedorIdsFiltro = getGlobalVendedorIds();
+  // Busca sempre o time inteiro (sem vendedorIds) — o filtro da tela só
+  // decide quem aparece na tabela, nunca a base do cálculo do Filipe.
   const qs = new URLSearchParams({ periodoInicio, periodoFim });
-  if(vendedorIdsFiltro.length) qs.set('vendedorIds', vendedorIdsFiltro.join(','));
-
   let resp;
   try { resp = await crmFetch('/resumo-vendedores?' + qs.toString()); }
   catch(e){ console.error('[comissoes] falha ao buscar dados:', e); return; }
@@ -1935,27 +1941,40 @@ async function renderComissoes(){
   // Pedido do Alex: esses vendedores não entram nessa faixa de comissão —
   // nem precisam aparecer no visual.
   const VENDEDORES_SEM_COMISSAO = ['Diego', 'Jessé', 'Gabriel'];
-  const linhas = resp.porVendedor
-    .filter(r => {
-      const v = vendedoresPorId[r.vendedorId];
-      return !v || !VENDEDORES_SEM_COMISSAO.includes(v.nome);
-    })
+  const elegiveis = resp.porVendedor.filter(r => {
+    const v = vendedoresPorId[r.vendedorId];
+    return !v || !VENDEDORES_SEM_COMISSAO.includes(v.nome);
+  });
+
+  const margemTimeSemFilipe = elegiveis
+    .filter(r => (vendedoresPorId[r.vendedorId]||{}).nome !== 'Filipe')
+    .reduce((s,r) => s + r.periodo.margem, 0);
+  const overrideFilipe = margemTimeSemFilipe * PCT_OVERRIDE_FILIPE / 100;
+
+  const vendedorIdsFiltro = getGlobalVendedorIds();
+  const linhas = elegiveis
+    .filter(r => !vendedorIdsFiltro.length || vendedorIdsFiltro.includes(r.vendedorId))
     .map(r => {
       const v = vendedoresPorId[r.vendedorId];
+      const nome = v ? v.nome : '—';
       const margem = r.periodo.margem;
       const com = calcularComissao_(margem);
-      return { nome: v ? v.nome : '—', margem, ...com };
+      const isFilipe = nome === 'Filipe';
+      return { nome, margem, ...com, overrideEquipe: isFilipe ? overrideFilipe : 0, valorFinal: com.valor + (isFilipe ? overrideFilipe : 0) };
     })
     .sort((a,b) => b.margem - a.margem);
 
   const totalMargem = linhas.reduce((s,l) => s + l.margem, 0);
-  const totalValor  = linhas.reduce((s,l) => s + l.valor, 0);
+  const totalValor  = linhas.reduce((s,l) => s + l.valorFinal, 0);
   document.getElementById('comissoes-total-margem').textContent = fmtMoney(totalMargem);
   document.getElementById('comissoes-total-valor').textContent  = fmtMoney(totalValor);
 
-  const rowsData = linhas.map(l => [
-    escapeHtml(l.nome), fmtMoney(l.margem), escapeHtml(l.faixaLabel), l.pct ? l.pct + '%' : '—', fmtMoney(l.valor),
-  ]);
+  const rowsData = linhas.map(l => {
+    const valorCel = l.overrideEquipe > 0
+      ? `${fmtMoney(l.valor)} + ${fmtMoney(l.overrideEquipe)} = <strong>${fmtMoney(l.valorFinal)}</strong>`
+      : fmtMoney(l.valorFinal);
+    return [escapeHtml(l.nome), fmtMoney(l.margem), escapeHtml(l.faixaLabel), l.pct ? l.pct + '%' : '—', valorCel];
+  });
   if(!dtComissoes){
     dtComissoes = $('#table-comissoes').DataTable({data: rowsData, order:[], pageLength:10, language:DT_PT});
   } else {
