@@ -376,6 +376,9 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
           <option value="Gonçalves Soluções em Logística">Gonçalves Soluções em Logística</option>
           <option value="Pinheiro Transportes e Serviços">Pinheiro Transportes e Serviços</option>
         </select>
+        <select class="filter-input" id="f-vendedor" onchange="renderTabela()" style="min-width:160px">
+          <option value="">Todos os vendedores</option>
+        </select>
         <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">De</span>
         <input class="filter-input" type="date" id="f-ini" onchange="renderTabela()" style="min-width:135px">
         <span style="font-size:11px;color:var(--txt-dim);white-space:nowrap">Até</span>
@@ -1447,6 +1450,7 @@ async function loadAllData(){
 }
 
 function renderAll(){
+  popularFiltroVendedor_();
   renderTabela();
   var badge = document.getElementById('badge-total');
   if(registros.length){ badge.style.display='inline-block'; badge.textContent=registros.length; }
@@ -1732,14 +1736,27 @@ async function carregarDashboardFat(){
 }
 
 /* ── Detalhamento (tabela) ── */
+// Dropdown de vendedor é montado a partir dos próprios registros (sem
+// lista fixa) — assim cobre qualquer vendedor que apareça no faturamento,
+// sem precisar atualizar o código quando entrar gente nova. Preserva a
+// seleção atual entre recarregamentos, quando ela continuar existindo.
+function popularFiltroVendedor_(){
+  var sel = document.getElementById('f-vendedor');
+  var atual = sel.value;
+  var nomes = Array.from(new Set(registros.map(r=>r.vendedor).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  sel.innerHTML = '<option value="">Todos os vendedores</option>' + nomes.map(n=>`<option value="${n}">${n}</option>`).join('');
+  if(nomes.includes(atual)) sel.value = atual;
+}
 function getLinhasFiltradas(){
   var rows = registros.slice();
   var texto = (document.getElementById('f-texto').value||'').toLowerCase();
   var empresa = document.getElementById('f-empresa').value;
+  var vendedor = document.getElementById('f-vendedor').value;
   var ini = document.getElementById('f-ini').value;
   var fim = document.getElementById('f-fim').value;
   if(texto) rows = rows.filter(r=>[r.cliente,r.motorista,r.cte,r.cod].join(' ').toLowerCase().includes(texto));
   if(empresa) rows = rows.filter(r=>r.empresa===empresa);
+  if(vendedor) rows = rows.filter(r=>r.vendedor===vendedor);
   if(ini) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) >= ini);
   if(fim) rows = rows.filter(r=>dataPlanilhaParaISO_(r.dataFaturamento) <= fim);
   rows.sort((a,b)=>dataPlanilhaParaISO_(b.dataFaturamento).localeCompare(dataPlanilhaParaISO_(a.dataFaturamento)));
