@@ -361,10 +361,6 @@ function fromDateInp(s){
   return s;
 }
 
-// WEBAPP_URL agora só é usado pros anexos (upload/lista/exclusão no Google
-// Drive) — os dados do card em si vêm do Supabase, via API_BASE abaixo.
-var WEBAPP_URL="https://script.google.com/macros/s/AKfycbwkX0XLYMnWIKa9SsS1oSv9E2hhGYjKi5Fp2cPHA_J_X1jg7NiGVT4YfdFAjZ3Ps2C4Qg/exec";
-
 var API_BASE = 'https://barretos-backend.onrender.com/api';
 
 // Este módulo não tem tela de login própria — quem cuida disso é o shell
@@ -1148,9 +1144,9 @@ async function deleteCard(){
     if(!r.ok){var j=await r.json();throw new Error(j.error||"Erro ao excluir");}
     // Anexos não são apagados sozinhos mais (antes isso acontecia junto da
     // exclusão da linha na planilha, via Apps Script) — remove cada um do
-    // Drive manualmente, igual o botão de excluir anexo individual já fazia.
+    // Storage manualmente, igual o botão de excluir anexo individual já fazia.
     for(var i=0;i<driveAtts.length;i++){
-      try{ await fetchComTentativas_(WEBAPP_URL,{method:"POST",body:JSON.stringify({action:"excluir_anexo",fileId:driveAtts[i].id})}); }catch(e){}
+      try{ await apiFetch(API_BASE+"/kanban/anexos",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:driveAtts[i].id, empresa:ABA})}); }catch(e){}
     }
     // Limpa os dados extras guardados no navegador pra esse código — sem
     // isso, se esse mesmo código for reaproveitado por um card novo (a
@@ -1177,9 +1173,10 @@ var carregandoAnexos = false;
 var erroAnexos = false;
 
 function carregarAnexosDrive(chave) {
-  if (!chave || !WEBAPP_URL) return;
+  if (!chave) return;
   carregandoAnexos = true; erroAnexos = false; renderAttList();
-  fetchComTentativas_(WEBAPP_URL + '?action=anexos&chave=' + encodeURIComponent(chave), null, 4, 15000)
+  apiFetch(API_BASE + '/kanban/anexos?codigo=' + encodeURIComponent(chave) + '&empresa=' + encodeURIComponent(ABA))
+    .then(function(r) { return r.json(); })
     .then(function(j) {
       carregandoAnexos = false;
       if (j && j.success) {
@@ -1213,7 +1210,7 @@ function renderAttList() {
          + "<i class=\"ti "+ico+"\" style=\"font-size:14px;color:var(--gold);flex-shrink:0\"></i>"
          + "<span class=\"aname\">" + e(nm) + "</span>"
          + "<span class=\"asz\">" + sz + "</span>"
-         + "<a href=\"https://drive.google.com/file/d/"+a.id+"/view\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\" rel=\"noopener\"><i class=\"ti ti-eye\"></i></a>"
+         + "<a href=\""+a.url+"\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\" rel=\"noopener\"><i class=\"ti ti-eye\"></i></a>"
          + "<a href=\""+a.url+"\" download=\""+e(nm)+"\" class=\"adl\"><i class=\"ti ti-download\"></i></a>"
          + "<button class=\"arm\" onclick=\"rmAttDrive('"+a.id+"',"+i+")\" title=\"Excluir\"><i class=\"ti ti-x\"></i></button>"
          + "</div>";
@@ -1275,7 +1272,7 @@ async function baixarTodosAnexos() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         empresa: ABA,
-        arquivos: driveAtts.map(function(a) { return { id: a.id, nome: a.nome }; }),
+        arquivos: driveAtts.map(function(a) { return { path: a.id, nome: a.nome }; }),
       }),
     });
     if (!res.ok) {
@@ -1321,16 +1318,18 @@ function rmAtt(i) { pendAtt.splice(i, 1); renderAttList(); }
 function rmAttDrive(fileId, i) {
   console.log("[rmAttDrive] Iniciando exclusão de", fileId);
   if (!confirm("Excluir este anexo permanentemente?")) return;
-  if (!WEBAPP_URL || !fileId) { 
-    alert("Erro: URL ou fileId ausente");
-    console.error("[rmAttDrive] Validação falhou - WEBAPP_URL:", WEBAPP_URL, "fileId:", fileId);
+  if (!fileId) { 
+    alert("Erro: caminho do arquivo ausente");
+    console.error("[rmAttDrive] Validação falhou - fileId:", fileId);
     return; 
   }
-  console.log("[rmAttDrive] Enviando requisição DELETE para Apps Script");
-  fetchComTentativas_(WEBAPP_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "excluir_anexo", fileId: fileId })
+  console.log("[rmAttDrive] Enviando requisição DELETE");
+  apiFetch(API_BASE + "/kanban/anexos", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: fileId, empresa: ABA })
   })
+  .then(function(r) { return r.json(); })
   .then(function(j) {
     console.log("[rmAttDrive] JSON recebido:", j);
     if (j.success) {
@@ -1359,7 +1358,8 @@ async function saveAtt(key) {
   var total = pendAtt.length;
   var erros = [];
 
-  // Envia sequencialmente — Apps Script não suporta chamadas paralelas
+  // Envia sequencialmente — mesmo padrão de antes (evita sobrecarregar o
+  // upload em paralelo quando tem vários arquivos pendentes)
   for (var i = 0; i < pendAtt.length; i++) {
     var f = pendAtt[i];
     if (btn) btn.innerHTML = "<span class=\"spinner\"></span> Enviando anexo " + (i + 1) + "/" + total + "…";
@@ -1370,17 +1370,19 @@ async function saveAtt(key) {
         reader.onerror = function() { reject(new Error("Falha ao ler " + f.name)); };
         reader.readAsDataURL(f);
       });
-      var j = await fetchComTentativas_(WEBAPP_URL, {
+      var res = await apiFetch(API_BASE + "/kanban/anexos", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "upload_anexo",
-          chave: key,
+          codigo: key,
+          empresa: ABA,
           nome: f.name,
           data: base64,
           mimeType: f.type || "application/octet-stream"
         })
       });
-      console.log('[saveAtt] resposta Drive:', JSON.stringify(j));
+      var j = await res.json();
+      console.log('[saveAtt] resposta Storage:', JSON.stringify(j));
       if (j.success && j.anexo) { driveAtts.push(j.anexo);
         try { localStorage.setItem("attcnt_"+key, JSON.stringify(driveAtts)); } catch(e) {} }
       else { console.error('[saveAtt] erro:', j.error); erros.push(f.name); }
@@ -1617,18 +1619,17 @@ function importarCard(){
     fset(k,val);
     copiedCount++;
   });
-  // Anexos do Drive do card de origem (mesma lógica do carregarAnexosDrive)
+  // Anexos do card de origem (mesma lógica do carregarAnexosDrive)
   if(found["DT CODIGO"]||found["Chave"]){
     var origemChave=found["DT CODIGO"]||found["Chave"];
-    if(WEBAPP_URL){
-      fetchComTentativas_(WEBAPP_URL+'?action=anexos&chave='+encodeURIComponent(origemChave))
-        .then(function(j){
-          if(j.success){
-            driveAtts=(j.anexos||[]).slice();
-            renderAttList();
-          }
-        }).catch(function(){});
-    }
+    apiFetch(API_BASE+'/kanban/anexos?codigo='+encodeURIComponent(origemChave)+'&empresa='+encodeURIComponent(ABA))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if(j.success){
+          driveAtts=(j.anexos||[]).slice();
+          renderAttList();
+        }
+      }).catch(function(){});
   }
   if(msgEl){
     msgEl.textContent="✓ "+copiedCount+" campos importados de '"+cod+"' (datas e identificação mantidas em branco).";
