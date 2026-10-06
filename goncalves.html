@@ -1161,6 +1161,24 @@ async function deleteCard(){
 
 function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
+// O atributo "download" do HTML é ignorado pelo navegador em link de outro
+// domínio (caso do Supabase Storage) — clicar só abria o arquivo pra
+// visualizar, igual o botão de olho, em vez de baixar de verdade. Busca o
+// arquivo e força o download via blob: (sempre "mesma origem", sem essa
+// limitação) — mesma ideia já usada em baixarTodosAnexos(), só que por
+// arquivo individual.
+function baixarAnexoBlob_(el) {
+  var url = el.getAttribute("data-url");
+  var nome = el.getAttribute("data-nome");
+  fetch(url).then(function(r){ return r.blob(); }).then(function(blob){
+    var blobUrl = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = blobUrl; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 1000);
+  }).catch(function(){ window.open(url, "_blank"); });
+}
+
 // ── ANEXOS VIA GOOGLE DRIVE ─────────────────────────────────
 
 // carregandoAnexos/erroAnexos existem pra distinguir "ainda buscando",
@@ -1210,7 +1228,7 @@ function renderAttList() {
          + "<span class=\"aname\">" + e(nm) + "</span>"
          + "<span class=\"asz\">" + sz + "</span>"
          + "<a href=\""+a.url+"\" target=\"_blank\" class=\"adl\" style=\"color:#3B82F6\" rel=\"noopener\"><i class=\"ti ti-eye\"></i></a>"
-         + "<a href=\""+a.url+"\" download=\""+e(nm)+"\" class=\"adl\"><i class=\"ti ti-download\"></i></a>"
+         + "<a href=\"javascript:void(0)\" class=\"adl\" data-url=\""+e(a.url)+"\" data-nome=\""+e(nm)+"\" onclick=\"baixarAnexoBlob_(this)\"><i class=\"ti ti-download\"></i></a>"
          + "<button class=\"arm\" onclick=\"rmAttDrive(\""+a.id+"\","+i+")\" title=\"Excluir\"><i class=\"ti ti-x\"></i></button>"
          + "</div>";
   }
