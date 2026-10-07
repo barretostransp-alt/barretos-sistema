@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controle de Patrimônio — Barreto's</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#0F1117;--surface:#161922;--card:#1C1F2E;--card-hover:#222638;
+  --border:#252837;--border-light:#2E3247;
+  --gold:#F5B800;--gold-dim:rgba(245,184,0,.1);
+  --green:#2EBD85;--blue:#3B82F6;--orange:#F97316;--red:#E24B4A;--purple:#8B5CF6;
+  --txt:#E8E9F0;--txt-dim:#888;--txt-muted:#444;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans",sans-serif;font-size:14px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
+
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+.topbar-icon{width:32px;height:32px;background:var(--gold);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.topbar-icon i{font-size:16px;color:#111}
+.topbar-title{font-size:14px;font-weight:600;color:var(--txt-dim)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.body{flex:1;display:flex;overflow:hidden}
+
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0;overflow-y:auto}
+.sb-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-muted);padding:12px 18px 4px}
+.sb-btn{display:flex;align-items:center;gap:9px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--txt-dim);border-left:3px solid transparent;user-select:none;transition:all .15s}
+.sb-btn:hover{color:var(--txt);background:var(--card)}
+.sb-btn.active{color:var(--gold);background:var(--gold-dim);border-left-color:var(--gold)}
+.sb-btn i{font-size:15px;flex-shrink:0}
+.sb-count{margin-left:auto;background:var(--gold-dim);color:var(--gold);font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;min-width:20px;text-align:center}
+.sb-divider{height:1px;background:var(--border);margin:8px 0}
+.sb-user-area{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border)}
+.sb-user-name{font-size:12px;font-weight:600;color:var(--txt)}
+.sb-user-role{font-size:11px;color:var(--txt-dim);margin-top:2px}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.toolbar-title{font-size:15px;font-weight:700;color:var(--txt);margin-right:4px}
+.search-wrap{flex:1;min-width:200px;max-width:380px;position:relative}
+.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--txt-muted);pointer-events:none}
+.search-inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:7px 12px 7px 32px;font-size:13px;font-family:"DM Sans",sans-serif;outline:none;transition:border-color .15s}
+.search-inp:focus{border-color:var(--gold)}
+.search-inp::placeholder{color:var(--txt-muted)}
+.filtro-select{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:7px 10px;font-size:13px;font-family:"DM Sans",sans-serif;outline:none;cursor:pointer;transition:border-color .15s}
+.filtro-select:focus{border-color:var(--gold)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--txt-dim);cursor:pointer;font-size:12px;font-weight:600;font-family:"DM Sans",sans-serif;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#111;font-weight:700}
+.btn.primary:hover{opacity:.88}
+.btn i{font-size:14px}
+
+.content{flex:1;overflow-y:auto;padding:20px}
+
+.stats-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;min-width:120px;flex:1}
+.stat-val{font-size:22px;font-weight:700;font-family:"Barlow",sans-serif;line-height:1}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-dim);margin-bottom:4px}
+.stat-sub{font-size:11px;color:var(--txt-dim);margin-top:2px}
+.stat-card.gold .stat-val{color:var(--gold)}
+.stat-card.green .stat-val{color:var(--green)}
+.stat-card.blue .stat-val{color:var(--blue)}
+.stat-card.orange .stat-val{color:var(--orange)}
+.stat-card.purple .stat-val{color:var(--purple)}
+
+.ativo-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:grid;gap:10px;cursor:pointer;transition:background .15s,border-color .15s;grid-template-columns:110px minmax(0,1fr) 200px 120px 150px 76px;align-items:center;min-width:0}
+.ativo-row>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ativo-row:hover{background:var(--card-hover);border-color:var(--border-light)}
+.ativo-row.header{background:var(--surface);cursor:default;padding:8px 16px;margin-bottom:2px;border-radius:var(--r) var(--r) 0 0;border-bottom:none}
+.ativo-row.header:hover{background:var(--surface)}
+.col-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-dim)}
+.at-etiqueta{font-family:"Barlow",sans-serif;font-weight:700;color:var(--gold);white-space:nowrap}
+.at-desc{font-weight:600;font-size:13px}
+.row-acoes{display:flex;gap:6px}
+.icon-btn{background:none;border:none;color:var(--txt-dim);cursor:pointer;padding:4px;border-radius:6px;font-size:14px;transition:color .15s}
+.icon-btn:hover{color:var(--gold)}
+.icon-btn.danger:hover{color:var(--red)}
+
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-em-uso{background:rgba(46,189,133,.12);color:var(--green)}
+.badge-em-manutencao{background:rgba(249,115,22,.14);color:var(--orange)}
+.badge-emprestado{background:rgba(59,130,246,.12);color:var(--blue)}
+.badge-baixado{background:rgba(136,136,136,.14);color:#aaa}
+.badge-vendido{background:rgba(139,92,246,.14);color:var(--purple)}
+.badge-cat{background:rgba(245,184,0,.12);color:var(--gold)}
+
+.loading-state,.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--txt-dim);gap:10px}
+.empty-state i{font-size:40px;color:var(--border-light)}
+.empty-state p{font-size:13px}
+.spinner{width:20px;height:20px;border:2px solid var(--border-light);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border-light);border-radius:14px;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column}
+.modal-header{display:flex;align-items:center;gap:10px;padding:18px 20px;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;background:var(--surface);z-index:2}
+.modal-header h2{font-size:15px;font-weight:700;flex:1}
+.modal-close{background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:18px;display:flex;align-items:center;padding:4px;border-radius:6px;transition:color .15s}
+.modal-close:hover{color:var(--txt)}
+.modal-body{padding:20px;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-shrink:0;position:sticky;bottom:0;background:var(--surface);z-index:2}
+
+.fsec{margin-bottom:20px}
+.fsec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-muted);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.fsec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.fg-grid{display:grid;gap:10px}
+.fg-grid.g2{grid-template-columns:1fr 1fr}
+.fg-grid.g3{grid-template-columns:1fr 1fr 1fr}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:11px;font-weight:600;color:var(--txt-dim);text-transform:uppercase;letter-spacing:.05em}
+.fi{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:8px 10px;font-size:13px;font-family:"DM Sans",sans-serif;outline:none;transition:border-color .15s;width:100%}
+.fi:focus{border-color:var(--gold)}
+.fi::placeholder{color:var(--txt-muted)}
+.fi:disabled{opacity:.5;cursor:not-allowed}
+select.fi{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.fi-hint{font-size:11px;color:var(--txt-muted)}
+
+.msg{display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:12px}
+.msg.ok{background:rgba(46,189,133,.12);color:var(--green);display:flex}
+.msg.err{background:rgba(226,75,74,.12);color:var(--red);display:flex}
+
+.toast{position:fixed;bottom:24px;right:24px;z-index:999;background:var(--card);border:1px solid var(--border-light);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(46,189,133,.3);color:var(--green)}
+.toast.err{border-color:rgba(226,75,74,.3);color:var(--red)}
+
+@media(max-width:700px){
+  .sidebar{display:none}
+  .fg-grid.g2,.fg-grid.g3{grid-template-columns:1fr}
+  .ativo-row{grid-template-columns:1fr auto}
+}
+</style>
+<style>
+body.tema-claro{--bg:#F0F2F5;--surface:#FFFFFF;--card:#FFFFFF;--card-hover:#F5F7FA;--border:#E2E6ED;--border-light:#EEF1F6;--txt:#111827;--txt-dim:#6B7280;--txt-muted:#9CA3AF;--gold:#D97706;--green:#059669;--blue:#2563EB;--orange:#EA580C;--red:#DC2626;--purple:#7C3AED;--gold-dim:rgba(217,119,6,.10)}
+body.tema-claro .topbar,body.tema-claro [class*="topbar"]{background:#111827!important;border-bottom-color:#1F2937!important}
+body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *{color:#E5E7EB!important}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar" id="topbar">
+    <div class="topbar-icon"><i class="ti ti-building-warehouse"></i></div>
+    <span class="topbar-title">Controle de Patrimônio</span>
+    <div class="topbar-right">
+      <span id="tb-user" style="font-size:12px;color:var(--txt-dim)"></span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <div class="sidebar">
+      <div class="sb-section">Status</div>
+      <div class="sb-btn active" id="sb-todos" onclick="setFiltroSidebar('todos',this)">
+        <i class="ti ti-list"></i> Todos
+        <span class="sb-count" id="cnt-todos">0</span>
+      </div>
+      <div class="sb-btn" id="sb-em-uso" onclick="setFiltroSidebar('Em uso',this)">
+        <i class="ti ti-circle-check" style="color:var(--green)"></i> Em uso
+        <span class="sb-count" id="cnt-em-uso">0</span>
+      </div>
+      <div class="sb-btn" id="sb-em-manutencao" onclick="setFiltroSidebar('Em manutenção',this)">
+        <i class="ti ti-tool" style="color:var(--orange)"></i> Em manutenção
+        <span class="sb-count" id="cnt-em-manutencao">0</span>
+      </div>
+      <div class="sb-btn" id="sb-emprestado" onclick="setFiltroSidebar('Emprestado',this)">
+        <i class="ti ti-hand-stop" style="color:var(--blue)"></i> Emprestado
+        <span class="sb-count" id="cnt-emprestado">0</span>
+      </div>
+      <div class="sb-btn" id="sb-baixado" onclick="setFiltroSidebar('Baixado',this)">
+        <i class="ti ti-circle-off" style="color:var(--txt-muted)"></i> Baixado
+        <span class="sb-count" id="cnt-baixado">0</span>
+      </div>
+      <div class="sb-btn" id="sb-vendido" onclick="setFiltroSidebar('Vendido',this)">
+        <i class="ti ti-cash-banknote" style="color:var(--purple)"></i> Vendido
+        <span class="sb-count" id="cnt-vendido">0</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">Categoria</div>
+      <div class="sb-btn" id="sb-cat-informatica" onclick="setFiltroCategoria('Informática',this)">
+        <i class="ti ti-device-laptop"></i> Informática
+      </div>
+      <div class="sb-btn" id="sb-cat-moveis" onclick="setFiltroCategoria('Móveis',this)">
+        <i class="ti ti-armchair"></i> Móveis
+      </div>
+      <div class="sb-btn" id="sb-cat-escritorio" onclick="setFiltroCategoria('Equipamento de Escritório',this)">
+        <i class="ti ti-printer"></i> Equip. Escritório
+      </div>
+      <div class="sb-btn" id="sb-cat-celulares" onclick="setFiltroCategoria('Celulares',this)">
+        <i class="ti ti-device-mobile"></i> Celulares
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">Ações</div>
+      <div class="sb-btn" id="sb-acao-novo" onclick="abrirModalNovo()">
+        <i class="ti ti-plus"></i> Novo Ativo
+      </div>
+      <div class="sb-user-area">
+        <div class="sb-user-name" id="sb-nome">—</div>
+        <div class="sb-user-role" id="sb-role">—</div>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <div class="toolbar">
+        <span class="toolbar-title">Ativos de Patrimônio</span>
+        <div class="search-wrap">
+          <i class="ti ti-search"></i>
+          <input class="search-inp" id="inp-busca" type="text" placeholder="Buscar por etiqueta, descrição, responsável…" oninput="filtrarLista()">
+        </div>
+        <button class="btn" onclick="carregarDados()"><i class="ti ti-refresh"></i> Atualizar</button>
+        <button class="btn primary" onclick="abrirModalNovo()"><i class="ti ti-plus"></i> Novo Ativo</button>
+      </div>
+
+      <div class="content">
+
+        <div class="stats-row" id="stats-row">
+          <div class="stat-card gold"><div class="stat-lbl">Total</div><div class="stat-val" id="s-total">—</div><div class="stat-sub">ativos cadastrados</div></div>
+          <div class="stat-card green"><div class="stat-lbl">Em uso</div><div class="stat-val" id="s-em-uso">—</div><div class="stat-sub">em operação</div></div>
+          <div class="stat-card orange"><div class="stat-lbl">Em manutenção</div><div class="stat-val" id="s-em-manutencao">—</div><div class="stat-sub">parados</div></div>
+          <div class="stat-card blue"><div class="stat-lbl">Etiquetas livres</div><div class="stat-val" id="s-livres">—</div><div class="stat-sub">disponíveis pra uso</div></div>
+          <div class="stat-card purple"><div class="stat-lbl">Valor em Ativos</div><div class="stat-val" id="s-valor-total" style="font-size:18px">—</div><div class="stat-sub">soma do valor de compra</div></div>
+        </div>
+
+        <div id="lista-wrap">
+          <div class="ativo-row header">
+            <div class="col-lbl">Etiqueta</div>
+            <div class="col-lbl">Descrição</div>
+            <div class="col-lbl">Categoria</div>
+            <div class="col-lbl">Status</div>
+            <div class="col-lbl">Local / Responsável</div>
+            <div></div>
+          </div>
+          <div id="lista"></div>
+        </div>
+
+        <div id="loading-state" class="loading-state">
+          <div class="spinner"></div>
+          <span>Carregando ativos…</span>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /main -->
+  </div><!-- /body -->
+</div><!-- /app -->
+
+<!-- MODAL — NOVO / EDITAR ATIVO -->
+<div class="overlay" id="ov-form">
+  <div class="modal">
+    <div class="modal-header">
+      <i class="ti ti-building-warehouse" style="color:var(--gold);font-size:18px"></i>
+      <h2 id="modal-titulo">Novo Ativo</h2>
+      <button class="modal-close" onclick="fecharModal('ov-form')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="msg" id="form-msg"></div>
+
+      <div class="fsec">
+        <div class="fsec-title"><i class="ti ti-tag" style="font-size:12px"></i> Identificação</div>
+        <div class="fg-grid g2">
+          <div class="fg">
+            <label>Etiqueta *</label>
+            <select class="fi" id="fi-etiqueta"><option value="">— Selecione —</option></select>
+            <span class="fi-hint" id="hint-etiqueta">Só mostra etiquetas ainda não usadas</span>
+          </div>
+          <div class="fg">
+            <label>Categoria *</label>
+            <select class="fi" id="fi-categoria">
+              <option value="">— Selecione —</option>
+              <option>Informática</option>
+              <option>Móveis</option>
+              <option>Equipamento de Escritório</option>
+              <option>Celulares</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg-grid g2" style="margin-top:10px">
+          <div class="fg" style="grid-column:span 2">
+            <label>Descrição *</label>
+            <input class="fi" id="fi-descricao" placeholder="Ex: Cadeira 123, Notebook Dell i5…">
+          </div>
+        </div>
+      </div>
+
+      <div class="fsec">
+        <div class="fsec-title"><i class="ti ti-map-pin" style="font-size:12px"></i> Localização</div>
+        <div class="fg-grid g2">
+          <div class="fg">
+            <label>Local / Setor</label>
+            <input class="fi" id="fi-local" placeholder="Ex: Escritório, Sala Comercial…">
+          </div>
+          <div class="fg">
+            <label>Colaborador Responsável</label>
+            <input class="fi" id="fi-colaborador" placeholder="Nome do colaborador">
+          </div>
+        </div>
+        <span class="fi-hint">Preencha pelo menos um dos dois campos acima</span>
+      </div>
+
+      <div class="fsec">
+        <div class="fsec-title"><i class="ti ti-receipt" style="font-size:12px"></i> Compra (opcional)</div>
+        <div class="fg-grid g3">
+          <div class="fg">
+            <label>Valor de Compra (R$)</label>
+            <input class="fi" id="fi-valor" placeholder="0,00">
+          </div>
+          <div class="fg">
+            <label>Data de Aquisição</label>
+            <input class="fi" type="date" id="fi-data-aquisicao">
+          </div>
+          <div class="fg">
+            <label>Nota Fiscal / Fornecedor</label>
+            <input class="fi" id="fi-nota-fiscal" placeholder="Nº NF ou fornecedor">
+          </div>
+        </div>
+      </div>
+
+      <div class="fsec">
+        <div class="fsec-title"><i class="ti ti-info-circle" style="font-size:12px"></i> Situação</div>
+        <div class="fg-grid g2">
+          <div class="fg">
+            <label>Status</label>
+            <select class="fi" id="fi-status" onchange="atualizarCamposBaixa()">
+              <option value="Em uso">Em uso</option>
+              <option value="Em manutenção">Em manutenção</option>
+              <option value="Emprestado">Emprestado</option>
+              <option value="Baixado">Baixado</option>
+              <option value="Vendido">Vendido</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Foto (link)</label>
+            <input class="fi" id="fi-foto" placeholder="https://…">
+          </div>
+        </div>
+        <div class="fg-grid g2" id="fg-baixa" style="margin-top:10px;display:none">
+          <div class="fg">
+            <label>Motivo da Baixa</label>
+            <input class="fi" id="fi-motivo-baixa" placeholder="Ex: quebrou, vendido, doado…">
+          </div>
+          <div class="fg">
+            <label>Data da Baixa</label>
+            <input class="fi" type="date" id="fi-data-baixa">
+          </div>
+        </div>
+        <div class="fg-grid g2" style="margin-top:10px">
+          <div class="fg" style="grid-column:span 2">
+            <label>Observações</label>
+            <textarea class="fi" id="fi-obs" rows="2" placeholder="Observações gerais…" style="resize:vertical"></textarea>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+    <div class="modal-footer">
+      <span id="form-status" style="font-size:12px;color:var(--txt-dim);flex:1"></span>
+      <button class="btn" onclick="fecharModal('ov-form')">Cancelar</button>
+      <button class="btn primary" id="btn-salvar" onclick="salvarAtivo()">
+        <i class="ti ti-device-floppy"></i> Salvar Ativo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+var API_BASE = 'https://barretos-backend.onrender.com/api';
+
+var SUPABASE_URL      = 'https://qjwobkpgqmaqisphwonl.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_c4MrJXB6nTHY0a5ShAFRaQ_Jc4qDdPr';
+
+function getAuthToken()    { return localStorage.getItem('barretos_auth_token'); }
+function getRefreshToken() { return localStorage.getItem('barretos_auth_refresh'); }
+
+async function tentarRenovarToken() {
+  var refresh = getRefreshToken();
+  if (!refresh) return false;
+  var agora = Date.now();
+  var ultimaRenovacao = parseInt(localStorage.getItem('barretos_auth_renovado_em') || '0', 10);
+  if (agora - ultimaRenovacao < 5000) return !!getAuthToken();
+  try {
+    var r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!r.ok) return false;
+    var j = await r.json();
+    localStorage.setItem('barretos_auth_token', j.access_token);
+    localStorage.setItem('barretos_auth_refresh', j.refresh_token);
+    localStorage.setItem('barretos_auth_renovado_em', String(Date.now()));
+    return true;
+  } catch (e) { return false; }
+}
+
+async function apiFetch(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
+  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) {
+    if (await tentarRenovarToken()) {
+      headers.Authorization = 'Bearer ' + getAuthToken();
+      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+    }
+    if (res.status === 401) {
+      mostrarTelaSemAcesso();
+      throw new Error('Sessão expirada');
+    }
+  }
+  return res;
+}
+
+function mostrarTelaSemAcesso() {
+  var el = document.getElementById('sem-acesso-overlay');
+  if (el) { el.style.display = 'flex'; return; }
+  el = document.createElement('div');
+  el.id = 'sem-acesso-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0F1117;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#E8E9F0;text-align:center;padding:24px';
+  el.innerHTML = '<div><div style="font-size:15px;font-weight:700;margin-bottom:8px">Sessão não encontrada</div>' +
+    '<div style="font-size:13px;color:#9CA3AF">Acesse esta tela pelo menu principal do sistema (shell.html), não direto por este arquivo.</div></div>';
+  document.body.appendChild(el);
+}
+
+function mapearDoApi_(a) {
+  return {
+    ID: a.id,
+    Etiqueta: a.etiqueta || '',
+    Descricao: a.descricao || '',
+    Categoria: a.categoria || '',
+    Status: a.status || 'Em uso',
+    LocalSetor: a.local_setor || '',
+    ColaboradorResponsavel: a.colaborador_responsavel || '',
+    ValorCompra: a.valor_compra != null ? a.valor_compra : '',
+    DataAquisicao: a.data_aquisicao || '',
+    NotaFiscalFornecedor: a.nota_fiscal_fornecedor || '',
+    FotoUrl: a.foto_url || '',
+    MotivoBaixa: a.motivo_baixa || '',
+    DataBaixa: a.data_baixa || '',
+    Obs: a.obs || ''
+  };
+}
+function mapearParaApi_(d) {
+  return {
+    etiqueta: d.Etiqueta,
+    descricao: d.Descricao,
+    categoria: d.Categoria,
+    status: d.Status,
+    local_setor: d.LocalSetor || null,
+    colaborador_responsavel: d.ColaboradorResponsavel || null,
+    valor_compra: d.ValorCompra !== '' ? Number(d.ValorCompra) : null,
+    data_aquisicao: d.DataAquisicao || null,
+    nota_fiscal_fornecedor: d.NotaFiscalFornecedor || null,
+    foto_url: d.FotoUrl || null,
+    motivo_baixa: d.MotivoBaixa || null,
+    data_baixa: d.DataBaixa || null,
+    obs: d.Obs || null
+  };
+}
+
+// ── ESTADO ──────────────────────────────────────────────────
+var allAtivos = [];
+var filtroSidebar   = 'todos';
+var filtroCategoria = '';
+var editandoId = null;
+
+// ── INIT ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  var rawUser = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || '';
+  var user = {};
+  try { if (rawUser) user = JSON.parse(rawUser); } catch(e) {}
+  var nome   = user.nome   || localStorage.getItem('barretos_nome')   || '';
+  var perfil = user.perfil || localStorage.getItem('barretos_perfil') || '';
+
+  document.getElementById('sb-nome').textContent = nome || 'Usuário';
+  document.getElementById('sb-role').textContent = (perfil.charAt(0).toUpperCase() + perfil.slice(1)) || 'Colaborador';
+  document.getElementById('tb-user').textContent = nome;
+
+  if (!getAuthToken()) { mostrarTelaSemAcesso(); return; }
+  carregarDados();
+});
+
+// ── CARREGAR ────────────────────────────────────────────────
+async function carregarDados() {
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('lista-wrap').style.display    = 'none';
+
+  try {
+    var res  = await apiFetch(API_BASE + '/patrimonio');
+    var rows = await res.json();
+    if (!res.ok) throw new Error(rows.error || 'Erro ao carregar');
+    allAtivos = rows.map(mapearDoApi_);
+    filtrarLista();
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('lista-wrap').style.display    = 'block';
+  } catch(e) {
+    document.getElementById('loading-state').innerHTML =
+      '<i class="ti ti-wifi-off" style="font-size:32px;color:var(--red)"></i>' +
+      '<span>Erro ao carregar: ' + e.message + '</span>';
+  }
+}
+
+async function carregarEtiquetasDisponiveis(etiquetaAtual) {
+  var sel = document.getElementById('fi-etiqueta');
+  sel.innerHTML = '<option value="">— Selecione —</option>';
+  try {
+    var res = await apiFetch(API_BASE + '/patrimonio/etiquetas-disponiveis');
+    var etiquetas = await res.json();
+    if (etiquetaAtual && !etiquetas.includes(etiquetaAtual)) etiquetas = [etiquetaAtual].concat(etiquetas);
+    etiquetas.forEach(function(e) {
+      var opt = document.createElement('option');
+      opt.value = e; opt.textContent = e;
+      sel.appendChild(opt);
+    });
+    if (etiquetaAtual) sel.value = etiquetaAtual;
+  } catch(e) {
+    toast('Erro ao carregar etiquetas disponíveis', 'err');
+  }
+}
+
+// ── STATS ────────────────────────────────────────────────────
+function atualizarStats(dadosFiltrados) {
+  var etiquetasLivresCount = null; // preenchido de forma assíncrona abaixo
+  var emUsoTotal   = allAtivos.filter(function(a){ return a.Status === 'Em uso'; }).length;
+  var emManutTotal = allAtivos.filter(function(a){ return a.Status === 'Em manutenção'; }).length;
+
+  document.getElementById('cnt-todos').textContent          = allAtivos.length;
+  document.getElementById('cnt-em-uso').textContent         = emUsoTotal;
+  document.getElementById('cnt-em-manutencao').textContent  = emManutTotal;
+  document.getElementById('cnt-emprestado').textContent     = allAtivos.filter(function(a){ return a.Status === 'Emprestado'; }).length;
+  document.getElementById('cnt-baixado').textContent        = allAtivos.filter(function(a){ return a.Status === 'Baixado'; }).length;
+  document.getElementById('cnt-vendido').textContent        = allAtivos.filter(function(a){ return a.Status === 'Vendido'; }).length;
+
+  document.getElementById('s-total').textContent          = allAtivos.length;
+  document.getElementById('s-em-uso').textContent         = emUsoTotal;
+  document.getElementById('s-em-manutencao').textContent  = emManutTotal;
+
+  var valorTotal = allAtivos.reduce(function(soma, a){ return soma + (Number(a.ValorCompra) || 0); }, 0);
+  document.getElementById('s-valor-total').textContent = formatarMoeda_(valorTotal);
+
+  apiFetch(API_BASE + '/patrimonio/etiquetas-disponiveis')
+    .then(function(r){ return r.json(); })
+    .then(function(etiquetas){ document.getElementById('s-livres').textContent = etiquetas.length; })
+    .catch(function(){ document.getElementById('s-livres').textContent = '—'; });
+}
+
+// ── FILTROS ──────────────────────────────────────────────────
+function setFiltroSidebar(f, btn) {
+  filtroSidebar = f;
+  filtroCategoria = '';
+  document.querySelectorAll('.sb-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  filtrarLista();
+}
+function setFiltroCategoria(c, btn) {
+  filtroCategoria = c;
+  filtroSidebar = 'todos';
+  document.querySelectorAll('.sb-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  filtrarLista();
+}
+
+function filtrarLista() {
+  var busca = (document.getElementById('inp-busca').value || '').toLowerCase().trim();
+  var dados = allAtivos.filter(function(a) {
+    if (filtroSidebar !== 'todos' && a.Status !== filtroSidebar) return false;
+    if (filtroCategoria && a.Categoria !== filtroCategoria) return false;
+    if (busca) {
+      var haystack = [a.Etiqueta, a.Descricao, a.LocalSetor, a.ColaboradorResponsavel].join(' ').toLowerCase();
+      return haystack.includes(busca);
+    }
+    return true;
+  });
+  renderLista(dados);
+  atualizarStats(dados);
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function badgeStatus(status) {
+  var classe = 'badge-' + status.toLowerCase().replace(/ /g,'-').replace('ç','c').replace('ã','a').replace('é','e');
+  return '<span class="badge ' + classe + '">' + esc(status) + '</span>';
+}
+
+function renderLista(dados) {
+  var el = document.getElementById('lista');
+  if (!dados.length) {
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-building-warehouse"></i><p>Nenhum ativo encontrado</p></div>';
+    return;
+  }
+  el.innerHTML = dados.map(function(a) {
+    var localResp = [a.LocalSetor, a.ColaboradorResponsavel].filter(Boolean).join(' / ') || '—';
+    return '<div class="ativo-row" onclick="abrirModalEditar(\'' + a.ID + '\')">' +
+      '<div class="at-etiqueta">' + esc(a.Etiqueta) + '</div>' +
+      '<div class="at-desc">' + esc(a.Descricao) + '</div>' +
+      '<div><span class="badge badge-cat">' + esc(a.Categoria) + '</span></div>' +
+      '<div>' + badgeStatus(a.Status) + '</div>' +
+      '<div>' + esc(localResp) + '</div>' +
+      '<div class="row-acoes">' +
+        '<button class="icon-btn" title="Editar" onclick="event.stopPropagation();abrirModalEditar(\'' + a.ID + '\')"><i class="ti ti-edit"></i></button>' +
+        '<button class="icon-btn danger" title="Excluir" onclick="event.stopPropagation();excluirAtivo(\'' + a.ID + '\')"><i class="ti ti-trash"></i></button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── MODAL ────────────────────────────────────────────────────
+function limparForm() {
+  ['fi-descricao','fi-local','fi-colaborador','fi-valor','fi-data-aquisicao','fi-nota-fiscal','fi-foto','fi-motivo-baixa','fi-data-baixa','fi-obs'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fi-categoria').value = '';
+  document.getElementById('fi-status').value = 'Em uso';
+  document.getElementById('form-msg').className = 'msg';
+  document.getElementById('form-status').textContent = '';
+  atualizarCamposBaixa();
+}
+
+async function abrirModalNovo() {
+  editandoId = null;
+  limparForm();
+  document.getElementById('modal-titulo').textContent = 'Novo Ativo';
+  document.getElementById('fi-etiqueta').disabled = false;
+  await carregarEtiquetasDisponiveis(null);
+  document.getElementById('ov-form').classList.add('open');
+}
+
+async function abrirModalEditar(id) {
+  var a = allAtivos.find(function(x){ return x.ID === id; });
+  if (!a) return;
+  editandoId = id;
+  limparForm();
+  document.getElementById('modal-titulo').textContent = 'Editar Ativo';
+  await carregarEtiquetasDisponiveis(a.Etiqueta);
+  document.getElementById('fi-etiqueta').disabled = true; // etiqueta nunca muda depois de salva
+  document.getElementById('fi-categoria').value = a.Categoria;
+  document.getElementById('fi-descricao').value = a.Descricao;
+  document.getElementById('fi-local').value = a.LocalSetor;
+  document.getElementById('fi-colaborador').value = a.ColaboradorResponsavel;
+  document.getElementById('fi-valor').value = a.ValorCompra;
+  document.getElementById('fi-data-aquisicao').value = a.DataAquisicao;
+  document.getElementById('fi-nota-fiscal').value = a.NotaFiscalFornecedor;
+  document.getElementById('fi-foto').value = a.FotoUrl;
+  document.getElementById('fi-status').value = a.Status;
+  document.getElementById('fi-motivo-baixa').value = a.MotivoBaixa;
+  document.getElementById('fi-data-baixa').value = a.DataBaixa;
+  document.getElementById('fi-obs').value = a.Obs;
+  atualizarCamposBaixa();
+  document.getElementById('ov-form').classList.add('open');
+}
+
+function atualizarCamposBaixa() {
+  var status = document.getElementById('fi-status').value;
+  var mostrar = status === 'Baixado' || status === 'Vendido';
+  document.getElementById('fg-baixa').style.display = mostrar ? 'grid' : 'none';
+}
+
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+
+async function salvarAtivo() {
+  var etiqueta   = document.getElementById('fi-etiqueta').value;
+  var categoria  = document.getElementById('fi-categoria').value;
+  var descricao  = document.getElementById('fi-descricao').value.trim();
+  var local      = document.getElementById('fi-local').value.trim();
+  var colaborador= document.getElementById('fi-colaborador').value.trim();
+
+  if (!etiqueta) return showMsg('Selecione a etiqueta.', 'err');
+  if (!categoria) return showMsg('Selecione a categoria.', 'err');
+  if (!descricao) return showMsg('Descreva o ativo.', 'err');
+  if (!local && !colaborador) return showMsg('Preencha o Local/Setor ou o Colaborador Responsável.', 'err');
+
+  var dados = {
+    Etiqueta: etiqueta,
+    Categoria: categoria,
+    Descricao: descricao,
+    LocalSetor: local,
+    ColaboradorResponsavel: colaborador,
+    ValorCompra: document.getElementById('fi-valor').value.trim(),
+    DataAquisicao: document.getElementById('fi-data-aquisicao').value,
+    NotaFiscalFornecedor: document.getElementById('fi-nota-fiscal').value.trim(),
+    FotoUrl: document.getElementById('fi-foto').value.trim(),
+    Status: document.getElementById('fi-status').value,
+    MotivoBaixa: document.getElementById('fi-motivo-baixa').value.trim(),
+    DataBaixa: document.getElementById('fi-data-baixa').value,
+    Obs: document.getElementById('fi-obs').value.trim()
+  };
+
+  var btn = document.getElementById('btn-salvar');
+  btn.disabled = true;
+  document.getElementById('form-status').textContent = 'Salvando…';
+  try {
+    var payload = mapearParaApi_(dados);
+    var res;
+    if (editandoId) {
+      res = await apiFetch(API_BASE + '/patrimonio/' + editandoId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    } else {
+      res = await apiFetch(API_BASE + '/patrimonio', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }
+    var j = await res.json();
+    if (!res.ok) throw new Error(j.error || 'Erro ao salvar');
+    fecharModal('ov-form');
+    toast(editandoId ? 'Ativo atualizado com sucesso' : 'Ativo cadastrado com sucesso', 'ok');
+    carregarDados();
+  } catch(e) {
+    showMsg(e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('form-status').textContent = '';
+  }
+}
+
+async function excluirAtivo(id) {
+  var a = allAtivos.find(function(x){ return x.ID === id; });
+  if (!a) return;
+  if (!confirm('Excluir o ativo "' + a.Etiqueta + ' — ' + a.Descricao + '"? Essa ação não pode ser desfeita.')) return;
+  try {
+    var res = await apiFetch(API_BASE + '/patrimonio/' + id, { method: 'DELETE' });
+    if (!res.ok) { var j = await res.json().catch(function(){return {};}); throw new Error(j.error || 'Erro ao excluir'); }
+    toast('Ativo excluído', 'ok');
+    carregarDados();
+  } catch(e) {
+    toast('Erro ao excluir: ' + e.message, 'err');
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function showMsg(txt, tipo) {
+  var el = document.getElementById('form-msg');
+  el.textContent = txt;
+  el.className = 'msg ' + tipo;
+}
+function toast(msg, tipo) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (tipo||'ok') + ' show';
+  setTimeout(function(){ el.classList.remove('show'); }, 3000);
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function formatarMoeda_(v) {
+  return 'R$ ' + (v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+document.querySelectorAll('.overlay').forEach(function(ov) {
+  ov.addEventListener('click', function(e) {
+    if (e.target === ov) ov.classList.remove('open');
+  });
+});
+</script>
+
+<script>
+/* ── SISTEMA DE TEMA (injetado) ──────────────────────────── */
+(function(){
+  function applyTema(t){
+    document.body.classList.remove('tema-claro','tema-escuro');
+    if(t==='claro') document.body.classList.add('tema-claro');
+  }
+  var t=localStorage.getItem('barretos_tema')||'escuro';
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ applyTema(t); });
+  } else { applyTema(t); }
+  window.addEventListener('message',function(ev){
+    if(ev.data && ev.data.type==='barretos_tema'){
+      localStorage.setItem('barretos_tema', ev.data.tema);
+      applyTema(ev.data.tema);
+    }
+  });
+})();
+/* ─────────────────────────────────────────────────────────── */
+</script>
+</body>
+</html>
