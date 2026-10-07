@@ -214,6 +214,8 @@ body.tema-claro .topbar *,body.tema-claro [class*="topbar"] *{color:#E5E7EB!impo
           <i class="ti ti-search"></i>
           <input class="search-inp" id="inp-busca" type="text" placeholder="Buscar por etiqueta, descrição, responsável…" oninput="filtrarLista()">
         </div>
+        <select class="filtro-select" id="sel-responsavel" onchange="filtrarLista()"><option value="">Responsável (todos)</option></select>
+        <select class="filtro-select" id="sel-local" onchange="filtrarLista()"><option value="">Local (todos)</option></select>
         <button class="btn" onclick="carregarDados()"><i class="ti ti-refresh"></i> Atualizar</button>
         <button class="btn primary" onclick="abrirModalNovo()"><i class="ti ti-plus"></i> Novo Ativo</button>
       </div>
@@ -477,6 +479,35 @@ function mapearParaApi_(d) {
   };
 }
 
+// Etiqueta é tipo "BT-001"/"BT-0010"/"BT-0036" (sem zero à esquerda fixo —
+// ver gerarEtiqueta_ no backend), então ordem alfabética coloca BT-0010
+// antes de BT-002. Extrai o número do final e ordena por ele.
+function etiquetaNum_(etq) {
+  var m = String(etq || '').match(/(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+// Preenche os selects de Responsável/Local com os valores que realmente
+// aparecem nos ativos carregados — preserva a seleção atual se ela ainda
+// for uma opção válida.
+function popularFiltrosDinamicos_() {
+  function valoresUnicos(campo) {
+    var vistos = {}, out = [];
+    allAtivos.forEach(function(a) {
+      var v = (a[campo] || '').trim();
+      if (v && !vistos[v]) { vistos[v] = true; out.push(v); }
+    });
+    return out.sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
+  }
+  [['sel-responsavel', 'ColaboradorResponsavel', 'Responsável (todos)'], ['sel-local', 'LocalSetor', 'Local (todos)']].forEach(function(cfg) {
+    var sel = document.getElementById(cfg[0]);
+    var valorAtual = sel.value;
+    sel.innerHTML = '<option value="">' + cfg[2] + '</option>' +
+      valoresUnicos(cfg[1]).map(function(v){ return '<option value="' + e(v) + '">' + e(v) + '</option>'; }).join('');
+    if (valorAtual && sel.querySelector('option[value="' + CSS.escape(valorAtual) + '"]')) sel.value = valorAtual;
+  });
+}
+
 // ── ESTADO ──────────────────────────────────────────────────
 var allAtivos = [];
 var filtroSidebar   = 'todos';
@@ -509,6 +540,8 @@ async function carregarDados() {
     var rows = await res.json();
     if (!res.ok) throw new Error(rows.error || 'Erro ao carregar');
     allAtivos = rows.map(mapearDoApi_);
+    allAtivos.sort(function(a, b){ return etiquetaNum_(a.Etiqueta) - etiquetaNum_(b.Etiqueta); });
+    popularFiltrosDinamicos_();
     filtrarLista();
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('lista-wrap').style.display    = 'block';
@@ -550,11 +583,14 @@ function atualizarStats(dadosFiltrados) {
   document.getElementById('cnt-baixado').textContent        = allAtivos.filter(function(a){ return a.Status === 'Baixado'; }).length;
   document.getElementById('cnt-vendido').textContent        = allAtivos.filter(function(a){ return a.Status === 'Vendido'; }).length;
 
-  document.getElementById('s-total').textContent          = allAtivos.length;
-  document.getElementById('s-em-uso').textContent         = emUsoTotal;
-  document.getElementById('s-em-manutencao').textContent  = emManutTotal;
+  // Os cards do topo acompanham o filtro ativo (status/categoria/responsável/
+  // local/busca) — só "Etiquetas livres" abaixo fica de fora, por ser sobre
+  // etiquetas ainda não usadas, não sobre os ativos já filtrados.
+  document.getElementById('s-total').textContent          = dadosFiltrados.length;
+  document.getElementById('s-em-uso').textContent         = dadosFiltrados.filter(function(a){ return a.Status === 'Em uso'; }).length;
+  document.getElementById('s-em-manutencao').textContent  = dadosFiltrados.filter(function(a){ return a.Status === 'Em manutenção'; }).length;
 
-  var valorTotal = allAtivos.reduce(function(soma, a){ return soma + (Number(a.ValorCompra) || 0); }, 0);
+  var valorTotal = dadosFiltrados.reduce(function(soma, a){ return soma + (Number(a.ValorCompra) || 0); }, 0);
   document.getElementById('s-valor-total').textContent = formatarMoeda_(valorTotal);
 
   apiFetch(API_BASE + '/patrimonio/etiquetas-disponiveis')
@@ -581,12 +617,16 @@ function setFiltroCategoria(c, btn) {
 
 function filtrarLista() {
   var busca = (document.getElementById('inp-busca').value || '').toLowerCase().trim();
+  var respSel = document.getElementById('sel-responsavel').value;
+  var localSel = document.getElementById('sel-local').value;
   var dados = allAtivos.filter(function(a) {
     if (filtroSidebar !== 'todos' && a.Status !== filtroSidebar) return false;
     if (filtroCategoria && a.Categoria !== filtroCategoria) return false;
+    if (respSel && a.ColaboradorResponsavel !== respSel) return false;
+    if (localSel && a.LocalSetor !== localSel) return false;
     if (busca) {
       var haystack = [a.Etiqueta, a.Descricao, a.LocalSetor, a.ColaboradorResponsavel].join(' ').toLowerCase();
-      return haystack.includes(busca);
+      if (!haystack.includes(busca)) return false;
     }
     return true;
   });
