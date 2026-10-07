@@ -1082,7 +1082,7 @@ function renderAttListReadonly_(elId, anexos){
     return '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
       '<span class="aname">'+e(nm)+'</span>'+
       '<a href="'+a.url+'" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
-      '<a href="'+a.url+'" download="'+e(nm)+'" class="adl"><i class="ti ti-download"></i></a></div>';
+      '<a href="javascript:void(0)" class="adl" data-url="'+e(a.url)+'" data-nome="'+e(nm)+'" onclick="baixarAnexoBlob_(this)"><i class="ti ti-download"></i></a></div>';
   }).join('');
 }
 // Antes, uma falha aqui (serviço fora do ar ou sob instabilidade — acontece
