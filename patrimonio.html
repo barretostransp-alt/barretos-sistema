@@ -503,7 +503,7 @@ function popularFiltrosDinamicos_() {
     var sel = document.getElementById(cfg[0]);
     var valorAtual = sel.value;
     sel.innerHTML = '<option value="">' + cfg[2] + '</option>' +
-      valoresUnicos(cfg[1]).map(function(v){ return '<option value="' + e(v) + '">' + e(v) + '</option>'; }).join('');
+      valoresUnicos(cfg[1]).map(function(v){ return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
     if (valorAtual && sel.querySelector('option[value="' + CSS.escape(valorAtual) + '"]')) sel.value = valorAtual;
   });
 }
