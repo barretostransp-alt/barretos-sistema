@@ -69,7 +69,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:"DM Sans
 .stat-card.orange .stat-val{color:var(--orange)}
 .stat-card.purple .stat-val{color:var(--purple)}
 
-.ativo-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:grid;gap:10px;cursor:pointer;transition:background .15s,border-color .15s;grid-template-columns:110px minmax(0,1fr) 200px 120px 150px 76px;align-items:center;min-width:0}
+.ativo-row{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:grid;gap:10px;cursor:pointer;transition:background .15s,border-color .15s;grid-template-columns:90px minmax(0,1.6fr) 130px 120px minmax(140px,1.1fr) 64px;align-items:center;min-width:0}
 .ativo-row>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ativo-row:hover{background:var(--card-hover);border-color:var(--border-light)}
 .ativo-row.header{background:var(--surface);cursor:default;padding:8px 16px;margin-bottom:2px;border-radius:var(--r) var(--r) 0 0;border-bottom:none}
@@ -448,6 +448,17 @@ function mapearDoApi_(a) {
     Obs: a.obs || ''
   };
 }
+// Aceita tanto formato brasileiro (3.500,00) quanto só números com ponto
+// (3500.00) — Number() sozinho vira NaN com vírgula decimal, e um NaN
+// serializado em JSON vira null, apagando o valor salvo sem avisar.
+function parseValorMoeda_(s) {
+  if (s === undefined || s === null) return null;
+  s = String(s).trim();
+  if (!s) return null;
+  if (s.indexOf(',') !== -1) s = s.replace(/\./g, '').replace(',', '.');
+  var n = Number(s);
+  return isNaN(n) ? NaN : n;
+}
 function mapearParaApi_(d) {
   return {
     etiqueta: d.Etiqueta,
@@ -456,7 +467,7 @@ function mapearParaApi_(d) {
     status: d.Status,
     local_setor: d.LocalSetor || null,
     colaborador_responsavel: d.ColaboradorResponsavel || null,
-    valor_compra: d.ValorCompra !== '' ? Number(d.ValorCompra) : null,
+    valor_compra: parseValorMoeda_(d.ValorCompra),
     data_aquisicao: d.DataAquisicao || null,
     nota_fiscal_fornecedor: d.NotaFiscalFornecedor || null,
     foto_url: d.FotoUrl || null,
@@ -671,10 +682,13 @@ async function salvarAtivo() {
   var local      = document.getElementById('fi-local').value.trim();
   var colaborador= document.getElementById('fi-colaborador').value.trim();
 
+  var valorDigitado = document.getElementById('fi-valor').value.trim();
+
   if (!etiqueta) return showMsg('Selecione a etiqueta.', 'err');
   if (!categoria) return showMsg('Selecione a categoria.', 'err');
   if (!descricao) return showMsg('Descreva o ativo.', 'err');
   if (!local && !colaborador) return showMsg('Preencha o Local/Setor ou o Colaborador Responsável.', 'err');
+  if (valorDigitado && isNaN(parseValorMoeda_(valorDigitado))) return showMsg('Valor de compra inválido. Use só números, ex: 3500,00', 'err');
 
   var dados = {
     Etiqueta: etiqueta,
