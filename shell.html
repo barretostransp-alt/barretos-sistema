@@ -875,6 +875,11 @@ function applyUser(user){
   // Sabrina Ferreira e Leonardo — reativado, agora busca do backend
   // (/api/cotacoes/por-vendedor) em vez do Apps Script antigo.
   iniciarAlertaAtividadeCotacao(user);
+  // Sistema de alerta inteligente de cotações — lembrete de cotação aberta
+  // há 2+ dias, Filipe vê toda nota incluída, vendedor avisado quando o
+  // Filipe comenta na cotação dele (ver /api/cotacoes/alerta-*). Popup
+  // automático, funciona mesmo sem ativar notificação push.
+  iniciarAlertasCotacaoInteligente(user);
   // Alertas do Kanban (só Alex e Macelly, por enquanto): às 17h, cards
   // com coleta amanhã que ainda precisam de Ordem de Coleta e/ou
   // motorista cadastrado; e, sem hora fixa, cards com coleta HOJE ainda
@@ -1795,6 +1800,36 @@ async function salvarTrocaSenhaObrigatoria(){
   </div>
 </div>
 
+<!-- MODAL ALERTA — SISTEMA DE ALERTA INTELIGENTE DE COTAÇÕES (lembrete de
+     cotação aberta, notas do Filipe) — compartilhado pelos 3 novos alertas,
+     mesmo visual dos de cima. -->
+<div id="cotacao-alerta-overlay" style="
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px)
+">
+  <div style="
+    background:#151820;border:1px solid #1E2130;border-radius:14px;
+    width:100%;max-width:440px;max-height:80vh;overflow-y:auto;
+    box-shadow:0 24px 64px rgba(0,0,0,.7);
+    animation:filaAlertaPop .25s ease-out;
+  ">
+    <div style="padding:20px 20px 14px;border-bottom:1px solid #1E2130;display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:rgba(245,184,0,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0" id="cotacao-alerta-icone">⏰</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:#E8EAF0" id="cotacao-alerta-titulo">Cotação precisa de atenção</div>
+        <div style="font-size:11px;color:#6B7280" id="cotacao-alerta-sub">Comercial</div>
+      </div>
+      <button onclick="fecharAlertaCotacaoGenerico_()" style="background:none;border:none;color:#6B7280;cursor:pointer;font-size:18px;padding:4px;line-height:1;border-radius:4px">×</button>
+    </div>
+    <div id="cotacao-alerta-body" style="padding:16px 20px 20px"></div>
+    <div style="padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharAlertaCotacaoGenerico_()" style="background:none;border:1px solid #1E2130;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Fechar</button>
+      <button onclick="fecharAlertaCotacaoGenerico_();navigate('cotacao')" style="background:#F5B800;border:none;color:#111;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Ver Cotações</button>
+    </div>
+  </div>
+</div>
+
 <style>@keyframes filaAlertaPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}</style>
 
 <script>
@@ -2542,6 +2577,169 @@ function mostrarAlertaAtividadeCotacao(mudou){
 
 function fecharAlertaAtividadeCotacao(){
   document.getElementById('ativ-cot-alerta-overlay').style.display = 'none';
+}
+
+/* ── SISTEMA DE ALERTA INTELIGENTE DE COTAÇÕES (popup automático, sem
+   precisar ativar push) — mesmo cálculo do job de push (ver
+   src/jobs/pushAlerts.js), exposto por 3 rotas que este polling consulta:
+   1) lembrete de cotação em aberto há 2+ dias, pra quem for o vendedor
+      (dinâmico — não é uma lista fixa de nomes como a cascata de aprovação
+      acima: tenta pra QUALQUER usuário logado, usando o próprio
+      nome/login como token; a API só devolve algo se bater com o campo
+      Vendedor de alguma cotação, então pra quem não é vendedor fica vazio
+      e não aparece nada);
+   2) Filipe vê toda nota incluída em qualquer cotação;
+   3) vendedor avisado quando o Filipe comenta na cotação dele (mesma
+      lógica dinâmica do item 1).
+   Usa o próprio shell.html, que fica sempre carregado enquanto a pessoa
+   usa o sistema — funciona mesmo sem nunca ter clicado em "Ativar
+   Notificações". */
+var _cotAbertaIntervalId = null;
+var _cotNotasFilipeIntervalId = null;
+var _cotNotasParaMimIntervalId = null;
+var _cotAlertaLoginKey = null; // chave estável pro localStorage (primeiro nome normalizado)
+
+function mostrarAlertaCotacaoGenerico_(icone, titulo, sub, itensHtml){
+  document.getElementById('cotacao-alerta-icone').textContent = icone;
+  document.getElementById('cotacao-alerta-titulo').textContent = titulo;
+  document.getElementById('cotacao-alerta-sub').textContent = sub;
+  document.getElementById('cotacao-alerta-body').innerHTML = itensHtml;
+  document.getElementById('cotacao-alerta-overlay').style.display = 'flex';
+}
+function fecharAlertaCotacaoGenerico_(){
+  document.getElementById('cotacao-alerta-overlay').style.display = 'none';
+}
+
+function iniciarAlertasCotacaoInteligente(user){
+  [_cotAbertaIntervalId, _cotNotasFilipeIntervalId, _cotNotasParaMimIntervalId].forEach(function(id){ if(id) clearInterval(id); });
+  var nome = (user && user.nome) || '';
+  var login = (user && user.login) || '';
+  var base = normNomeLogin_(nome) + ' ' + normNomeLogin_(login);
+  var primeiroNome = normNomeLogin_(nome).split(' ')[0] || normNomeLogin_(login).split(' ')[0];
+  if(!primeiroNome) return;
+  _cotAlertaLoginKey = primeiroNome;
+
+  // 1) Lembrete de cotação aberta — pra qualquer um, dinâmico
+  setTimeout(verificarCotacaoAbertaLembrete_, 4000);
+  _cotAbertaIntervalId = setInterval(verificarCotacaoAbertaLembrete_, 45000);
+
+  // 3) Vendedor avisado quando o Filipe comenta na cotação dele — pra
+  // qualquer um, exceto o próprio Filipe (ele já vê tudo no item 2)
+  if(!contemTodosTokens_(base, ['filipe'])){
+    setTimeout(verificarNotasFilipeParaMim_, 5000);
+    _cotNotasParaMimIntervalId = setInterval(verificarNotasFilipeParaMim_, 45000);
+  }
+
+  // 2) Filipe vê toda nota incluída em qualquer cotação — só o Filipe
+  if(contemTodosTokens_(base, ['filipe'])){
+    setTimeout(verificarNotasFilipeTodas_, 6000);
+    _cotNotasFilipeIntervalId = setInterval(verificarNotasFilipeTodas_, 45000);
+  }
+}
+
+async function verificarCotacaoAbertaLembrete_(){
+  if(!_cotAlertaLoginKey) return;
+  try{
+    var r = await apiFetchShell(API_BASE + '/cotacoes/alerta-aberta?token=' + encodeURIComponent(_cotAlertaLoginKey));
+    if(!r.ok) return;
+    var abertas = await r.json();
+    if(!Array.isArray(abertas) || !abertas.length) return;
+
+    var hoje = new Date();
+    var hojeISO = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+    var chaveVistos = 'cotacao_aberta_vista_' + _cotAlertaLoginKey;
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : [];
+
+    var novos = abertas.filter(function(c){ return vistos.indexOf(c.numero + ':' + hojeISO) === -1; });
+    if(!novos.length) return;
+
+    // Marca só os de hoje — amanhã, mesmo que a cotação continue aberta,
+    // o marcador de hoje não bate mais e o lembrete repete (igual o push).
+    var marcadoresHoje = abertas.map(function(c){ return c.numero + ':' + hojeISO; });
+    localStorage.setItem(chaveVistos, JSON.stringify(marcadoresHoje));
+
+    var corpo = novos.map(function(c){
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+        '<div style="font-size:16px;flex-shrink:0;margin-top:1px">⏰</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(c.numero||'').padStart(4,'0')+' · '+(c.cliente||'Sem cliente')+'</div>'+
+          '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+c.dias+' dia(s) sem decisão</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    mostrarAlertaCotacaoGenerico_('⏰', novos.length === 1 ? 'Cotação em aberto precisa de atenção' : novos.length + ' cotações em aberto precisam de atenção', 'Comercial — Em Aberto', corpo);
+  }catch(e){ /* falha silenciosa */ }
+}
+
+async function verificarNotasFilipeTodas_(){
+  try{
+    var r = await apiFetchShell(API_BASE + '/cotacoes/alerta-notas-recentes');
+    if(!r.ok) return;
+    var notas = await r.json();
+    if(!Array.isArray(notas)) return;
+
+    var chaveVistos = 'cotacao_notas_filipe_vista';
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+    var chavesAtuais = notas.map(function(n){ return String(n.nota_id); });
+
+    if(!vistos){
+      localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+      return;
+    }
+    var novas = notas.filter(function(n){ return vistos.indexOf(String(n.nota_id)) === -1; });
+    localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+    if(!novas.length) return;
+
+    var corpo = novas.map(function(n){
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+        '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💬</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(n.numero||'').padStart(4,'0')+' · '+(n.cliente||'Sem cliente')+'</div>'+
+          '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(n.autor||'Desconhecido')+': '+(n.texto||'')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    mostrarAlertaCotacaoGenerico_('💬', novas.length === 1 ? 'Nova observação em uma cotação' : novas.length + ' novas observações em cotações', 'Visibilidade total — todas as cotações', corpo);
+  }catch(e){ /* falha silenciosa */ }
+}
+
+async function verificarNotasFilipeParaMim_(){
+  if(!_cotAlertaLoginKey) return;
+  try{
+    var r = await apiFetchShell(API_BASE + '/cotacoes/alerta-notas-filipe-para?token=' + encodeURIComponent(_cotAlertaLoginKey));
+    if(!r.ok) return;
+    var notas = await r.json();
+    if(!Array.isArray(notas)) return;
+
+    var chaveVistos = 'cotacao_notas_para_mim_vista_' + _cotAlertaLoginKey;
+    var vistosRaw = localStorage.getItem(chaveVistos);
+    var vistos = vistosRaw ? JSON.parse(vistosRaw) : null;
+    var chavesAtuais = notas.map(function(n){ return String(n.nota_id); });
+
+    if(!vistos){
+      localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+      return;
+    }
+    var novas = notas.filter(function(n){ return vistos.indexOf(String(n.nota_id)) === -1; });
+    localStorage.setItem(chaveVistos, JSON.stringify(chavesAtuais));
+    if(!novas.length) return;
+
+    var corpo = novas.map(function(n){
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:#0F1117;border-radius:8px;border-left:3px solid #F5B800;margin-bottom:8px">'+
+        '<div style="font-size:16px;flex-shrink:0;margin-top:1px">💬</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:13px;font-weight:600;color:#E8EAF0">#'+String(n.numero||'').padStart(4,'0')+' · '+(n.cliente||'Sem cliente')+'</div>'+
+          '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+(n.texto||'')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    mostrarAlertaCotacaoGenerico_('💬', novas.length === 1 ? 'Filipe comentou na sua cotação' : 'Filipe comentou em ' + novas.length + ' das suas cotações', 'Comercial — Minhas Cotações', corpo);
+  }catch(e){ /* falha silenciosa */ }
 }
 
 /* ── ALERTA DE PARTICIPAÇÃO EM EVENTO DO CALENDÁRIO (pra todo mundo) ──
