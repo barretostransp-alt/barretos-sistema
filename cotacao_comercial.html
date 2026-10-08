@@ -4061,20 +4061,26 @@ function renderNotasThreadHTML(numero, textoObs) {
   return `
     <div class="obs-add-row">
       <input type="text" class="fi" id="nova-nota-${numero}" placeholder="Escrever uma observação...">
-      <button class="btn-lookup" onclick="adicionarNotaCotacao('${numero}')"><i class="ti ti-plus" style="font-size:13px"></i></button>
+      <button class="btn-lookup" id="btn-add-nota-${numero}" onclick="adicionarNotaCotacao('${numero}')"><i class="ti ti-plus" style="font-size:13px"></i></button>
     </div>
     <div id="notas-lista-${numero}">${lista}</div>`;
 }
 
 async function adicionarNotaCotacao(numero) {
   const input = document.getElementById('nova-nota-' + numero);
+  const btn = document.getElementById('btn-add-nota-' + numero);
   if (!input) return;
+  // Sem isso, clique repetido (ou duplo-clique) enquanto o pedido anterior
+  // ainda está em voo manda a mesma observação várias vezes — só o campo
+  // de texto ficava desabilitado, o botão continuava clicável.
+  if (btn && btn.disabled) return;
   const texto = input.value.trim();
   if (!texto) return;
   const id = idPorNumero_(numero);
   if (!id) { console.warn('[adicionarNotaCotacao] cotação não encontrada:', numero); return; }
   const autor = nomeUsuarioAtual() || 'Desconhecido';
   input.disabled = true;
+  if (btn) btn.disabled = true;
   try {
     const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/notas', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -4094,6 +4100,7 @@ async function adicionarNotaCotacao(numero) {
     alert('Erro de conexão ao salvar observação.');
   }
   input.disabled = false;
+  if (btn) btn.disabled = false;
 }
 
 /* ============================================================
