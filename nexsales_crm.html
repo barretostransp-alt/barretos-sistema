@@ -189,6 +189,13 @@ body.sidebar-open #sidebar-overlay{display:block;}
 .kpi-tile .kpi-value{font-family:var(--font-mono);font-size:20px;font-weight:500;line-height:1;letter-spacing:-.02em;}
 .kpi-tile .kpi-label{font-size:10.5px;color:var(--text-muted);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
 .kpi-tile .kpi-trend{position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;}
+/* Linha de KPIs com valor em R$ (textos mais longos, ex: "R$ 6.536.082,99")
+   — força as 6 colunas numa linha só e reduz a fonte pra caber. */
+.kpi-grid-money{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+.kpi-grid-money .kpi-tile{padding:12px 8px;}
+.kpi-grid-money .kpi-value{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;letter-spacing:-.03em;}
+.kpi-grid-money .kpi-label{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em;}
+@media(max-width:900px){ .kpi-grid-money{grid-template-columns:repeat(3,minmax(0,1fr));} }
 
 /* Status badges */
 .badge-status{
@@ -281,6 +288,25 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
 .crm-timeline-item:last-child{border-bottom:none;}
 .crm-timeline-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:#fff;}
 .crm-timeline-item .ct-meta{font-size:11.5px;color:var(--text-muted);}
+
+/* Histórico de Observação da Cotação (Ponto: conversa compartilhada com
+   a Cotação Comercial — mesmo padrão visual do CRM Timeline acima) */
+.cot-nota{background:var(--card-bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:7px;}
+.cot-nota-meta{font-size:10.5px;color:var(--text-muted);margin-bottom:2px;}
+.cot-nota-autor{color:var(--accent);font-weight:700;}
+.cot-nota-texto{font-size:12.5px;color:var(--text);}
+.cot-obs-add-row{display:flex;gap:6px;margin-bottom:10px;}
+.cot-obs-add-row input{flex:1;}
+
+/* Grade de campos do detalhe da cotação — mesmo layout (rótulo em cima,
+   valor embaixo) do modal "Ver Detalhes" do Histórico da Cotação Comercial,
+   só adaptado às cores do CRM. */
+.cq-det-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:14px;}
+.cq-det-field{display:flex;flex-direction:column;gap:2px;}
+.cq-det-field.full{grid-column:1/-1;}
+.cq-det-lbl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);}
+.cq-det-val{font-size:13px;color:var(--text);}
+.cq-det-section-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px;}
 
 /* Gestor panel */
 .gestor-stat{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
@@ -511,10 +537,10 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
         <button class="btn btn-outline-secondary" onclick="renderCotacoes(true)"><i class="fa-solid fa-rotate me-1"></i>Atualizar</button>
       </div>
       <div id="cotacoes-status" class="small text-muted mb-2"></div>
-      <div class="kpi-grid mb-3" id="cotacoes-kpis"></div>
+      <div class="kpi-grid kpi-grid-money mb-3" id="cotacoes-kpis"></div>
       <div class="card p-3 mb-3">
         <h6 class="mb-3">Valor em Cotações por Status (R$)</h6>
-        <div class="kpi-grid" id="cotacoes-valor-status"></div>
+        <div class="kpi-grid kpi-grid-money" id="cotacoes-valor-status"></div>
       </div>
       <div class="row g-3">
         <div class="col-lg-6">
@@ -540,6 +566,30 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
               <th class="text-center">Taxa de Conversão</th>
             </tr></thead>
             <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card p-3 mt-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <h6 class="mb-0">Cotações Individuais</h6>
+          <div class="d-flex align-items-center gap-2">
+            <span id="cotacoes-individual-status" class="small text-muted"></span>
+            <select class="form-select form-select-sm" style="width:auto" id="sel-cotacao-individual-status" onchange="setFiltroCotacaoIndividualStatus(this.value)">
+              <option value="todos">Todos os status</option>
+              <option value="aceita">Aceita</option>
+              <option value="recusada">Recusada</option>
+              <option value="pendente">Pendente</option>
+              <option value="desconsiderar">Desconsiderar</option>
+              <option value="semretorno">Sem Retorno</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="table-cotacoes-individual" style="width:100%">
+            <thead><tr>
+              <th>Número</th><th>Data</th><th>Vendedor</th><th>Cliente</th>
+              <th>Status</th><th class="text-end">Valor</th><th></th>
+            </tr></thead>
           </table>
         </div>
       </div>
@@ -2138,6 +2188,7 @@ function fillMotivoPerdaSelect(sel, current){
    usuário clica em "Atualizar".
 --------------------------------------------------------------------- */
 let _cotacoesCache = null; // guarda o último resultado bem-sucedido nesta sessão
+let dtCotacoesIndividual = null;
 
 // Mesma classificação de status usada no cotacao_comercial.html — mantém
 // os dois em sincronia visual (mesmas cores/categorias, incluindo "Sem
@@ -2166,13 +2217,28 @@ function fmtDataHoraCotacao_(iso){
   const pad = n=>String(n).padStart(2,'0');
   return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+// Campos extras (id, notas, detalhes da cotação) ficam aqui também — usados
+// pela tabela "Cotações Individuais" e pelo modal de visualizar (viewCotacao),
+// que lê/grava na mesma tabela cotacao_notas que o Histórico da Cotação
+// Comercial usa, então a conversa fica automaticamente igual nos dois lugares.
 async function fetchCotacoesHistorico_(force){
   if (_cotacoesCache && !force) return _cotacoesCache;
   const res = await apiFetch(API_BASE + '/cotacoes');
   const rows = await res.json();
   _cotacoesCache = rows.map(r=>({
-    Numero: r.numero, Data: r.criado_em ? fmtDataHoraCotacao_(r.criado_em) : '',
+    id: r.id, Numero: r.numero, DataISO: r.criado_em || '',
+    Data: r.criado_em ? fmtDataHoraCotacao_(r.criado_em) : '',
     Vendedor: r.vendedor||'', Cliente: r.cliente||'', Status: r.status||'', Valor: r.valor||0,
+    Modalidade: r.modalidade||'', Empresa: r.empresa||'', Origem: r.origem||'', Destino: r.destino||'',
+    CNPJTomador: r.cnpj_tomador||'', CNPJEmit: r.cnpj_emit||'', Faturamento: r.faturamento||'', PrazoDias: r.prazo_dias,
+    ObservacoesCliente: r.observacoes_cliente||'', StatusAprovacao: r.status_aprovacao||'Aguardando',
+    Tabela: r.tabela||'', TipoCarga: r.tipo_carga||'', Eixos: r.eixos, KM: r.km,
+    Viagens: r.viagens, ValKm: r.val_km, PesoReal: r.peso_real,
+    Cubagem: r.cubagem ? JSON.stringify(r.cubagem) : '',
+    CapPeso: r.cap_peso, CapVol: r.cap_vol, MargemTipo: r.margem_tipo||'', MargemVal: r.margem_val,
+    Piso: r.piso, OverridePiso: r.override_piso, OverrideTotal: r.override_total, OverrideDesconto: r.override_desconto,
+    TipoMaterial: r.tipo_material||'', ValorNF: r.valor_nf,
+    Notas: r.notas || [],
   }));
   return _cotacoesCache;
 }
@@ -2289,6 +2355,217 @@ async function renderCotacoes(force){
     },
     options:{responsive:true, maintainAspectRatio:false}
   });
+
+  _cotacoesRowsGlobaisFiltradas = rows;
+  renderCotacoesIndividualTable_();
+}
+
+// Filtro interno de status, só da tabela "Cotações Individuais" — não mexe
+// nos filtros globais de Vendedor/Período do topo, que já vêm aplicados em
+// "rows" antes de chegar aqui.
+let _cotacoesRowsGlobaisFiltradas = [];
+let filtroCotacaoIndividualStatus = 'todos';
+function setFiltroCotacaoIndividualStatus(val){
+  filtroCotacaoIndividualStatus = val;
+  renderCotacoesIndividualTable_();
+}
+function fmtDataSoDataCRM_(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const pad = n=>String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+
+// Tabela com cada cotação individual (a tabela acima é só o agregado por
+// vendedor) — o botão "Visualizar" abre o mesmo modal de detalhes +
+// conversa que existe no Histórico da Cotação Comercial.
+function renderCotacoesIndividualTable_(){
+  const base = filtroCotacaoIndividualStatus === 'todos'
+    ? _cotacoesRowsGlobaisFiltradas
+    : _cotacoesRowsGlobaisFiltradas.filter(r => statusClassCotacao_(r.Status) === filtroCotacaoIndividualStatus);
+  document.getElementById('cotacoes-individual-status').textContent =
+    base.length + ' de ' + _cotacoesRowsGlobaisFiltradas.length + ' cotação(ões)';
+  const ordenadas = base.slice().sort((a,b)=> (b.Numero||0) - (a.Numero||0));
+  const linhas = ordenadas.map(r=>{
+    const sc = statusClassCotacao_(r.Status);
+    const nNotas = (r.Notas||[]).length;
+    const obsLabel = nNotas + (nNotas===1?' nota':' notas');
+    return [
+      '#'+String(r.Numero||'').padStart(4,'0'),
+      escapeHtml(fmtDataSoDataCRM_(r.DataISO)),
+      escapeHtml(r.Vendedor||''),
+      escapeHtml(r.Cliente||''),
+      `<span class="badge-status" style="background:${COTACAO_STATUS_COR[sc]}1a;color:${COTACAO_STATUS_COR[sc]}">${COTACAO_STATUS_LABEL[sc]}</span>`,
+      `<span class="text-end d-block">${fmtMoney(r.Valor)}</span>`,
+      `<button class="btn btn-sm btn-outline-accent" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap" onclick="viewCotacao('${r.Numero}')"><i class="fa-solid fa-eye"></i>${obsLabel}</button>`,
+    ];
+  });
+  if(!dtCotacoesIndividual){
+    dtCotacoesIndividual = $('#table-cotacoes-individual').DataTable({data: linhas, pageLength:10, order:[], language:DT_PT});
+  } else {
+    dtCotacoesIndividual.clear();
+    dtCotacoesIndividual.rows.add(linhas);
+    dtCotacoesIndividual.draw();
+  }
+}
+
+function fmtCampoCot_(v) { return (v !== undefined && v !== null && v !== '') ? v : '—'; }
+
+function fmtNotaDataCRM_(iso) {
+  const d = new Date(iso);
+  const pad = n=>String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function nomeUsuarioAtualCRM_() {
+  try {
+    const raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    if (!raw) return '';
+    const u = JSON.parse(raw);
+    return (u.nome || u.login || '').toString();
+  } catch(e) { return ''; }
+}
+
+// notas já vem como array {autor, texto, criado_em} do backend (embed
+// cotacao_notas na própria GET /api/cotacoes) — ordena do mais antigo pro
+// mais recente, igual o cotacao_comercial.html faz antes de inverter pra
+// exibição.
+function renderNotasThreadHTMLCRM_(numero, notas) {
+  const ordenadas = (notas||[]).slice().sort((a,b)=> String(a.criado_em||'').localeCompare(String(b.criado_em||''))).reverse();
+  const lista = ordenadas.length
+    ? ordenadas.map(n => `<div class="cot-nota">
+        <div class="cot-nota-meta">${n.criado_em ? fmtNotaDataCRM_(n.criado_em) + ' — ' : ''}${n.autor ? `<span class="cot-nota-autor">${escapeHtml(n.autor)}</span>` : ''}</div>
+        <div class="cot-nota-texto">${escapeHtml(n.texto)}</div>
+      </div>`).join('')
+    : '<div class="text-muted small">Nenhuma observação registrada ainda.</div>';
+  return `
+    <div class="cot-obs-add-row">
+      <input type="text" class="form-control form-control-sm" id="cot-nova-nota-${numero}" placeholder="Escrever uma observação...">
+      <button class="btn btn-sm btn-accent" id="cot-btn-add-nota-${numero}" onclick="adicionarNotaCotacaoCRM_('${numero}')"><i class="fa-solid fa-plus"></i></button>
+    </div>
+    <div id="cot-notas-lista-${numero}">${lista}</div>`;
+}
+
+// Mesmo endpoint (/api/cotacoes/:id/notas) que o Histórico da Cotação
+// Comercial usa — por gravar na mesma tabela cotacao_notas, uma observação
+// escrita aqui aparece lá (e vice-versa) sem precisar de nada a mais.
+async function adicionarNotaCotacaoCRM_(numero) {
+  const input = document.getElementById('cot-nova-nota-' + numero);
+  const btn = document.getElementById('cot-btn-add-nota-' + numero);
+  if (!input) return;
+  if (btn && btn.disabled) return; // clique repetido enquanto a anterior ainda está salvando
+  const texto = input.value.trim();
+  if (!texto) return;
+  const row = _cotacoesCache && _cotacoesCache.find(r => String(r.Numero) === String(numero));
+  const id = row ? row.id : null;
+  if (!id) { console.warn('[adicionarNotaCotacaoCRM_] cotação não encontrada:', numero); return; }
+  const autor = nomeUsuarioAtualCRM_() || 'Desconhecido';
+  input.disabled = true;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/notas', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ autor: autor, texto: texto })
+    });
+    const json = await res.json();
+    if (res.ok) {
+      input.value = '';
+      await fetchCotacoesHistorico_(true);
+      renderCotacoes();
+      viewCotacao(numero); // reabre o mesmo modal já com a observação nova
+    } else {
+      toast(json.error || 'Não foi possível salvar a observação.', 'error');
+    }
+  } catch(e) {
+    toast('Erro de conexão ao salvar observação.', 'error');
+  }
+  input.disabled = false;
+  if (btn) btn.disabled = false;
+}
+
+// Mesma regra do cotacao_comercial.html: cotações antigas (antes do nº 336)
+// ficam fora do fluxo de aprovação interna, e o próprio aprovador nunca
+// aparece "Aguardando" na própria cotação.
+const APROVACAO_MIN_NUMERO_CRM = 336;
+const APROVADORES_PRIMEIRO_NOME_CRM = ['filipe', 'gabriel', 'diego', 'alex'];
+function normNomeLoginCRM_(s) {
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function vendedorEhAprovadorCRM_(vendedorNome) {
+  return APROVADORES_PRIMEIRO_NOME_CRM.includes(normNomeLoginCRM_(vendedorNome||'').trim());
+}
+function badgeAprovacaoHTMLCRM_(statusAprov, numero, vendedorNome) {
+  if (!isNaN(parseInt(numero,10)) && parseInt(numero,10) < APROVACAO_MIN_NUMERO_CRM) {
+    return `<span class="badge-status" style="background:rgba(154,160,174,.14);color:var(--text-muted)">Fora do fluxo</span>`;
+  }
+  const st = vendedorEhAprovadorCRM_(vendedorNome) ? 'Aprovada' : (statusAprov || 'Aguardando');
+  const cor = st === 'Aprovada' ? '#22c55e' : st === 'Recusada' ? '#ef4444' : '#f59e0b';
+  return `<span class="badge-status" style="background:${cor}1a;color:${cor}">${st}</span>`;
+}
+
+// Reaproveita o modal genérico "modalDetalhe" (já usado por viewCliente) —
+// mesma grade de campos do "Ver Detalhes" do Histórico da Cotação Comercial
+// (ver abrirDetalheCotacao em cotacao_comercial.html) + a conversa
+// compartilhada, que lê/grava direto na tabela cotacao_notas.
+function viewCotacao(numero) {
+  const r = _cotacoesCache && _cotacoesCache.find(x => String(x.Numero) === String(numero));
+  if (!r) return;
+  const sc = statusClassCotacao_(r.Status);
+  document.getElementById('modalDetalheTitle').innerHTML = `<i class="fa-solid fa-file-invoice-dollar me-1" style="color:var(--accent)"></i> Cotação #${String(numero).padStart(4,'0')}`;
+
+  let cubagemHTML = '';
+  if (r.Cubagem) {
+    try {
+      const vols = JSON.parse(r.Cubagem);
+      if (Array.isArray(vols) && vols.length) {
+        cubagemHTML = `<div class="cq-det-field full"><div class="cq-det-lbl">Cubagem</div><div class="cq-det-val">` +
+          vols.map((v,i) => `Vol.${i+1}: ${v.qtd}× ${v.alt}×${v.larg}×${v.prof} m`).join(' · ') +
+          `</div></div>`;
+      }
+    } catch(e) { /* cubagem antiga ou vazia — ignora */ }
+  }
+
+  const campo = (lbl, val) => `<div class="cq-det-field"><div class="cq-det-lbl">${lbl}</div><div class="cq-det-val">${val}</div></div>`;
+
+  document.getElementById('modalDetalheBody').innerHTML = `
+    <div class="small text-muted mb-2">Criada em ${escapeHtml(fmtCampoCot_(r.Data))}</div>
+    <div class="cq-det-grid">
+      ${campo('Vendedor', escapeHtml(fmtCampoCot_(r.Vendedor)))}
+      ${campo('Cliente', escapeHtml(fmtCampoCot_(r.Cliente)))}
+      ${campo('Modalidade', escapeHtml(fmtCampoCot_(r.Modalidade)))}
+      ${campo('Tabela', escapeHtml(fmtCampoCot_(r.Tabela)))}
+      ${campo('Tipo de Carga', escapeHtml(fmtCampoCot_(r.TipoCarga)))}
+      ${campo('Eixos', escapeHtml(fmtCampoCot_(r.Eixos)))}
+      ${campo('Origem', escapeHtml(fmtCampoCot_(r.Origem)))}
+      ${campo('Destino', escapeHtml(fmtCampoCot_(r.Destino)))}
+      ${campo('KM', escapeHtml(fmtCampoCot_(r.KM)))}
+      ${campo('Viagens/Embarques', escapeHtml(fmtCampoCot_(r.Viagens)))}
+      ${campo('Valor/km adicional', escapeHtml(fmtCampoCot_(r.ValKm)))}
+      ${campo('Peso real (kg)', escapeHtml(fmtCampoCot_(r.Modalidade === 'Dedicado' ? 0 : r.PesoReal)))}
+      ${cubagemHTML}
+      ${campo('Cap. peso (kg)', escapeHtml(fmtCampoCot_(r.CapPeso)))}
+      ${campo('Cap. cúbica (m³)', escapeHtml(fmtCampoCot_(r.CapVol)))}
+      ${campo('Margem', escapeHtml(fmtCampoCot_(r.MargemVal)) + ' (' + escapeHtml(fmtCampoCot_(r.MargemTipo)) + ')')}
+      ${campo('Piso', fmtMoney(r.Piso))}
+      ${campo('Valor total', fmtMoney(r.Valor))}
+      ${campo('Override Piso', escapeHtml(fmtCampoCot_(r.OverridePiso)))}
+      ${campo('Override Total', escapeHtml(fmtCampoCot_(r.OverrideTotal)))}
+      ${campo('Desconto', escapeHtml(fmtCampoCot_(r.OverrideDesconto)))}
+      ${campo('Prazo de entrega', escapeHtml(fmtCampoCot_(r.PrazoDias)))}
+      ${campo('Tipo de Material', escapeHtml(fmtCampoCot_(r.TipoMaterial)))}
+      ${campo('Valor de NF', escapeHtml(fmtCampoCot_(r.ValorNF)))}
+      ${campo('Faturamento', escapeHtml(fmtCampoCot_(r.Faturamento)))}
+      ${campo('Empresa', escapeHtml(fmtCampoCot_(r.Empresa)))}
+      ${campo('CNPJ Emitente', escapeHtml(fmtCampoCot_(r.CNPJEmit)))}
+      ${campo('CNPJ Tomador', escapeHtml(fmtCampoCot_(r.CNPJTomador)))}
+      ${campo('Status (cliente)', `<span class="badge-status" style="background:${COTACAO_STATUS_COR[sc]}1a;color:${COTACAO_STATUS_COR[sc]}">${COTACAO_STATUS_LABEL[sc]}</span>`)}
+      ${campo('Aprovação interna', badgeAprovacaoHTMLCRM_(r.StatusAprovacao, r.Numero, r.Vendedor))}
+      <div class="cq-det-field full"><div class="cq-det-lbl">Observações da cotação (impressas no PDF)</div><div class="cq-det-val">${escapeHtml(fmtCampoCot_(r.ObservacoesCliente))}</div></div>
+    </div>
+    <div class="cq-det-section-title"><i class="fa-solid fa-comments me-1"></i>Histórico de Observação</div>
+    ${renderNotasThreadHTMLCRM_(numero, r.Notas)}
+  `;
+  new bootstrap.Modal('#modalDetalhe').show();
 }
 
 function onStatusCotacaoChange(){
