@@ -576,6 +576,9 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
       <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
         <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
+      <div class="sb-item" id="btn-ativar-push" onclick="ativarNotificacoes()" style="margin-bottom:6px;border-left:none;border-radius:7px;cursor:pointer;">
+        <i class="ti ti-bell"></i><span id="txt-ativar-push">Ativar Notificações</span>
+      </div>
       <button class="sb-logout" onclick="logout()">
         <i class="ti ti-power"></i>Encerrar sessão
       </button>
@@ -832,6 +835,7 @@ function applyUser(user){
   var perms = [];
   try { perms = JSON.parse(localStorage.getItem("barretos_permissoes")||"[]"); } catch(e) { perms = []; }
   if (perms.length > 0) { aplicarMenuPermissoes(perms); } else { mostrarTudo(); }
+  registrarServiceWorkerEAtualizarBotaoPush_();
   inicializarAssistente(perms);
   // Exceção pontual pedida pelo Alex: Jessé Farias não deve ver a tela de
   // Início (ela não é controlada pelas permissões de módulo normais,
@@ -951,6 +955,71 @@ function onFrameLoad(){
     if(lg){var pv=localStorage.getItem("barretos_photo_"+lg); if(pv) fw.localStorage.setItem("barretos_photo_"+lg,pv);}
   }catch(e){}
 }
+/* ── Notificações Push (desktop) — mesma mecânica já usada no mobile
+   (ver Frontend mobile/mobile.html): Service Worker registrado nesta
+   mesma pasta (frontend/sw.js) recebe o push do sistema operacional e
+   mostra a notificação, mesmo com a aba fechada ou minimizada. ── */
+function urlBase64ParaUint8Array_(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registrarServiceWorkerEAtualizarBotaoPush_() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    var btn = document.getElementById('btn-ativar-push');
+    if (btn) btn.style.display = 'none'; // navegador não suporta
+    return;
+  }
+  try {
+    var reg = await navigator.serviceWorker.register('sw.js');
+    var sub = await reg.pushManager.getSubscription();
+    var txt = document.getElementById('txt-ativar-push');
+    if (sub && txt) txt.textContent = 'Notificações ativadas ✓';
+  } catch (e) {}
+}
+
+async function ativarNotificacoes() {
+  var txt = document.getElementById('txt-ativar-push');
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Esse navegador não suporta notificações push.');
+      return;
+    }
+    var permissao = await Notification.requestPermission();
+    if (permissao !== 'granted') { alert('Permissão de notificação negada.'); return; }
+
+    var reg = await navigator.serviceWorker.ready;
+    var r = await apiFetchShell(API_BASE + '/push/vapid-public-key');
+    var j = await r.json();
+    if (!j.publicKey) { alert('Notificações ainda não configuradas no servidor.'); return; }
+
+    var sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ParaUint8Array_(j.publicKey),
+      });
+    }
+
+    var rawUser = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user') || '{}';
+    var user = {}; try { user = JSON.parse(rawUser); } catch(e) {}
+    await apiFetchShell(API_BASE + '/push/inscrever', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: (user && user.login) || '', subscription: sub.toJSON() }),
+    });
+
+    if (txt) txt.textContent = 'Notificações ativadas ✓';
+    alert('Notificações ativadas! Você vai receber os alertas mesmo com a aba fechada.');
+  } catch (e) {
+    alert('Não foi possível ativar as notificações: ' + e.message);
+  }
+}
+
 function logout(){
   ["barretos_user","barretos_nome","barretos_perfil","barretos_login","barretos_permissoes","barretos_auth_token","barretos_auth_refresh","barretos_deve_trocar_senha"].forEach(function(k){
     sessionStorage.removeItem(k); localStorage.removeItem(k);
