@@ -511,8 +511,11 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
     <!-- ================= CLIENTES ================= -->
     <section class="page-section" id="page-clientes">
       <div class="page-header">
-        <div><h3>Clientes</h3><div class="subtitle">Base completa de prospects e clientes</div></div>
-        <button class="btn btn-accent" onclick="openClienteModal()"><i class="fa-solid fa-plus me-1"></i>Novo Cliente</button>
+        <div><h3>Clientes</h3><div class="subtitle">Espelha o Cadastro de Clientes (mesma base, todos os clientes — completos ou não)</div></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary" onclick="renderClientesOficiais_(true)"><i class="fa-solid fa-rotate me-1"></i>Atualizar</button>
+          <button class="btn btn-accent" onclick="window.open('clientes.html','_blank')"><i class="fa-solid fa-plus me-1"></i>Novo Cliente</button>
+        </div>
       </div>
 
       <!-- Carteira: clientes esfriando (45/90 dias sem cotação) e cadastros
@@ -520,11 +523,32 @@ table.dataTable tbody td{border-color:var(--border) !important;font-size:13.5px;
            some sozinho quando não tem nada nesse grupo. -->
       <div id="carteira-crm" class="row g-3 mb-3"></div>
 
+      <div class="card p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="text" class="form-control form-control-sm" style="width:260px" id="inp-busca-clientes-oficiais" placeholder="Buscar por nome, razão social, CNPJ/CPF…" oninput="filtrarClientesOficiais_()">
+            <select class="form-select form-select-sm" style="width:auto" id="filtro-tipo-cliente-oficial" onchange="filtrarClientesOficiais_()">
+              <option value="">PJ/PF (todos)</option>
+              <option value="PJ">PJ</option>
+              <option value="PF">PF</option>
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" id="filtro-status-cliente-oficial" onchange="filtrarClientesOficiais_()">
+              <option value="">Status (todos)</option>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+            <select class="form-select form-select-sm" style="width:auto" id="filtro-vendedor-cliente-oficial" onchange="filtrarClientesOficiais_()">
+              <option value="">Todos os vendedores</option>
+            </select>
+          </div>
+          <span id="clientes-oficiais-status" class="small text-muted"></span>
+        </div>
+      </div>
+
       <div class="card p-3">
         <div class="table-responsive">
           <table class="table table-hover align-middle" id="table-clientes" style="width:100%">
-            <thead><tr><th>Empresa</th><th>Contato</th><th>Cidade/UF</th><th>Status</th><th>Cotação</th><th>Relacion.</th><th>Próx. Contato</th><th>Responsável</th><th>Valor Potencial</th><th></th></tr></thead>
-            <tbody></tbody>
+            <thead><tr><th>Tipo/Doc</th><th>Razão Social</th><th>Contato</th><th>Vendedor</th><th>Status</th><th></th></tr></thead>
           </table>
         </div>
       </div>
@@ -1388,7 +1412,7 @@ function renderPage(page){
   switch(page){
     case 'dashboard': renderDashboard(); break;
     case 'comercial': renderVendedores(); renderProdutividade(); renderComissoes(); break;
-    case 'clientes': renderClientes(); renderCarteiraCrm(); break;
+    case 'clientes': renderClientesOficiais_(); renderCarteiraCrm(); break;
     case 'cotacoes': renderCotacoes(); break;
     case 'entrevistas': renderEntrevistas(); break;
     case 'metas': renderMetas(); break;
@@ -2035,8 +2059,140 @@ async function renderComissoes(){
 }
 
 /* ---------------------------------------------------------------------
-   11. CLIENTES
+   11. CLIENTES — espelha o Cadastro de Clientes (frontend/clientes.html):
+   mesma base (/api/clientes, tabela oficial `clientes`), mesmas colunas,
+   mas sem a regra de esconder quem tem cadastro completo por padrão — a
+   aba Clientes do CRM sempre mostra todo mundo. A tabela #table-clientes
+   abaixo (renderClientes/DB.clientes(), baseados em crm_clientes) continua
+   existindo pra outras partes do CRM que dependem dela (Dashboard,
+   Timeline, seletores de cliente), só não é mais renderizada nessa aba.
 --------------------------------------------------------------------- */
+let _clientesOficiaisCache = null;
+let dtClientesOficiais = null;
+
+function mapClienteOficialDoApi_(c){
+  return {
+    id: c.id, tipo: c.tipo || 'PJ', doc: c.doc || '', razaoSocial: c.razao_social || '',
+    nomeFantasia: c.nome_fantasia || '', ie: c.ie || '', regime: c.regime || '', cnae: c.cnae || '',
+    situacao: c.situacao || '', contato: c.contato || '', telefone: c.telefone || '', email: c.email || '',
+    cep: c.cep || '', logradouro: c.logradouro || '', numero: c.numero || '', complemento: c.complemento || '',
+    bairro: c.bairro || '', cidade: c.cidade || '', uf: c.uf || '', vendedor: c.vendedor || '',
+    segmento: c.segmento || '', limite: c.limite || '', status: c.status || '', obs: c.obs || '',
+    fichaCadastralPdf: c.ficha_cadastral_pdf || null,
+  };
+}
+
+async function fetchClientesOficiais_(force){
+  if (_clientesOficiaisCache && !force) return _clientesOficiaisCache;
+  const res = await apiFetch(API_BASE + '/clientes');
+  const rows = await res.json();
+  _clientesOficiaisCache = rows.map(mapClienteOficialDoApi_);
+  return _clientesOficiaisCache;
+}
+
+function popularFiltroVendedorClienteOficial_(clientes){
+  const vends = [...new Set(clientes.map(c=>c.vendedor).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const sel = document.getElementById('filtro-vendedor-cliente-oficial');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os vendedores</option>' + vends.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  if (vends.includes(atual)) sel.value = atual;
+}
+
+// Mesma máscara que o cadastro oficial usa pra exibir CNPJ/CPF formatado.
+function formatDocCRM_(doc){
+  const d = String(doc||'').replace(/\D/g,'');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  return doc || '';
+}
+
+async function renderClientesOficiais_(force){
+  const clientes = await fetchClientesOficiais_(force);
+  popularFiltroVendedorClienteOficial_(clientes);
+  filtrarClientesOficiais_();
+}
+
+function filtrarClientesOficiais_(){
+  const base = _clientesOficiaisCache || [];
+  const busca = (document.getElementById('inp-busca-clientes-oficiais').value || '').toLowerCase().trim();
+  const tipo = document.getElementById('filtro-tipo-cliente-oficial').value;
+  const status = document.getElementById('filtro-status-cliente-oficial').value;
+  const vendedor = document.getElementById('filtro-vendedor-cliente-oficial').value;
+  const filtrados = base.filter(c=>{
+    if (tipo && c.tipo !== tipo) return false;
+    if (status && (c.status||'').toLowerCase() !== status) return false;
+    if (vendedor && c.vendedor !== vendedor) return false;
+    if (busca){
+      const alvo = [c.razaoSocial, c.nomeFantasia, c.doc, c.contato, c.vendedor].join(' ').toLowerCase();
+      if (!alvo.includes(busca)) return false;
+    }
+    return true;
+  });
+  document.getElementById('clientes-oficiais-status').textContent = filtrados.length + ' de ' + base.length + ' cliente(s)';
+
+  const linhas = filtrados.map(c=>{
+    const tipoBadge = c.tipo === 'PJ'
+      ? '<span class="badge-status" style="background:#3b82f61a;color:#3b82f6"><i class="fa-solid fa-building me-1"></i>PJ</span>'
+      : '<span class="badge-status" style="background:#8b5cf61a;color:#8b5cf6"><i class="fa-solid fa-user me-1"></i>PF</span>';
+    const stLower = (c.status||'ativo').toLowerCase();
+    const stBadge = stLower === 'ativo'
+      ? '<span class="badge-status" style="background:#22c55e1a;color:#22c55e">Ativo</span>'
+      : `<span class="badge-status" style="background:#6b72801a;color:#6b7280">${escapeHtml(c.status||'—')}</span>`;
+    return [
+      tipoBadge + '<br><span class="small text-muted">' + escapeHtml(formatDocCRM_(c.doc)) + '</span>',
+      '<div class="fw-semibold">' + escapeHtml(c.razaoSocial||'—') + '</div>' + (c.nomeFantasia ? '<div class="small text-muted">'+escapeHtml(c.nomeFantasia)+'</div>' : ''),
+      escapeHtml(c.contato||'—') + (c.telefone ? '<br><span class="small text-success">'+escapeHtml(c.telefone)+'</span>' : ''),
+      escapeHtml(c.vendedor||'—'),
+      stBadge,
+      `<button class="btn btn-sm btn-outline-accent" onclick="viewClienteOficial('${c.id}')"><i class="fa-solid fa-eye"></i></button>`,
+    ];
+  });
+  if (!dtClientesOficiais){
+    dtClientesOficiais = $('#table-clientes').DataTable({data: linhas, pageLength:10, order:[], language:DT_PT});
+  } else {
+    dtClientesOficiais.clear();
+    dtClientesOficiais.rows.add(linhas);
+    dtClientesOficiais.draw();
+  }
+}
+
+// Modal de detalhe (só leitura) — mesma grade de campos do "Ver Detalhes"
+// do Cadastro de Clientes (ver abrirDetalhe em clientes.html). Edição e
+// criação continuam só na tela de Clientes do menu principal, que já tem
+// o formulário completo (CNPJ, ficha PDF etc.) — não duplicamos aqui.
+function viewClienteOficial(id){
+  const c = (_clientesOficiaisCache||[]).find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('modalDetalheTitle').innerHTML = `<i class="fa-solid ${c.tipo==='PJ'?'fa-building':'fa-user'} me-1" style="color:var(--accent)"></i> ${escapeHtml(c.razaoSocial||'—')}`;
+  const campo = (lbl, val) => val ? `<div class="col-md-6"><strong>${lbl}:</strong> ${escapeHtml(val)}</div>` : '';
+  const endereco = [c.logradouro, c.numero, c.complemento].filter(Boolean).join(', ');
+  document.getElementById('modalDetalheBody').innerHTML = `
+    <div class="row g-2 mb-3">
+      ${campo('CNPJ/CPF', formatDocCRM_(c.doc))}
+      ${campo('Nome Fantasia', c.nomeFantasia)}
+      ${campo('Inscrição Estadual', c.ie)}
+      ${campo('Regime Tributário', c.regime)}
+      ${campo('CNAE', c.cnae)}
+      ${campo('Situação Receita', c.situacao)}
+      ${campo('Responsável/Contato', c.contato)}
+      ${campo('Telefone', c.telefone)}
+      ${campo('E-mail', c.email)}
+      ${campo('Endereço', endereco)}
+      ${campo('Bairro', c.bairro)}
+      ${campo('Cidade/UF', c.cidade && c.uf ? c.cidade+'/'+c.uf : (c.cidade||c.uf))}
+      ${campo('CEP', c.cep)}
+      ${campo('Vendedor', c.vendedor)}
+      ${campo('Segmento', c.segmento)}
+      ${campo('Limite de Crédito', c.limite ? 'R$ '+c.limite : '')}
+      ${campo('Status', c.status)}
+      <div class="col-12"><strong>Observações:</strong> ${escapeHtml(c.obs||'—')}</div>
+      ${c.fichaCadastralPdf && c.fichaCadastralPdf.url ? `<div class="col-12"><a href="${escapeHtml(c.fichaCadastralPdf.url)}" target="_blank"><i class="fa-solid fa-file-pdf me-1"></i>${escapeHtml(c.fichaCadastralPdf.nome||'Ver ficha cadastral')}</a></div>` : ''}
+    </div>
+    <div class="small text-muted"><i class="fa-solid fa-circle-info me-1"></i>Pra editar o cadastro completo, use a tela de Clientes no menu principal.</div>
+  `;
+  new bootstrap.Modal('#modalDetalhe').show();
+}
+
 let dtClientes = null;
 function renderClientes(){
   const vendedorIdsFiltro = getGlobalVendedorIds();
@@ -2166,7 +2322,6 @@ async function atribuirVendedorCarteira(clienteId){
     toast('Vendedor atribuído');
     await renderCarteiraCrm();
     await recarregarClientes_();
-    renderClientes();
   }catch(e){
     toast(e.message || 'Erro ao atribuir vendedor', 'error');
   }
@@ -2784,7 +2939,6 @@ async function saveTimelineEntry(){
   await recarregarClientes_();
   bootstrap.Modal.getInstance(document.getElementById('modalTimeline')).hide();
   toast('Contato registrado com sucesso!');
-  if(document.getElementById('page-clientes').classList.contains('active')) renderClientes();
   setTimeout(()=> viewCliente(clienteId), 250);
 }
 
