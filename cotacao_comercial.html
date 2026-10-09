@@ -3196,6 +3196,7 @@ async function decidirCotacao(numero, novoStatus) {
 /* ============================================================
    ORDEM DE COLETA
    ============================================================ */
+let _ocClickListenerRegistrado_ = false;
 function initOC() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('oc-dt-emissao').value = today;
@@ -3208,10 +3209,18 @@ function initOC() {
     .then(rows => { if (Array.isArray(rows)) histData = rows.map(mapearCotacaoDoApi_); })
     .catch(() => {});
 
-  document.addEventListener('click', e => {
-    const wrap = document.getElementById('oc-cotacao-ref')?.closest('[style*="relative"]');
-    if (wrap && !wrap.contains(e.target)) closeCotacaoDrop();
-  }, {once: false});
+  // Registra o listener de "fechar dropdown ao clicar fora" só na primeira
+  // vez — initOC() roda toda vez que a aba Ordem de Coleta é aberta, e
+  // antes isso empilhava mais um listener permanente no document a cada
+  // troca de aba, nunca removido (mesmo tipo de vazamento corrigido em
+  // renderHistory() — ver comentário lá).
+  if (!_ocClickListenerRegistrado_) {
+    _ocClickListenerRegistrado_ = true;
+    document.addEventListener('click', e => {
+      const wrap = document.getElementById('oc-cotacao-ref')?.closest('[style*="relative"]');
+      if (wrap && !wrap.contains(e.target)) closeCotacaoDrop();
+    });
+  }
 }
 
 /* ---- Cotação vinculada autocomplete ---- */
@@ -4381,9 +4390,17 @@ function renderHistory() {
     ${isFiltered ? `<div class="hist-kpi" style="opacity:.5"><span class="hist-kpi-val" style="font-size:11px">${totalGeral}</span><span class="hist-kpi-lbl">Total geral</span></div>` : ''}
   </div>`;
   el.innerHTML = tableHTML;
-  /* close menus on outside click */
-  document.addEventListener('click', () => document.querySelectorAll('.status-menu.open').forEach(m => m.classList.remove('open')));
 }
+// Fecha os menus de status abertos ao clicar fora — registrado UMA VEZ só
+// (fora de renderHistory()). Antes esse addEventListener ficava dentro da
+// função e rodava toda vez que ela era chamada (busca digitada, filtro,
+// toda vez que uma observação era enviada) — cada chamada empilhava mais
+// um listener permanente no document, nunca removido. Numa sessão de uso
+// normal (alguém digitando numa busca, por exemplo) isso passava de
+// centenas pra milhares de listeners, cada um escaneando o DOM a cada
+// clique na tela — é o que deixava a tela cada vez mais lenta até travar
+// de vez.
+document.addEventListener('click', () => document.querySelectorAll('.status-menu.open').forEach(m => m.classList.remove('open')));
 /* ============================================================
    CAMPOS COMPLETOS DA COTAÇÃO (Ponto 1) — coleta TODOS os campos
    da calculadora (não só os 10 originais), usado tanto na criação
