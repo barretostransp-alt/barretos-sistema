@@ -1108,14 +1108,30 @@ async function tentarRenovarToken() {
   } catch (e) { return false; }
 }
 
+// Sem timeout, uma rede instável ou o backend acordando do sleep do Render
+// (cold start) deixava o fetch esperando indefinidamente — mesmo problema
+// corrigido em cotacao_comercial.html (tela ficava "carregando" pra
+// sempre, ex: ao enviar observação, sem jeito de recuperar sozinha). Ver
+// comentário lá.
+function fetchComTimeout_(url, options, ms) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, ms || 25000);
+  return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+    .catch(function(err) {
+      if (err.name === 'AbortError') throw new Error('Tempo esgotado ao conectar com o servidor. Tente novamente.');
+      throw err;
+    })
+    .finally(function(){ clearTimeout(timeoutId); });
+}
+
 async function apiFetch(url, options) {
   options = options || {};
   var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
-  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  var res = await fetchComTimeout_(url, Object.assign({}, options, { headers: headers }));
   if (res.status === 401) {
     if (await tentarRenovarToken()) {
       headers.Authorization = 'Bearer ' + getAuthToken();
-      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+      res = await fetchComTimeout_(url, Object.assign({}, options, { headers: headers }));
     }
     if (res.status === 401) {
       mostrarTelaSemAcesso();
@@ -1803,7 +1819,7 @@ async function sincronizarVendedoresReais(btn){
 }
 
 function openVendedorModal(id){
-  const m = new bootstrap.Modal('#modalVendedor');
+  const m = bootstrap.Modal.getOrCreateInstance('#modalVendedor');
   document.getElementById('formVendedor').reset();
   if(id){
     const v = DB.vendedores().find(x=>x.id===id);
@@ -1952,7 +1968,7 @@ function openFaixasComissaoModal(){
   document.getElementById('fc-faixa4-ate').value = f.faixa4_ate;
   document.getElementById('fc-faixa4-pct').value = f.faixa4_pct;
   document.getElementById('fc-faixa5-pct').value = f.faixa5_pct;
-  new bootstrap.Modal('#modalFaixasComissao').show();
+  bootstrap.Modal.getOrCreateInstance('#modalFaixasComissao').show();
 }
 async function saveFaixasComissao(){
   const payload = {
@@ -2190,7 +2206,7 @@ function viewClienteOficial(id){
     </div>
     <div class="small text-muted"><i class="fa-solid fa-circle-info me-1"></i>Pra editar o cadastro completo, use a tela de Clientes no menu principal.</div>
   `;
-  new bootstrap.Modal('#modalDetalhe').show();
+  bootstrap.Modal.getOrCreateInstance('#modalDetalhe').show();
 }
 
 let dtClientes = null;
@@ -2632,10 +2648,14 @@ async function adicionarNotaCotacaoCRM_(numero) {
       toast(json.error || 'Não foi possível salvar a observação.', 'error');
     }
   } catch(e) {
-    toast('Erro de conexão ao salvar observação.', 'error');
+    toast('Erro de conexão ao salvar observação: ' + (e.message || 'tente novamente.'), 'error');
+  } finally {
+    // finally (não só "depois do try/catch") pra garantir que o campo
+    // nunca fique travado desabilitado, mesmo se algo inesperado além do
+    // fetch (ex: renderCotacoes/viewCotacao) lançar um erro.
+    input.disabled = false;
+    if (btn) btn.disabled = false;
   }
-  input.disabled = false;
-  if (btn) btn.disabled = false;
 }
 
 // Mesma regra do cotacao_comercial.html: cotações antigas (antes do nº 336)
@@ -2662,6 +2682,15 @@ function badgeAprovacaoHTMLCRM_(statusAprov, numero, vendedorNome) {
 // mesma grade de campos do "Ver Detalhes" do Histórico da Cotação Comercial
 // (ver abrirDetalheCotacao em cotacao_comercial.html) + a conversa
 // compartilhada, que lê/grava direto na tabela cotacao_notas.
+// Chamada de novo (reabre o mesmo modal) toda vez que uma observação é
+// enviada em adicionarNotaCotacaoCRM_, com o modal já aberto na tela —
+// por isso o .show() no fim desta função usa getOrCreateInstance() e não
+// "new bootstrap.Modal(...)": "new" sempre cria uma instância nova sem
+// descartar a anterior, e cada uma arrasta seu próprio backdrop (a camada
+// escura atrás do modal) que nunca é removido do body. Em poucas
+// observações enviadas isso empilhava vários backdrops invisíveis
+// cobrindo a tela inteira, bloqueando qualquer clique — era a trava
+// relatada depois de mandar observação na cotação.
 function viewCotacao(numero) {
   const r = _cotacoesCache && _cotacoesCache.find(x => String(x.Numero) === String(numero));
   if (!r) return;
@@ -2720,7 +2749,7 @@ function viewCotacao(numero) {
     <div class="cq-det-section-title"><i class="fa-solid fa-comments me-1"></i>Histórico de Observação</div>
     ${renderNotasThreadHTMLCRM_(numero, r.Notas)}
   `;
-  new bootstrap.Modal('#modalDetalhe').show();
+  bootstrap.Modal.getOrCreateInstance('#modalDetalhe').show();
 }
 
 function onStatusCotacaoChange(){
@@ -2729,7 +2758,7 @@ function onStatusCotacaoChange(){
   wrap.style.display = COTACAO_ENCERRADA.includes(val) && val!=='Aprovada' ? 'block' : 'none';
 }
 function openClienteModal(id){
-  const m = new bootstrap.Modal('#modalCliente');
+  const m = bootstrap.Modal.getOrCreateInstance('#modalCliente');
   document.getElementById('formCliente').reset();
   fillStatusSelect(document.getElementById('c-status'), 'Novo');
   fillCotacaoSelect(document.getElementById('c-status-cotacao'), 'Cotação em elaboração');
@@ -2831,7 +2860,7 @@ function viewCliente(id){
     <div class="mb-3">${timelineHtml || '<div class="text-muted small">Nenhum contato registrado ainda.</div>'}</div>
     <h6>Histórico de Status (Funil)</h6>${hist||'<div class="text-muted">Sem histórico.</div>'}
   `;
-  new bootstrap.Modal('#modalDetalhe').show();
+  bootstrap.Modal.getOrCreateInstance('#modalDetalhe').show();
 }
 async function saveCliente(){
   const empresa = document.getElementById('c-empresa').value.trim();
@@ -2891,7 +2920,7 @@ function deleteCliente(id){
    11b. CRM TIMELINE — Registro de Contatos
 --------------------------------------------------------------------- */
 function openTimelineModal(clienteId){
-  const m = new bootstrap.Modal('#modalTimeline');
+  const m = bootstrap.Modal.getOrCreateInstance('#modalTimeline');
   document.getElementById('formTimeline').reset();
   document.getElementById('t-id').value = '';
   document.getElementById('t-cliente-id').value = clienteId;
@@ -3017,10 +3046,10 @@ function viewEntrevista(id){
     </div>
     ${rows.map(r=>`<p><strong>${r[0]}:</strong><br>${escapeHtml(r[1]||'—')}</p>`).join('')}
   `;
-  new bootstrap.Modal('#modalDetalhe').show();
+  bootstrap.Modal.getOrCreateInstance('#modalDetalhe').show();
 }
 function openEntrevistaModal(id){
-  const m = new bootstrap.Modal('#modalEntrevista');
+  const m = bootstrap.Modal.getOrCreateInstance('#modalEntrevista');
   document.getElementById('formEntrevista').reset();
   if(id){
     const e = DB.entrevistas().find(x=>x.id===id);
@@ -3189,7 +3218,7 @@ function openMetaEquipeModal(){
   const me = DB.metasEquipe();
   document.getElementById('me-mensal').value = me.mensal;
   document.getElementById('me-anual').value = me.anual;
-  new bootstrap.Modal('#modalMetaEquipe').show();
+  bootstrap.Modal.getOrCreateInstance('#modalMetaEquipe').show();
 }
 async function saveMetaEquipe(){
   const payload = {mensal:Number(document.getElementById('me-mensal').value)||0, anual:Number(document.getElementById('me-anual').value)||0};
@@ -3370,7 +3399,7 @@ function openTarefaModal(){
   document.getElementById('formTarefa').reset();
   document.getElementById('tf-id').value = '';
   document.getElementById('tf-prazo')._flatpickr?.setDate(todayISO());
-  new bootstrap.Modal('#modalTarefa').show();
+  bootstrap.Modal.getOrCreateInstance('#modalTarefa').show();
 }
 async function saveTarefa(){
   const descricao = document.getElementById('tf-descricao').value.trim();

@@ -90,6 +90,103 @@ body.tema-claro{
 }
 body.tema-claro .chip{color:#374151;}
 body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);}
+
+/* ── Abas do topbar (Mapa / Detalhamento) ── */
+.tb-tabs{display:flex;gap:4px;margin-left:4px;}
+.tb-tab{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--txt-dim);
+  padding:5px 12px;font-size:11.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.tb-tab:hover{border-color:var(--gold-b);color:var(--txt);}
+.tb-tab.ativo{background:var(--gold-dim);border-color:var(--gold);color:var(--gold);font-weight:600;}
+
+/* ── Aba Detalhamento (lista com todos os cards das 4 empresas) ── */
+.det-view{height:calc(100vh - 52px);display:none;flex-direction:column;overflow:hidden;}
+.det-filtros{display:flex;align-items:center;gap:18px;padding:14px 18px;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-wrap:wrap;flex-shrink:0;}
+.det-busca-input{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--txt);
+  padding:7px 10px;font-size:12px;font-family:'DM Sans',sans-serif;min-width:220px;margin-left:auto;}
+.det-busca-input:focus{outline:none;border-color:var(--gold-b);}
+.det-tabela-wrap{flex:1;overflow:auto;padding:0 18px 18px;}
+.det-tabela{width:100%;border-collapse:collapse;font-size:12px;}
+.det-tabela thead th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--txt-dim);padding:10px;border-bottom:1px solid var(--border);position:sticky;top:0;
+  background:var(--bg);z-index:1;}
+.det-tabela tbody td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--txt);vertical-align:middle;}
+.det-tabela tbody tr:hover{background:rgba(255,255,255,.03)}
+.det-codigo{color:var(--gold);font-weight:700;font-size:11px;white-space:nowrap;}
+.det-select{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--txt);
+  padding:5px 8px;font-size:11px;font-family:'DM Sans',sans-serif;max-width:190px;width:100%;}
+.det-select:focus{outline:none;border-color:var(--gold-b);}
+.det-select:disabled{opacity:.6;}
+/* Cor por grupo de etiqueta de acompanhamento — pra bater o olho na
+   coluna inteira e já saber o estágio de cada operação sem ler linha por
+   linha. Mesmas 4 cores já usadas no resto do sistema (gold/green/blue/
+   red), não cores novas. */
+.det-select.cor-amarelo{border-color:var(--gold);color:var(--gold);background:var(--gold-dim);}
+.det-select.cor-verde{border-color:#22C55E;color:#22C55E;background:rgba(34,197,94,.12);}
+.det-select.cor-azul{border-color:#3B82F6;color:#3B82F6;background:rgba(59,130,246,.12);}
+.det-select.cor-vermelho{border-color:#EF4444;color:#EF4444;background:rgba(239,68,68,.12);}
+/* Chips de Empresa/Status do Detalhamento não têm cor própria (ao
+   contrário dos de vendedor no Mapa, que ganham background inline) — sem
+   isso, .chip.ativo (texto quase preto, pensado pra ficar sobre um fundo
+   colorido) ficava ilegível em cima do --card escuro. */
+#det-chips-empresa .chip.ativo,
+#det-chips-status .chip.ativo{color:var(--txt);background:var(--gold-dim);border-color:var(--gold);font-weight:700;}
+.det-vazio{color:var(--txt-dim);padding:18px 10px!important;text-align:center;}
+.det-btn-obs{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--txt-mid);
+  padding:4px 9px;font-size:10.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;
+  font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.det-btn-obs:hover{border-color:var(--gold-b);color:var(--gold);}
+
+/* ── Modal de observações do card (mesmo padrão de Cotações) ── */
+.ov-notas{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:500;}
+.ov-notas.open{display:flex;}
+.ov-notas-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:420px;
+  max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+.ov-notas-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.ov-notas-head h4{font-size:13px;font-weight:700;color:var(--txt);}
+.ov-notas-head .fechar{cursor:pointer;color:var(--txt-dim);background:none;border:none;font-size:20px;line-height:1;}
+.ov-notas-head .fechar:hover{color:var(--txt);}
+.ov-notas-body{padding:14px 16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;}
+.obs-add-row{display:flex;gap:6px;flex-shrink:0;}
+.obs-add-row input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--txt);
+  padding:7px 9px;font-size:12px;font-family:'DM Sans',sans-serif;}
+.obs-add-row input:focus{outline:none;border-color:var(--gold-b);}
+.obs-add-row button{background:var(--gold-dim);border:1px solid var(--gold-b);border-radius:6px;color:var(--gold);
+  padding:0 11px;cursor:pointer;display:flex;align-items:center;}
+.obs-add-row button:disabled{opacity:.5;cursor:default;}
+.obs-nota{border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--card);}
+.obs-nota-meta{font-size:10px;color:var(--txt-dim);margin-bottom:4px;}
+.obs-nota-autor{color:var(--txt-mid);font-weight:600;}
+.obs-nota-texto{font-size:12px;color:var(--txt);white-space:pre-wrap;word-break:break-word;}
+
+/* ── Aba Gerar Checklist ── */
+.gc-view{height:calc(100vh - 52px);display:none;overflow-y:auto;padding:22px;}
+.gc-wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}
+.gc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;}
+.gc-card h3{font-size:13.5px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.gc-card-sub{font-size:11.5px;color:var(--txt-dim);margin-bottom:14px;}
+.gc-form-row{display:flex;gap:8px;flex-wrap:wrap;}
+.gc-form-row .det-busca-input{flex:1;min-width:160px;margin-left:0;}
+.gc-form-row .det-select{width:auto;max-width:140px;}
+.gc-erro{margin-top:10px;font-size:11.5px;color:var(--red);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:8px 10px;}
+.gc-link-box{margin-top:12px;display:flex;gap:8px;}
+.gc-link-box input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--txt);
+  padding:8px 10px;font-size:12px;font-family:'DM Sans',sans-serif;}
+.gc-hist-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);
+  border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:12px;color:var(--txt);transition:border-color .15s;}
+.gc-hist-item:hover{border-color:var(--gold-b);}
+.gc-hist-pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;}
+.gc-hist-pill.pendente{background:var(--gold-dim);color:var(--gold);}
+.gc-hist-pill.respondido{background:rgba(34,197,94,.12);color:#22C55E;}
+
+/* ── Detalhe do checklist (reaproveita o modal .ov-notas) ── */
+.chk-campo{border-bottom:1px solid var(--border);padding:9px 0;}
+.chk-campo:last-child{border-bottom:none;}
+.chk-campo-lbl{font-size:10px;color:var(--txt-dim);margin-bottom:3px;}
+.chk-campo-val{font-size:12.5px;color:var(--txt);}
+.chk-campo-val.vazio{color:var(--txt-dim);font-style:italic;}
+.chk-anexos{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.chk-anexo-link{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gold);text-decoration:none;padding:6px 0;}
 </style>
 </head>
 <body>
@@ -98,6 +195,11 @@ body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);
   <span class="tb-logo">Mapa das Operações</span>
   <span class="tb-sep">|</span>
   <span class="tb-sub" id="tb-resumo">Carregando...</span>
+  <div class="tb-tabs">
+    <button class="tb-tab ativo" id="tab-mapa" onclick="mudarAba_('mapa')">Mapa</button>
+    <button class="tb-tab" id="tab-detalhamento" onclick="mudarAba_('detalhamento')">Detalhamento</button>
+    <button class="tb-tab" id="tab-checklist" onclick="mudarAba_('checklist')">Gerar Checklist</button>
+  </div>
   <div class="tb-r">
     <button class="bsm" onclick="carregarTudo()"><i class="ti ti-refresh"></i> Atualizar</button>
   </div>
@@ -122,6 +224,81 @@ body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);
   <div class="mapa-wrap">
     <div id="mapa"></div>
     <div id="sem-dados"><i class="ti ti-map-off" style="font-size:26px"></i><span>Nenhuma rota pra mostrar com esse filtro.</span></div>
+  </div>
+</div>
+
+<div class="det-view" id="detalhamento-view">
+  <div class="det-filtros">
+    <div class="filtro-grupo">
+      <span class="filtro-lbl">Empresa</span>
+      <div id="det-chips-empresa" class="filtro-chips"></div>
+    </div>
+    <div class="filtro-grupo">
+      <span class="filtro-lbl">Status</span>
+      <div id="det-chips-status" class="filtro-chips"></div>
+    </div>
+    <input type="text" id="det-busca" class="det-busca-input" placeholder="Buscar por código, cliente ou motorista...">
+  </div>
+  <div class="det-tabela-wrap">
+    <table class="det-tabela">
+      <thead>
+        <tr>
+          <th>Número</th><th>Cliente</th><th>Rota</th><th>Modalidade</th><th>Empresa</th>
+          <th>Acompanhamento</th><th>Motorista</th><th>Telefone</th><th>Obs.</th><th>Checklist</th>
+        </tr>
+      </thead>
+      <tbody id="det-tabela-corpo"><tr><td colspan="10" class="det-vazio">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="gc-view" id="checklist-view">
+  <div class="gc-wrap">
+    <div class="gc-card">
+      <h3><i class="ti ti-clipboard-text"></i> Gerar link de checklist</h3>
+      <p class="gc-card-sub">Vincula um checklist novo ao card e gera um link pra mandar pro motorista preencher (sem precisar de login).</p>
+      <div class="gc-form-row">
+        <select id="gc-empresa" class="det-select"></select>
+        <input type="text" id="gc-codigo" class="det-busca-input" placeholder="Código do card (ex: G261014)" style="margin-left:0">
+        <button class="bsm" onclick="gerarChecklist_()" id="gc-btn-gerar"><i class="ti ti-link"></i> Gerar link</button>
+      </div>
+      <div id="gc-erro" class="gc-erro" hidden></div>
+      <div id="gc-resultado" class="gc-link-box" hidden>
+        <input type="text" id="gc-link-gerado" readonly>
+        <button class="bsm" onclick="copiarLinkChecklist_()"><i class="ti ti-copy"></i> Copiar</button>
+      </div>
+    </div>
+
+    <div class="gc-card">
+      <h3><i class="ti ti-history"></i> Checklists do card buscado</h3>
+      <div id="gc-historico"><p class="det-vazio">Busque um card acima pra ver o histórico.</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov-notas" id="ov-checklist">
+  <div class="ov-notas-box" style="width:520px">
+    <div class="ov-notas-head">
+      <h4 id="ov-checklist-titulo">Checklist</h4>
+      <button class="fechar" onclick="fecharDetalheChecklist_()">&times;</button>
+    </div>
+    <div class="ov-notas-body" id="ov-checklist-body"></div>
+  </div>
+</div>
+
+<div class="ov-notas" id="ov-notas">
+  <div class="ov-notas-box">
+    <div class="ov-notas-head">
+      <h4 id="ov-notas-titulo">Observações</h4>
+      <button class="fechar" onclick="fecharNotasCard_()">&times;</button>
+    </div>
+    <div class="ov-notas-body">
+      <div class="obs-add-row">
+        <input type="text" id="ov-notas-input" placeholder="Escrever uma observação...">
+        <button id="ov-notas-btn" onclick="adicionarNotaCard_()"><i class="ti ti-plus" style="font-size:13px"></i></button>
+      </div>
+      <div id="ov-notas-lista"></div>
+    </div>
   </div>
 </div>
 
@@ -204,6 +381,19 @@ function mostrarTelaSemPermissao() {
 }
 
 function e(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+// Pra montar um argumento dentro de onclick="algo('...')" (aspa simples
+// dentro de atributo com aspa dupla): precisa escapar pra JS (barra
+// invertida, aspa simples) ANTES de escapar pra HTML — escapar com e()
+// primeiro transforma a aspa simples em "&#39;", e um .replace(/'/g,...)
+// depois disso não acha mais nenhuma aspa simples literal pra escapar.
+// O navegador decodifica a entidade e entrega uma aspa simples crua
+// dentro do literal JS, quebrando a sintaxe (foi exatamente o bug do
+// filtro "BARRETO'S" no Detalhamento: o onclick simplesmente não rodava).
+function attrJs_(s){
+  var v = String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 /* ── Cor = vendedor (cor fixa, escolhida pelo Alex); status = estilo do traço ── */
 var COR_VENDEDOR = {
@@ -297,6 +487,41 @@ var filtroStatus = null;
 var EMPRESAS = ['GONCALVES', 'INFRA', "BARRETO'S", 'PINHEIRO'];
 var STATUS_ABERTOS = ['OPERACIONAL', 'COLETA', 'FATURADO'];
 
+// Mesma lista de etiquetas usada no quadro Kanban (pinheiro.html/infra.html/
+// etc, idêntica nos 4) — a aba Detalhamento edita o mesmo campo, então usa
+// exatamente as mesmas opções. Status usa STATUS_ABERTOS (acima): card
+// FINALIZADO não entra no Detalhamento, então nem aparece como filtro.
+var AO = ["","EM ROTA DE COLETA","AGUARDANDO CARREGAMENTO","CARREGANDO","EM ROTA DE ENTREGA","DESCARREGANDO","CONCLUIDO","NECESSARIO TRANSBORDO","RETOMAR CONTRATAÇÃO","SEM CONTATO"];
+
+// Agrupamento visual das etiquetas de acompanhamento, escolhido pelo Alex
+// (amarelo = carregamento/coleta em andamento ou pendência; verde = em
+// rota de entrega/descarregando; azul = concluído; vermelho = precisa de
+// atenção/sem contato).
+var COR_ACOMPANHAMENTO = {
+  'EM ROTA DE COLETA': 'amarelo',
+  'AGUARDANDO CARREGAMENTO': 'amarelo',
+  'CARREGANDO': 'amarelo',
+  'NECESSARIO TRANSBORDO': 'amarelo',
+  'EM ROTA DE ENTREGA': 'verde',
+  'DESCARREGANDO': 'verde',
+  'CONCLUIDO': 'azul',
+  'RETOMAR CONTRATAÇÃO': 'vermelho',
+  'SEM CONTATO': 'vermelho',
+};
+function classeAcompanhamento_(valor){
+  var cor = COR_ACOMPANHAMENTO[valor];
+  return cor ? 'cor-' + cor : '';
+}
+
+function nomeUsuarioAtual() {
+  try {
+    var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    if (!raw) return '';
+    var u = JSON.parse(raw);
+    return (u.nome || u.login || '').toString();
+  } catch (e) { return ''; }
+}
+
 function enderecoResumo_(endereco, ufFallback){
   var partes = String(endereco||'').split(/,|—/).map(function(s){return s.trim();}).filter(Boolean);
   if (!partes.length) return '';
@@ -368,7 +593,7 @@ function renderizarFiltros(){
   var vendedoresPresentes = Array.from(new Set(todosOsCards.map(function(c){ return c.vendedor || '?'; })));
   var elV = document.getElementById('chips-vendedor');
   elV.innerHTML = vendedoresPresentes.map(function(v){
-    return '<span class="chip" data-v="'+e(v)+'" onclick="toggleFiltroVendedor(\''+e(v).replace(/'/g,"\\'")+'\')" style="margin-right:6px">'+
+    return '<span class="chip" data-v="'+e(v)+'" onclick="toggleFiltroVendedor(\''+attrJs_(v)+'\')" style="margin-right:6px">'+
       '<span class="dot" style="background:'+corDoVendedor(v==='?'?undefined:v)+'"></span>'+e(v)+'</span>';
   }).join('');
   var elS = document.getElementById('chips-status');
@@ -448,6 +673,402 @@ async function carregarTudo(){
   }
   statusEl.textContent = '';
   renderizarMapa();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ABA DETALHAMENTO — lista de todos os cards das 4 empresas, com
+   edição rápida de acompanhamento e histórico de observações.
+   ══════════════════════════════════════════════════════════════ */
+var detCardsTodos = [];
+var detFiltroEmpresa = null; // null = todas
+var detFiltroStatus = null;  // null = todos
+var detBusca = '';
+var detCarregado = false;
+var detNotasAtual = null; // {empresa, codigo} do card com o modal de observações aberto
+
+function mudarAba_(aba){
+  document.getElementById('tab-mapa').classList.toggle('ativo', aba === 'mapa');
+  document.getElementById('tab-detalhamento').classList.toggle('ativo', aba === 'detalhamento');
+  document.getElementById('tab-checklist').classList.toggle('ativo', aba === 'checklist');
+  document.querySelector('.corpo').style.display = aba === 'mapa' ? 'flex' : 'none';
+  document.getElementById('detalhamento-view').style.display = aba === 'detalhamento' ? 'flex' : 'none';
+  document.getElementById('checklist-view').style.display = aba === 'checklist' ? 'block' : 'none';
+  if (aba === 'detalhamento' && !detCarregado) carregarDetalhamento_();
+  if (aba === 'checklist' && !document.getElementById('gc-empresa').options.length) popularEmpresasChecklist_();
+}
+
+async function buscarTodosCardsDetalhamento_(){
+  var promessas = EMPRESAS.map(function(emp){
+    return apiFetch(API_BASE + '/kanban?empresa=' + encodeURIComponent(emp)).then(function(r){ return r.json(); }).catch(function(){ return []; });
+  });
+  var listas = await Promise.all(promessas);
+  var todos = [].concat.apply([], listas);
+  // Card finalizado no quadro Kanban não entra no Detalhamento — essa
+  // tela é pra operação em andamento, não histórico.
+  return todos.filter(function(c){ return c.status !== 'FINALIZADO'; });
+}
+
+async function carregarDetalhamento_(){
+  document.getElementById('det-tabela-corpo').innerHTML = '<tr><td colspan="10" class="det-vazio">Carregando...</td></tr>';
+  detCardsTodos = await buscarTodosCardsDetalhamento_();
+  detCarregado = true;
+  renderizarFiltrosDetalhamento_();
+  renderizarTabelaDetalhamento_();
+}
+
+function renderizarFiltrosDetalhamento_(){
+  var elE = document.getElementById('det-chips-empresa');
+  elE.innerHTML = EMPRESAS.map(function(emp){
+    return '<span class="chip" data-emp="'+e(emp)+'" onclick="toggleFiltroEmpresaDet_(\''+attrJs_(emp)+'\')">'+e(emp)+'</span>';
+  }).join('');
+  var elS = document.getElementById('det-chips-status');
+  elS.innerHTML = STATUS_ABERTOS.map(function(s){
+    return '<span class="chip" data-s="'+s+'" onclick="toggleFiltroStatusDet_(\''+s+'\')">'+s+'</span>';
+  }).join('');
+  atualizarClassesChipsDet_();
+}
+
+function atualizarClassesChipsDet_(){
+  document.querySelectorAll('#det-chips-empresa .chip').forEach(function(el){
+    var emp = el.getAttribute('data-emp');
+    el.classList.toggle('ativo', !detFiltroEmpresa || detFiltroEmpresa.has(emp));
+  });
+  document.querySelectorAll('#det-chips-status .chip').forEach(function(el){
+    var s = el.getAttribute('data-s');
+    el.classList.toggle('ativo', !detFiltroStatus || detFiltroStatus.has(s));
+  });
+}
+
+function toggleFiltroEmpresaDet_(emp){
+  if (!detFiltroEmpresa) detFiltroEmpresa = new Set(EMPRESAS);
+  if (detFiltroEmpresa.has(emp)) detFiltroEmpresa.delete(emp); else detFiltroEmpresa.add(emp);
+  if (detFiltroEmpresa.size === EMPRESAS.length) detFiltroEmpresa = null;
+  atualizarClassesChipsDet_();
+  renderizarTabelaDetalhamento_();
+}
+function toggleFiltroStatusDet_(s){
+  if (!detFiltroStatus) detFiltroStatus = new Set(STATUS_ABERTOS);
+  if (detFiltroStatus.has(s)) detFiltroStatus.delete(s); else detFiltroStatus.add(s);
+  if (detFiltroStatus.size === STATUS_ABERTOS.length) detFiltroStatus = null;
+  atualizarClassesChipsDet_();
+  renderizarTabelaDetalhamento_();
+}
+
+function filtrarCardsDetalhamento_(){
+  var termo = detBusca.trim().toLowerCase();
+  return detCardsTodos.filter(function(c){
+    if (detFiltroEmpresa && !detFiltroEmpresa.has(c.empresa)) return false;
+    if (detFiltroStatus && !detFiltroStatus.has(c.status)) return false;
+    if (termo) {
+      var alvo = (String(c.codigo||'') + ' ' + (c.cliente||'') + ' ' + (c.motorista||'')).toLowerCase();
+      if (alvo.indexOf(termo) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function renderizarTabelaDetalhamento_(){
+  var corpo = document.getElementById('det-tabela-corpo');
+  var lista = filtrarCardsDetalhamento_();
+  if (!lista.length) { corpo.innerHTML = '<tr><td colspan="10" class="det-vazio">Nenhum card encontrado com esse filtro.</td></tr>'; return; }
+  corpo.innerHTML = lista.map(function(c){
+    var origemResumo = enderecoResumo_(c.endereco_origem, c.uf_origem);
+    var destinoResumo = enderecoResumo_(c.endereco_destino, c.uf_destino);
+    var rota = origemResumo + (destinoResumo ? ' → ' + destinoResumo : '');
+    var codigoAttr = attrJs_(String(c.codigo));
+    var empresaAttr = attrJs_(c.empresa);
+    var opcoesAO = AO.map(function(op){
+      return '<option value="'+e(op)+'"'+(op === (c.acompanhamento||'') ? ' selected' : '')+'>'+e(op || '(sem etiqueta)')+'</option>';
+    }).join('');
+    var qtdNotas = (c.notas && c.notas.length) || 0;
+    var ultimoChecklist = ultimoChecklist_(c);
+    var celulaChecklist = ultimoChecklist
+      ? '<button class="det-btn-obs" onclick="abrirDetalheChecklistCard_(\''+empresaAttr+'\',\''+codigoAttr+'\')"><i class="ti ti-clipboard-text"></i> '+contarRespostasPreenchidas_(ultimoChecklist.respostas)+'/'+CAMPOS_CHECKLIST.length+' · '+(ultimoChecklist.status === 'respondido' ? 'Respondido' : 'Pendente')+'</button>'
+      : '<span class="det-vazio" style="padding:0">—</span>';
+    return '<tr>'+
+      '<td class="det-codigo">'+e(c.codigo)+'</td>'+
+      '<td>'+e(c.cliente || '—')+'</td>'+
+      '<td>'+e(rota || '—')+'</td>'+
+      '<td>'+e(c.modalidade || '—')+'</td>'+
+      '<td>'+e(c.empresa)+'</td>'+
+      '<td><select class="det-select '+classeAcompanhamento_(c.acompanhamento)+'" onchange="this.className=\'det-select \'+classeAcompanhamento_(this.value);salvarAcompanhamento_(\''+empresaAttr+'\',\''+codigoAttr+'\',this.value,this)">'+opcoesAO+'</select></td>'+
+      '<td>'+e(c.motorista || '—')+'</td>'+
+      '<td>'+e(c.telefone_motorista || '—')+'</td>'+
+      '<td><button class="det-btn-obs" onclick="abrirNotasCard_(\''+empresaAttr+'\',\''+codigoAttr+'\')"><i class="ti ti-notes"></i> '+qtdNotas+'</button></td>'+
+      '<td>'+celulaChecklist+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+document.getElementById('det-busca').addEventListener('input', function(){
+  detBusca = this.value;
+  renderizarTabelaDetalhamento_();
+});
+
+async function salvarAcompanhamento_(empresa, codigo, novoValor, selectEl){
+  if (selectEl) selectEl.disabled = true;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(empresa) + '/' + encodeURIComponent(codigo), {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ acompanhamento: novoValor }),
+    });
+    if (res.ok) {
+      var card = detCardsTodos.find(function(c){ return c.empresa === empresa && String(c.codigo) === String(codigo); });
+      if (card) card.acompanhamento = novoValor;
+    } else {
+      var j = await res.json().catch(function(){ return {}; });
+      alert('Erro ao salvar acompanhamento: ' + (j.error || 'desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro de conexão ao salvar acompanhamento.');
+  }
+  if (selectEl) selectEl.disabled = false;
+}
+
+async function abrirNotasCard_(empresa, codigo){
+  detNotasAtual = { empresa: empresa, codigo: codigo };
+  document.getElementById('ov-notas-titulo').textContent = 'Observações — ' + codigo;
+  document.getElementById('ov-notas-input').value = '';
+  document.getElementById('ov-notas-lista').innerHTML = '<p style="font-size:11px;color:var(--txt-dim)">Carregando...</p>';
+  document.getElementById('ov-notas').classList.add('open');
+  await recarregarNotasCard_();
+}
+
+function fecharNotasCard_(){
+  document.getElementById('ov-notas').classList.remove('open');
+  detNotasAtual = null;
+}
+
+async function recarregarNotasCard_(){
+  if (!detNotasAtual) return;
+  var alvo = detNotasAtual;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(alvo.empresa) + '/' + encodeURIComponent(alvo.codigo) + '/notas');
+    var notas = await res.json();
+    if (!Array.isArray(notas)) notas = [];
+    renderizarListaNotas_(notas);
+    var card = detCardsTodos.find(function(c){ return c.empresa === alvo.empresa && String(c.codigo) === String(alvo.codigo); });
+    if (card) { card.notas = notas; renderizarTabelaDetalhamento_(); }
+  } catch (err) {
+    document.getElementById('ov-notas-lista').innerHTML = '<p style="font-size:11px;color:var(--red)">Erro ao carregar observações.</p>';
+  }
+}
+
+function renderizarListaNotas_(notas){
+  var ordenadas = notas.slice().sort(function(a,b){ return String(b.criado_em||'').localeCompare(String(a.criado_em||'')); });
+  document.getElementById('ov-notas-lista').innerHTML = ordenadas.length ? ordenadas.map(function(n){
+    var d = n.criado_em ? new Date(n.criado_em) : null;
+    var pad = function(v){ return String(v).padStart(2,'0'); };
+    var dataStr = d ? (pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())) : '';
+    return '<div class="obs-nota"><div class="obs-nota-meta">'+e(dataStr)+(n.autor ? ' — <span class="obs-nota-autor">'+e(n.autor)+'</span>' : '')+'</div>'+
+      '<div class="obs-nota-texto">'+e(n.texto)+'</div></div>';
+  }).join('') : '<p style="font-size:11px;color:var(--txt-dim)">Nenhuma observação registrada ainda.</p>';
+}
+
+async function adicionarNotaCard_(){
+  if (!detNotasAtual) return;
+  var input = document.getElementById('ov-notas-input');
+  var btn = document.getElementById('ov-notas-btn');
+  // Trava contra clique repetido/duplo-clique enquanto o pedido anterior
+  // ainda está em voo — mesmo bug já corrigido em Cotações nesta sessão.
+  if (btn.disabled) return;
+  var texto = input.value.trim();
+  if (!texto) return;
+  var alvo = detNotasAtual;
+  var autor = nomeUsuarioAtual() || 'Desconhecido';
+  input.disabled = true;
+  btn.disabled = true;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(alvo.empresa) + '/' + encodeURIComponent(alvo.codigo) + '/notas', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ autor: autor, texto: texto }),
+    });
+    var j = await res.json().catch(function(){ return {}; });
+    if (res.ok) {
+      input.value = '';
+      await recarregarNotasCard_();
+    } else {
+      alert('Erro ao salvar observação: ' + (j.error || 'desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro de conexão ao salvar observação.');
+  }
+  input.disabled = false;
+  btn.disabled = false;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ABA GERAR CHECKLIST — vincula um checklist novo a um card, gera o
+   link público (sem login) pro motorista preencher, e mostra o
+   histórico de checklists já gerados pra esse card. O mesmo detalhe
+   (modal) também é usado pela coluna "Checklist" do Detalhamento.
+   ══════════════════════════════════════════════════════════════ */
+
+// Mesmas chaves/rótulos usados em checklist_motorista.html (página
+// pública que o motorista preenche) — duplicado aqui de propósito,
+// mesmo padrão já usado pra AO/STATUS_LIST entre os arquivos do
+// Kanban: são telas diferentes, cada uma com sua cópia da mesma lista.
+var CAMPOS_CHECKLIST = [
+  { chave: 'tipo_contratante', label: '1. Motorista ou proprietário?' },
+  { chave: 'nome_motorista', label: '2. Nome do motorista' },
+  { chave: 'telefone_proprietario', label: '3. Telefone do proprietário' },
+  { chave: 'endereco_proprietario', label: '4. Endereço do proprietário' },
+  { chave: 'endereco_motorista', label: '5. Endereço do motorista' },
+  { chave: 'conta_banco', label: '6. Conta bancária — banco' },
+  { chave: 'conta_agencia', label: '6. Conta bancária — agência' },
+  { chave: 'conta_numero', label: '6. Conta bancária — número da conta' },
+  { chave: 'conta_tipo', label: '6. Conta bancária — tipo de conta' },
+  { chave: 'pix_favorecido', label: '7. Pix — favorecido' },
+  { chave: 'pix_chave', label: '7. Pix — chave' },
+  { chave: 'pix_tipo_chave', label: '7. Pix — tipo de chave' },
+  { chave: 'pix_banco', label: '7. Pix — banco' },
+  { chave: 'vale_pedagio_tag', label: '8. Tag do vale pedágio' },
+  { chave: 'cidade_uf_coleta', label: '9. Cidade/UF de coleta' },
+  { chave: 'cidade_uf_entrega', label: '10. Cidade/UF de entrega' },
+  { chave: 'ciente_prazo_entrega', label: '11. Ciente da data de entrega?' },
+  { chave: 'ciente_pagamento_conta', label: '12. Ciente que o pagamento só vai pra conta do motorista/proprietário?' },
+  { chave: 'ciente_adiantamento', label: '13. Ciente das condições do adiantamento?' },
+  { chave: 'de_acordo', label: '14. De acordo com todos os itens?' },
+];
+
+function contarRespostasPreenchidas_(respostas){
+  if (!respostas) return 0;
+  return CAMPOS_CHECKLIST.filter(function(c){ return respostas[c.chave]; }).length;
+}
+
+// Card do Detalhamento já vem com c.checklists embutido (mesmo padrão
+// de c.notas) — pega o mais recente, já que pode ter mais de um ao
+// longo do tempo (ex: reenvio).
+function ultimoChecklist_(card){
+  if (!card.checklists || !card.checklists.length) return null;
+  return card.checklists.slice().sort(function(a,b){ return String(b.criado_em||'').localeCompare(String(a.criado_em||'')); })[0];
+}
+
+function popularEmpresasChecklist_(){
+  document.getElementById('gc-empresa').innerHTML = EMPRESAS.map(function(emp){
+    return '<option value="'+e(emp)+'">'+e(emp)+'</option>';
+  }).join('');
+}
+
+var gcHistoricoAtual = [];
+
+async function gerarChecklist_(){
+  var empresa = document.getElementById('gc-empresa').value;
+  var codigo = document.getElementById('gc-codigo').value.trim();
+  var btn = document.getElementById('gc-btn-gerar');
+  var erroEl = document.getElementById('gc-erro');
+  erroEl.hidden = true;
+  if (!codigo) { erroEl.textContent = 'Informe o código do card.'; erroEl.hidden = false; return; }
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(empresa) + '/' + encodeURIComponent(codigo) + '/checklist', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ criadoPor: nomeUsuarioAtual() }),
+    });
+    var json = await res.json();
+    if (res.ok) {
+      // location.origin sozinho só dá "https://host" — no ambiente de
+      // teste (GitHub Pages de projeto) o site fica num subcaminho
+      // (".../ambiente-de-teste/"), então o link saía sem esse pedaço e
+      // dava 404. Pega o diretório da própria página atual em vez de
+      // supor que está na raiz — funciona tanto no subcaminho do teste
+      // quanto no domínio próprio da produção (que não tem subcaminho).
+      var diretorioAtual = location.pathname.replace(/[^/]*$/, '');
+      var link = location.origin + diretorioAtual + 'checklist_motorista.html?token=' + json.token;
+      document.getElementById('gc-link-gerado').value = link;
+      document.getElementById('gc-resultado').hidden = false;
+      await buscarHistoricoChecklist_(empresa, codigo);
+    } else {
+      erroEl.textContent = json.error || 'Erro ao gerar link.';
+      erroEl.hidden = false;
+    }
+  } catch (err) {
+    erroEl.textContent = 'Erro de conexão.';
+    erroEl.hidden = false;
+  }
+  btn.disabled = false;
+}
+
+function copiarLinkChecklist_(){
+  var input = document.getElementById('gc-link-gerado');
+  input.select();
+  try { navigator.clipboard.writeText(input.value); } catch (err) { document.execCommand('copy'); }
+}
+
+async function buscarHistoricoChecklist_(empresa, codigo){
+  var wrap = document.getElementById('gc-historico');
+  wrap.innerHTML = '<p class="det-vazio">Carregando...</p>';
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(empresa) + '/' + encodeURIComponent(codigo) + '/checklist');
+    var lista = await res.json();
+    gcHistoricoAtual = Array.isArray(lista) ? lista : [];
+    if (!gcHistoricoAtual.length) { wrap.innerHTML = '<p class="det-vazio">Nenhum checklist gerado ainda pra esse card.</p>'; return; }
+    wrap.innerHTML = gcHistoricoAtual.map(function(c, i){
+      var qtd = contarRespostasPreenchidas_(c.respostas);
+      var dataStr = c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '';
+      return '<div class="gc-hist-item" onclick="abrirDetalheChecklistIndice_('+i+')">'+
+        '<span>'+qtd+'/'+CAMPOS_CHECKLIST.length+' preenchido · '+dataStr+'</span>'+
+        '<span class="gc-hist-pill '+(c.status === 'respondido' ? 'respondido' : 'pendente')+'">'+(c.status === 'respondido' ? 'Respondido' : 'Pendente')+'</span>'+
+      '</div>';
+    }).join('');
+  } catch (err) {
+    wrap.innerHTML = '<p class="det-vazio">Erro ao carregar histórico.</p>';
+  }
+}
+
+function abrirDetalheChecklistIndice_(i){
+  var checklist = gcHistoricoAtual[i];
+  if (checklist) renderizarModalChecklist_(checklist);
+}
+
+// Chamada pela coluna "Checklist" do Detalhamento — busca o card já
+// carregado em detCardsTodos (mesma lista da tabela) e abre o mais
+// recente dos checklists embutidos nele.
+function abrirDetalheChecklistCard_(empresa, codigo){
+  var card = detCardsTodos.find(function(c){ return c.empresa === empresa && String(c.codigo) === String(codigo); });
+  var checklist = card ? ultimoChecklist_(card) : null;
+  if (!checklist) return;
+  // O checklist embutido no card (c.checklists, mesmo padrão de c.notas)
+  // só traz id/status/respostas/criado_em — sem o código. Sem isso, o
+  // modal buscava os anexos com "codigo=undefined" e sempre mostrava
+  // "nenhum anexo", mesmo quando o motorista tinha enviado.
+  checklist.codigo = card.codigo;
+  renderizarModalChecklist_(checklist);
+}
+
+async function renderizarModalChecklist_(checklist){
+  document.getElementById('ov-checklist-titulo').textContent = 'Checklist — ' + checklist.codigo + ' (' + (checklist.status === 'respondido' ? 'Respondido' : 'Pendente') + ')';
+  var respostas = checklist.respostas || {};
+  var corpo = CAMPOS_CHECKLIST.map(function(c){
+    var valor = respostas[c.chave];
+    return '<div class="chk-campo"><div class="chk-campo-lbl">'+e(c.label)+'</div>'+
+      '<div class="chk-campo-val'+(valor ? '' : ' vazio')+'">'+e(valor || 'Não respondido')+'</div></div>';
+  }).join('');
+  document.getElementById('ov-checklist-body').innerHTML = corpo + '<div class="chk-anexos" id="chk-anexos-wrap"><p class="det-vazio">Carregando anexos...</p></div>';
+  document.getElementById('ov-checklist').classList.add('open');
+
+  // Anexos do checklist vivem junto dos anexos do próprio card (mesma
+  // pasta no Storage — uploadAnexo já cuida disso no backend), então
+  // reaproveita a listagem que já existe pra anexos de card.
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/anexos?codigo=' + encodeURIComponent(checklist.codigo));
+    var json = await res.json();
+    var anexos = (json && json.anexos) || [];
+    var wrap = document.getElementById('chk-anexos-wrap');
+    wrap.innerHTML = '<div class="chk-campo-lbl" style="margin-bottom:8px">Anexos do card</div>' + (
+      anexos.length
+        ? anexos.map(function(a){ return '<a class="chk-anexo-link" href="'+e(a.url)+'" target="_blank" rel="noopener"><i class="ti ti-paperclip"></i>'+e(a.nome)+'</a>'; }).join('')
+        : '<p class="det-vazio" style="padding:0">Nenhum anexo.</p>'
+    );
+  } catch (err) {
+    var wrapErro = document.getElementById('chk-anexos-wrap');
+    if (wrapErro) wrapErro.innerHTML = '<p class="det-vazio" style="padding:0">Erro ao carregar anexos.</p>';
+  }
+}
+
+function fecharDetalheChecklist_(){
+  document.getElementById('ov-checklist').classList.remove('open');
 }
 
 document.addEventListener('DOMContentLoaded', function(){

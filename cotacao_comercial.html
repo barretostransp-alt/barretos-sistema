@@ -1891,14 +1891,31 @@ async function tentarRenovarToken() {
   } catch (e) { return false; }
 }
 
+// Sem timeout, uma rede instável ou o backend acordando do sleep do Render
+// (cold start) deixava o fetch esperando indefinidamente — a tela ficava
+// "carregando" pra sempre (ex: enviar observação na cotação) sem nenhum
+// jeito de recuperar sozinha, só forçando F5. AbortController corta a
+// espera num tempo razoável e devolve um erro de verdade, que os try/catch
+// que já existiam (e sempre reabilitam input/botão no fim) sabem tratar.
+function fetchComTimeout_(url, options, ms) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, ms || 25000);
+  return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+    .catch(function(err) {
+      if (err.name === 'AbortError') throw new Error('Tempo esgotado ao conectar com o servidor. Tente novamente.');
+      throw err;
+    })
+    .finally(function(){ clearTimeout(timeoutId); });
+}
+
 async function apiFetch(url, options) {
   options = options || {};
   var headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + getAuthToken() });
-  var res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  var res = await fetchComTimeout_(url, Object.assign({}, options, { headers: headers }));
   if (res.status === 401) {
     if (await tentarRenovarToken()) {
       headers.Authorization = 'Bearer ' + getAuthToken();
-      res = await fetch(url, Object.assign({}, options, { headers: headers }));
+      res = await fetchComTimeout_(url, Object.assign({}, options, { headers: headers }));
     }
     if (res.status === 401) {
       mostrarTelaSemAcesso();
@@ -3748,7 +3765,18 @@ async function loadHistory() {
     errEl.style.display = 'flex';
     histData = [];
   }
-  renderHistory();
+  try {
+    // renderHistory() fora do try/catch de cima, sem proteção própria,
+    // deixava o "Carregando histórico…" (linha acima) travado na tela pra
+    // sempre se algum dado inesperado fizesse o render quebrar no meio —
+    // ninguém chamava loadHistory() dentro de um try/catch próprio (os
+    // botões "Recarregar" chamam direto via onclick), então o erro nem
+    // aparecia no console de um jeito óbvio, só a tela "carregando" presa.
+    renderHistory();
+  } catch (e) {
+    console.error('[loadHistory] renderHistory falhou:', e);
+    el.innerHTML = '<div class="hist-empty"><i class="ti ti-alert-triangle" style="font-size:32px;display:block;margin-bottom:8px;opacity:.4"></i>Erro ao exibir o histórico. Tente recarregar.</div>';
+  }
   const badge = document.getElementById('hist-badge');
   if (badge) { badge.textContent = histData.length; badge.style.display = histData.length ? 'inline' : 'none'; }
 }
@@ -4106,10 +4134,14 @@ async function adicionarNotaCotacao(numero) {
       alert('Erro ao salvar observação: ' + (json.error || 'desconhecido'));
     }
   } catch(e) {
-    alert('Erro de conexão ao salvar observação.');
+    alert('Erro de conexão ao salvar observação: ' + (e.message || 'tente novamente.'));
+  } finally {
+    // finally (não só "depois do try/catch") pra garantir que o campo
+    // nunca fique travado desabilitado, mesmo se algo inesperado além do
+    // fetch (ex: abrirDetalheCotacao/renderAprovPanel) lançar um erro.
+    input.disabled = false;
+    if (btn) btn.disabled = false;
   }
-  input.disabled = false;
-  if (btn) btn.disabled = false;
 }
 
 /* ============================================================
