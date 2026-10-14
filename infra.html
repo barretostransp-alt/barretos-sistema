@@ -123,6 +123,35 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Sans
 .fg input[type="date"]{color-scheme:dark;}
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
 .fg select option{background:var(--card);}
+/* Observações do card, direto no modal de editar — mesma rota/tabela
+   que a aba Detalhamento do Mapa das Operações já usa. */
+.obs-add-row{display:flex;gap:6px;margin-top:3px;}
+.obs-add-row input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--txt);
+  padding:7px 9px;font-size:12px;font-family:'DM Sans',sans-serif;}
+.obs-add-row input:focus{outline:none;border-color:var(--gold);}
+.obs-add-row button{background:var(--gold-dim);border:1px solid var(--gold-b);border-radius:6px;color:var(--gold);
+  padding:0 11px;cursor:pointer;display:flex;align-items:center;}
+.obs-add-row button:disabled{opacity:.5;cursor:default;}
+.obs-nota{border:1px solid var(--border);border-radius:8px;padding:9px 11px;background:var(--card);margin-top:8px;}
+.obs-nota-meta{font-size:10px;color:var(--txt-dim);margin-bottom:4px;}
+.obs-nota-autor{color:var(--txt-mid);font-weight:600;}
+.obs-nota-texto{font-size:12px;color:var(--txt);white-space:pre-wrap;word-break:break-word;}
+.btn-obs-card{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--txt-mid);
+  padding:7px 11px;font-size:11.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn-obs-card:hover{border-color:var(--gold-b);color:var(--gold);}
+/* Modal de observações (botão de atalho acima) — fica fora do #mbody de
+   propósito, pra não ser apagado toda vez que o form do card é
+   reconstruído (buildForm faz innerHTML no #mbody inteiro). */
+.ov-notas{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:500;}
+.ov-notas.open{display:flex;}
+.ov-notas-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:420px;
+  max-width:92vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+.ov-notas-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.ov-notas-head h4{font-size:13px;font-weight:700;color:var(--txt);}
+.ov-notas-head .fechar{cursor:pointer;color:var(--txt-dim);background:none;border:none;font-size:20px;line-height:1;}
+.ov-notas-head .fechar:hover{color:var(--txt);}
+.ov-notas-body{padding:14px 16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;}
 .cod-ok{font-size:10px;color:var(--green);margin-top:3px;display:flex;align-items:center;gap:3px;}
 .cod-err{font-size:10px;color:var(--red);margin-top:3px;display:none;align-items:center;gap:3px;font-weight:600;}
 .cod-inp-dup{border-color:var(--red)!important;}.vw{position:relative;}
@@ -263,7 +292,21 @@ body.tema-claro .kcard-foot .ktag[style*="22C55E"]{
   </div>
 </div>
 
-
+<div class="ov-notas" id="ov-notas-card">
+  <div class="ov-notas-box">
+    <div class="ov-notas-head">
+      <h4 id="ov-notas-card-titulo">Observações</h4>
+      <button class="fechar" onclick="fecharObsCardModal_()">&times;</button>
+    </div>
+    <div class="ov-notas-body">
+      <div class="obs-add-row">
+        <input type="text" id="mcard-nota-input" placeholder="Escrever uma observação...">
+        <button type="button" id="mcard-nota-btn" onclick="adicionarNotaCardModal_()"><i class="ti ti-plus" style="font-size:13px"></i></button>
+      </div>
+      <div id="mcard-notas-lista"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 var ABA="INFRA", PFX="S", SK="jira_url_INFRA", ATK="att_INF_", EXTK="extra_INF_";
@@ -886,7 +929,96 @@ function openEdit(key){
   document.getElementById("btn-del").style.display="flex";
   document.getElementById("mmsg").textContent="";document.getElementById("mmsg").className="mmsg";
   buildForm(card,false);
+  _notaCardModalCodigoAtual = key; // só guarda — a thread só carrega se o botão "Observações" for clicado
   document.getElementById("card-modal").classList.add("open");
+}
+
+function nomeUsuarioAtual() {
+  try {
+    var raw = sessionStorage.getItem('barretos_user') || localStorage.getItem('barretos_user');
+    if (!raw) return '';
+    var u = JSON.parse(raw);
+    return (u.nome || u.login || '').toString();
+  } catch (e) { return ''; }
+}
+
+// Histórico de observação do card, aberto num modal à parte por um
+// botão de atalho (igual a aba Detalhamento do Mapa das Operações) —
+// mesma rota/tabela (kanban_card_notas): GET/POST
+// /kanban/:empresa/:codigo/notas.
+var _notaCardModalCodigoAtual = null;
+
+function abrirObsCardModal_(){
+  var codigo = _notaCardModalCodigoAtual;
+  if (!codigo) return;
+  document.getElementById('ov-notas-card-titulo').textContent = 'Observações — ' + codigo;
+  document.getElementById('mcard-nota-input').value = '';
+  document.getElementById('mcard-notas-lista').innerHTML = '<p style="font-size:11px;color:var(--txt-dim)">Carregando...</p>';
+  document.getElementById('ov-notas-card').classList.add('open');
+  carregarNotasCardModal_(codigo);
+}
+
+function fecharObsCardModal_(){
+  document.getElementById('ov-notas-card').classList.remove('open');
+}
+
+async function carregarNotasCardModal_(codigo){
+  _notaCardModalCodigoAtual = codigo;
+  var lista = document.getElementById('mcard-notas-lista');
+  if (!lista) return;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(ABA) + '/' + encodeURIComponent(codigo) + '/notas');
+    var notas = await res.json();
+    renderizarNotasCardModal_(Array.isArray(notas) ? notas : []);
+  } catch (err) {
+    lista.innerHTML = '<p style="font-size:11px;color:var(--red)">Erro ao carregar observações.</p>';
+  }
+}
+
+function renderizarNotasCardModal_(notas){
+  var lista = document.getElementById('mcard-notas-lista');
+  if (!lista) return;
+  var ordenadas = notas.slice().sort(function(a,b){ return String(b.criado_em||'').localeCompare(String(a.criado_em||'')); });
+  lista.innerHTML = ordenadas.length ? ordenadas.map(function(n){
+    var d = n.criado_em ? new Date(n.criado_em) : null;
+    var pad = function(v){ return String(v).padStart(2,'0'); };
+    var dataStr = d ? (pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())) : '';
+    return '<div class="obs-nota"><div class="obs-nota-meta">'+e(dataStr)+(n.autor ? ' — <span class="obs-nota-autor">'+e(n.autor)+'</span>' : '')+'</div>'+
+      '<div class="obs-nota-texto">'+e(n.texto)+'</div></div>';
+  }).join('') : '<p style="font-size:11px;color:var(--txt-dim)">Nenhuma observação registrada ainda.</p>';
+}
+
+async function adicionarNotaCardModal_(){
+  var codigo = _notaCardModalCodigoAtual;
+  if (!codigo) return;
+  var input = document.getElementById('mcard-nota-input');
+  var btn = document.getElementById('mcard-nota-btn');
+  if (!input || !btn) return;
+  // Trava contra clique repetido/duplo-clique enquanto o pedido anterior
+  // ainda está em voo — mesmo cuidado já aplicado em Cotações.
+  if (btn.disabled) return;
+  var texto = input.value.trim();
+  if (!texto) return;
+  var autor = nomeUsuarioAtual() || 'Desconhecido';
+  input.disabled = true;
+  btn.disabled = true;
+  try {
+    var res = await apiFetch(API_BASE + '/kanban/' + encodeURIComponent(ABA) + '/' + encodeURIComponent(codigo) + '/notas', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ autor: autor, texto: texto }),
+    });
+    var json = await res.json().catch(function(){ return {}; });
+    if (res.ok) {
+      input.value = '';
+      await carregarNotasCardModal_(codigo);
+    } else {
+      alert('Erro ao salvar observação: ' + (json.error || 'desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro de conexão ao salvar observação.');
+  }
+  input.disabled = false;
+  btn.disabled = false;
 }
 function closeModal(){document.getElementById("card-modal").classList.remove("open");}
 
@@ -943,7 +1075,14 @@ function buildForm(data,isNew){
       "<div class=\"cod-err\" id=\"cod-err\"><i class='ti ti-alert-triangle' style='font-size:10px'></i> Código já utilizado! Escolha outro.</div>"+
     "</div>"+
     "<div class=\"fg\"><label>Status</label>"+sel("Status",STATUS_LIST,isNew?(data["Status"]||"OPERACIONAL"):"")+"</div>"+
-    "<div class=\"fg\"><label>Acompanhamento</label>"+sel("ACOMPANHAMENTO",AO,"")+"</div>"+"<div class=\"fg-grid\" style=\"margin-top:9px\">"+"<div class=\"fg full\"><label>Título do Card</label>"+inp("TITULO","Descreva brevemente...")+"</div>"+"</div></div>"+
+    "<div class=\"fg\"><label>Acompanhamento</label>"+sel("ACOMPANHAMENTO",AO,"")+"</div>"+"<div class=\"fg-grid\" style=\"margin-top:9px\">"+"<div class=\""+(isNew?"fg full":"fg")+"\"><label>Título do Card</label>"+inp("TITULO","Descreva brevemente...")+"</div>"+
+  (isNew?"":(
+    "<div class=\"fg\"><label>&nbsp;</label>"+
+      "<button type=\"button\" class=\"btn-obs-card\" onclick=\"abrirObsCardModal_()\"><i class=\"ti ti-notes\" style=\"font-size:13px\"></i> Observações</button>"+
+    "</div>"
+  ))+
+  "</div>"+
+  "</div>"+
 
   // ── COMERCIAL
   "<div class=\"fsec\"><div class=\"fst\"><i class=\"ti ti-briefcase\" style=\"font-size:12px\"></i> Comercial</div>"+
