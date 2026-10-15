@@ -243,11 +243,11 @@ body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);
     <table class="det-tabela">
       <thead>
         <tr>
-          <th>Número</th><th>Cliente</th><th>Rota</th><th>Modalidade</th><th>Empresa</th>
+          <th>Número</th><th>Cliente</th><th>Rota</th><th>Modalidade</th><th>Vendedor</th><th>Empresa</th>
           <th>Acompanhamento</th><th>Motorista</th><th>Telefone</th><th>Obs.</th><th>Checklist</th>
         </tr>
       </thead>
-      <tbody id="det-tabela-corpo"><tr><td colspan="10" class="det-vazio">Carregando...</td></tr></tbody>
+      <tbody id="det-tabela-corpo"><tr><td colspan="11" class="det-vazio">Carregando...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -709,7 +709,7 @@ async function buscarTodosCardsDetalhamento_(){
 }
 
 async function carregarDetalhamento_(){
-  document.getElementById('det-tabela-corpo').innerHTML = '<tr><td colspan="10" class="det-vazio">Carregando...</td></tr>';
+  document.getElementById('det-tabela-corpo').innerHTML = '<tr><td colspan="11" class="det-vazio">Carregando...</td></tr>';
   detCardsTodos = await buscarTodosCardsDetalhamento_();
   detCarregado = true;
   renderizarFiltrosDetalhamento_();
@@ -770,7 +770,7 @@ function filtrarCardsDetalhamento_(){
 function renderizarTabelaDetalhamento_(){
   var corpo = document.getElementById('det-tabela-corpo');
   var lista = filtrarCardsDetalhamento_();
-  if (!lista.length) { corpo.innerHTML = '<tr><td colspan="10" class="det-vazio">Nenhum card encontrado com esse filtro.</td></tr>'; return; }
+  if (!lista.length) { corpo.innerHTML = '<tr><td colspan="11" class="det-vazio">Nenhum card encontrado com esse filtro.</td></tr>'; return; }
   corpo.innerHTML = lista.map(function(c){
     var origemResumo = enderecoResumo_(c.endereco_origem, c.uf_origem);
     var destinoResumo = enderecoResumo_(c.endereco_destino, c.uf_destino);
@@ -790,6 +790,7 @@ function renderizarTabelaDetalhamento_(){
       '<td>'+e(c.cliente || '—')+'</td>'+
       '<td>'+e(rota || '—')+'</td>'+
       '<td>'+e(c.modalidade || '—')+'</td>'+
+      '<td>'+e(c.vendedor || '—')+'</td>'+
       '<td>'+e(c.empresa)+'</td>'+
       '<td><select class="det-select '+classeAcompanhamento_(c.acompanhamento)+'" onchange="this.className=\'det-select \'+classeAcompanhamento_(this.value);salvarAcompanhamento_(\''+empresaAttr+'\',\''+codigoAttr+'\',this.value,this)">'+opcoesAO+'</select></td>'+
       '<td>'+e(c.motorista || '—')+'</td>'+
