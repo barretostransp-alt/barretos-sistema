@@ -2160,7 +2160,8 @@ function filtrarClientesOficiais_(){
       escapeHtml(c.contato||'—') + (c.telefone ? '<br><span class="small text-success">'+escapeHtml(c.telefone)+'</span>' : ''),
       escapeHtml(c.vendedor||'—'),
       stBadge,
-      `<button class="btn btn-sm btn-outline-accent" onclick="viewClienteOficial('${c.id}')"><i class="fa-solid fa-eye"></i></button>`,
+      `<button class="btn btn-sm btn-outline-accent" onclick="viewClienteOficial('${c.id}')" title="Ver detalhes"><i class="fa-solid fa-eye"></i></button> ` +
+      `<button class="btn btn-sm btn-outline-danger" onclick="excluirClienteOficial_('${c.id}')" title="Excluir cliente"><i class="fa-solid fa-trash"></i></button>`,
     ];
   });
   if (!dtClientesOficiais){
@@ -2207,6 +2208,30 @@ function viewClienteOficial(id){
     <div class="small text-muted"><i class="fa-solid fa-circle-info me-1"></i>Pra editar o cadastro completo, use a tela de Clientes no menu principal.</div>
   `;
   bootstrap.Modal.getOrCreateInstance('#modalDetalhe').show();
+}
+
+// Exclui da base oficial (/api/clientes, mesma tabela da tela "Clientes"
+// do menu principal) — de propósito só existe aqui no CRM: a tela de
+// Clientes fora do CRM não tem esse botão, pra não dar pra excluir de
+// qualquer lugar sem querer.
+async function excluirClienteOficial_(id){
+  const c = (_clientesOficiaisCache||[]).find(x=>x.id===id);
+  const nome = c ? (c.razaoSocial || c.nomeFantasia || 'esse cliente') : 'esse cliente';
+  const r = await confirmDelete(`"${nome}" será removido da base de clientes — inclusive da tela de Clientes do menu principal.`);
+  if (!r.isConfirmed) return;
+  try {
+    const res = await apiFetch(API_BASE + '/clientes/' + id, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) {
+      const json = await res.json().catch(()=>({}));
+      toast(json.error || 'Erro ao excluir cliente.', 'error');
+      return;
+    }
+  } catch (e) {
+    toast('Erro de conexão ao excluir cliente.', 'error');
+    return;
+  }
+  toast('Cliente excluído.', 'info');
+  await renderClientesOficiais_(true);
 }
 
 let dtClientes = null;
