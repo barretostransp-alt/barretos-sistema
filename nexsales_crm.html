@@ -2621,15 +2621,34 @@ function renderNotasThreadHTMLCRM_(numero, notas) {
 // Comercial usa — por gravar na mesma tabela cotacao_notas, uma observação
 // escrita aqui aparece lá (e vice-versa) sem precisar de nada a mais.
 async function adicionarNotaCotacaoCRM_(numero) {
-  const input = document.getElementById('cot-nova-nota-' + numero);
-  const btn = document.getElementById('cot-btn-add-nota-' + numero);
+  let input = document.getElementById('cot-nova-nota-' + numero);
+  let btn = document.getElementById('cot-btn-add-nota-' + numero);
   if (!input) return;
   if (btn && btn.disabled) return; // clique repetido enquanto a anterior ainda está salvando
   const texto = input.value.trim();
   if (!texto) return;
-  const row = _cotacoesCache && _cotacoesCache.find(r => String(r.Numero) === String(numero));
-  const id = row ? row.id : null;
-  if (!id) { console.warn('[adicionarNotaCotacaoCRM_] cotação não encontrada:', numero); return; }
+  let row = _cotacoesCache && _cotacoesCache.find(r => String(r.Numero) === String(numero));
+  let id = row ? row.id : null;
+  if (!id) {
+    // _cotacoesCache pode estar desatualizado na hora do clique — antes
+    // isso falhava calado (só um console.warn; a pessoa via o "+" não
+    // fazer nada e só conseguia salvar depois de um F5 e escrever de
+    // novo). Tenta atualizar uma vez antes de desistir de verdade.
+    await fetchCotacoesHistorico_(true);
+    row = _cotacoesCache && _cotacoesCache.find(r => String(r.Numero) === String(numero));
+    id = row ? row.id : null;
+    renderCotacoes();
+    // renderCotacoes() pode ter reconstruído a tela — pega os elementos
+    // de novo, os antigos podem ter sido substituídos.
+    input = document.getElementById('cot-nova-nota-' + numero);
+    btn = document.getElementById('cot-btn-add-nota-' + numero);
+    if (!input) return; // painel fechou nesse meio tempo
+  }
+  if (!id) {
+    toast('Não encontrei essa cotação pra salvar a observação. Atualize a página (F5) e tente de novo.', 'error');
+    return;
+  }
+  if (btn && btn.disabled) return; // reconfirma a trava depois do possível reload acima
   const autor = nomeUsuarioAtualCRM_() || 'Desconhecido';
   input.disabled = true;
   if (btn) btn.disabled = true;

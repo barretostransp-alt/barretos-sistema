@@ -3985,7 +3985,7 @@ async function changeStatus(btn, rowKey, newStatus) {
   // sozinho o card no Kanban da empresa emitente (uma vez só, mesmo se o
   // status for trocado pra Aceita mais de uma vez).
   const id = idPorNumero_(rowKey);
-  if (!id) { console.warn('[changeStatus] cotação não encontrada:', rowKey); return; }
+  if (!id) { console.warn('[changeStatus] cotação não encontrada:', rowKey); showSaveBadge(btn, 'error'); return; }
   showSaveBadge(btn, 'saving');
   try {
     const res = await apiFetch(API_BASE + '/cotacoes/' + id + '/status', {
@@ -4104,8 +4104,8 @@ function renderNotasThreadHTML(numero, textoObs) {
 }
 
 async function adicionarNotaCotacao(numero) {
-  const input = document.getElementById('nova-nota-' + numero);
-  const btn = document.getElementById('btn-add-nota-' + numero);
+  let input = document.getElementById('nova-nota-' + numero);
+  let btn = document.getElementById('btn-add-nota-' + numero);
   if (!input) return;
   // Sem isso, clique repetido (ou duplo-clique) enquanto o pedido anterior
   // ainda está em voo manda a mesma observação várias vezes — só o campo
@@ -4113,8 +4113,27 @@ async function adicionarNotaCotacao(numero) {
   if (btn && btn.disabled) return;
   const texto = input.value.trim();
   if (!texto) return;
-  const id = idPorNumero_(numero);
-  if (!id) { console.warn('[adicionarNotaCotacao] cotação não encontrada:', numero); return; }
+  let id = idPorNumero_(numero);
+  if (!id) {
+    // histData pode estar desatualizado na hora do clique (cotação criada
+    // há pouco, ou outra aba/ação recarregou a lista enquanto essa estava
+    // aberta) — antes isso falhava calado (só um console.warn; a pessoa
+    // via o "+" não fazer nada, e só conseguia salvar depois de um F5 e
+    // escrever a observação de novo, perdendo o que já tinha digitado).
+    // Tenta atualizar uma vez antes de desistir de verdade.
+    await loadHistory();
+    id = idPorNumero_(numero);
+    // loadHistory() reconstrói a tela — os elementos antigos podem ter
+    // sido substituídos, pega de novo pelos mesmos ids.
+    input = document.getElementById('nova-nota-' + numero);
+    btn = document.getElementById('btn-add-nota-' + numero);
+    if (!input) return; // painel fechou nesse meio tempo
+  }
+  if (!id) {
+    alert('Não encontrei essa cotação pra salvar a observação. Atualize a página (F5) e tente de novo.');
+    return;
+  }
+  if (btn && btn.disabled) return; // reconfirma a trava depois do possível reload acima
   const autor = nomeUsuarioAtual() || 'Desconhecido';
   input.disabled = true;
   if (btn) btn.disabled = true;
@@ -4336,7 +4355,7 @@ async function salvarObservacaoInterna(rowKey, inputEl) {
   const row = histData.find(r => String(r.Numero) === String(rowKey));
   if (row && row.ObservacaoInterna === novoValor) return; // nada mudou
   const id = idPorNumero_(rowKey);
-  if (!id) { console.warn('[salvarObservacaoInterna] cotação não encontrada:', rowKey); return; }
+  if (!id) { console.warn('[salvarObservacaoInterna] cotação não encontrada:', rowKey); showSaveBadge(inputEl, 'error'); return; }
   showSaveBadge(inputEl, 'saving');
   try {
     const res = await apiFetch(API_BASE + '/cotacoes/' + id, {
