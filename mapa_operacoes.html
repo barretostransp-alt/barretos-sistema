@@ -794,8 +794,9 @@ function renderizarTabelaDetalhamento_(){
     }).join('');
     var qtdNotas = (c.notas && c.notas.length) || 0;
     var ultimoChecklist = ultimoChecklist_(c);
+    var qtdChecklists = (c.checklists && c.checklists.length) || 0;
     var celulaChecklist = ultimoChecklist
-      ? '<button class="det-btn-obs" onclick="abrirDetalheChecklistCard_(\''+empresaAttr+'\',\''+codigoAttr+'\')"><i class="ti ti-clipboard-text"></i> '+contarRespostasPreenchidas_(ultimoChecklist.respostas)+'/'+CAMPOS_CHECKLIST.length+' · '+(ultimoChecklist.status === 'respondido' ? 'Respondido' : 'Pendente')+'</button>'
+      ? '<button class="det-btn-obs" onclick="abrirDetalheChecklistCard_(\''+empresaAttr+'\',\''+codigoAttr+'\')"><i class="ti ti-clipboard-text"></i> '+contarRespostasPreenchidas_(ultimoChecklist.respostas)+'/'+CAMPOS_CHECKLIST.length+' · '+(ultimoChecklist.status === 'respondido' ? 'Respondido' : 'Pendente')+(qtdChecklists > 1 ? ' (+'+(qtdChecklists-1)+')' : '')+'</button>'
       : '<span class="det-vazio" style="padding:0">—</span>';
     return '<tr>'+
       '<td class="det-codigo">'+e(c.codigo)+'</td>'+
@@ -1032,33 +1033,66 @@ async function buscarHistoricoChecklist_(empresa, codigo){
 
 function abrirDetalheChecklistIndice_(i){
   var checklist = gcHistoricoAtual[i];
+  // Lista zerada de propósito: aqui o usuário já está vendo a lista
+  // completa na própria aba (gc-historico), então o modal não precisa
+  // de um botão "ver todos" — isso é só pro atalho da coluna do
+  // Detalhamento, que pula direto pro mais recente.
+  checklistsListaAtual_ = [];
   if (checklist) renderizarModalChecklist_(checklist);
 }
 
+// Checklist(s) do card buscado pra abrir no modal, caso tenha mais de
+// um (ver renderizarModalChecklist_, que mostra o botão "Ver todos" só
+// quando isso tem mais de 1 item).
+var checklistsListaAtual_ = [];
+
 // Chamada pela coluna "Checklist" do Detalhamento — busca o card já
-// carregado em detCardsTodos (mesma lista da tabela) e abre o mais
-// recente dos checklists embutidos nele.
+// carregado em detCardsTodos (mesma lista da tabela). Um card pode ter
+// MAIS de um checklist (ex: um já respondido e outro gerado por engano
+// depois) — antes só mostrava o mais recente e escondia os anteriores
+// já preenchidos sem nenhum jeito de ver de novo. Agora, se tiver mais
+// de um, mostra uma lista pra escolher; se só tiver um, abre direto.
 function abrirDetalheChecklistCard_(empresa, codigo){
   var card = detCardsTodos.find(function(c){ return c.empresa === empresa && String(c.codigo) === String(codigo); });
-  var checklist = card ? ultimoChecklist_(card) : null;
-  if (!checklist) return;
+  if (!card || !card.checklists || !card.checklists.length) return;
+  var lista = card.checklists.slice().sort(function(a,b){ return String(b.criado_em||'').localeCompare(String(a.criado_em||'')); });
   // O checklist embutido no card (c.checklists, mesmo padrão de c.notas)
   // só traz id/status/respostas/criado_em — sem o código. Sem isso, o
   // modal buscava os anexos com "codigo=undefined" e sempre mostrava
   // "nenhum anexo", mesmo quando o motorista tinha enviado.
-  checklist.codigo = card.codigo;
-  renderizarModalChecklist_(checklist);
+  lista.forEach(function(c){ c.codigo = card.codigo; });
+  checklistsListaAtual_ = lista;
+  if (lista.length === 1) renderizarModalChecklist_(lista[0]);
+  else renderizarListaChecklistsModal_(codigo);
+}
+
+function renderizarListaChecklistsModal_(codigo){
+  document.getElementById('ov-checklist-titulo').textContent = 'Checklists — ' + codigo;
+  document.getElementById('ov-checklist-body').innerHTML = checklistsListaAtual_.map(function(c, i){
+    var qtd = contarRespostasPreenchidas_(c.respostas);
+    var d = c.criado_em ? new Date(c.criado_em) : null;
+    var pad = function(v){ return String(v).padStart(2,'0'); };
+    var dataStr = d ? (pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())) : '';
+    return '<div class="gc-hist-item" onclick="renderizarModalChecklist_(checklistsListaAtual_['+i+'])">'+
+      '<span>'+qtd+'/'+CAMPOS_CHECKLIST.length+' preenchido · '+dataStr+'</span>'+
+      '<span class="gc-hist-pill '+(c.status === 'respondido' ? 'respondido' : 'pendente')+'">'+(c.status === 'respondido' ? 'Respondido' : 'Pendente')+'</span>'+
+    '</div>';
+  }).join('');
+  document.getElementById('ov-checklist').classList.add('open');
 }
 
 async function renderizarModalChecklist_(checklist){
   document.getElementById('ov-checklist-titulo').textContent = 'Checklist — ' + checklist.codigo + ' (' + (checklist.status === 'respondido' ? 'Respondido' : 'Pendente') + ')';
   var respostas = checklist.respostas || {};
+  var voltarHtml = checklistsListaAtual_.length > 1
+    ? '<button type="button" class="det-btn-obs" style="margin-bottom:12px" onclick="renderizarListaChecklistsModal_(\''+e(checklist.codigo)+'\')"><i class="ti ti-arrow-left"></i> Ver todos os checklists desse card</button>'
+    : '';
   var corpo = CAMPOS_CHECKLIST.map(function(c){
     var valor = respostas[c.chave];
     return '<div class="chk-campo"><div class="chk-campo-lbl">'+e(c.label)+'</div>'+
       '<div class="chk-campo-val'+(valor ? '' : ' vazio')+'">'+e(valor || 'Não respondido')+'</div></div>';
   }).join('');
-  document.getElementById('ov-checklist-body').innerHTML = corpo + '<div class="chk-anexos" id="chk-anexos-wrap"><p class="det-vazio">Carregando anexos...</p></div>';
+  document.getElementById('ov-checklist-body').innerHTML = voltarHtml + corpo + '<div class="chk-anexos" id="chk-anexos-wrap"><p class="det-vazio">Carregando anexos...</p></div>';
   document.getElementById('ov-checklist').classList.add('open');
 
   // Anexos do checklist vivem junto dos anexos do próprio card (mesma
@@ -1082,6 +1116,7 @@ async function renderizarModalChecklist_(checklist){
 
 function fecharDetalheChecklist_(){
   document.getElementById('ov-checklist').classList.remove('open');
+  checklistsListaAtual_ = [];
 }
 
 document.addEventListener('DOMContentLoaded', function(){
