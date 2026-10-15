@@ -201,7 +201,7 @@ body.tema-claro .leaflet-tooltip.rota-tip{box-shadow:0 6px 20px rgba(0,0,0,.15);
     <button class="tb-tab" id="tab-checklist" onclick="mudarAba_('checklist')">Gerar Checklist</button>
   </div>
   <div class="tb-r">
-    <button class="bsm" onclick="carregarTudo()"><i class="ti ti-refresh"></i> Atualizar</button>
+    <button class="bsm" onclick="atualizarAbaAtual_()"><i class="ti ti-refresh"></i> Atualizar</button>
   </div>
 </div>
 
@@ -686,7 +686,10 @@ var detBusca = '';
 var detCarregado = false;
 var detNotasAtual = null; // {empresa, codigo} do card com o modal de observações aberto
 
+var abaAtual_ = 'mapa';
+
 function mudarAba_(aba){
+  abaAtual_ = aba;
   document.getElementById('tab-mapa').classList.toggle('ativo', aba === 'mapa');
   document.getElementById('tab-detalhamento').classList.toggle('ativo', aba === 'detalhamento');
   document.getElementById('tab-checklist').classList.toggle('ativo', aba === 'checklist');
@@ -695,6 +698,15 @@ function mudarAba_(aba){
   document.getElementById('checklist-view').style.display = aba === 'checklist' ? 'block' : 'none';
   if (aba === 'detalhamento' && !detCarregado) carregarDetalhamento_();
   if (aba === 'checklist' && !document.getElementById('gc-empresa').options.length) popularEmpresasChecklist_();
+}
+
+// O botão "Atualizar" do topbar sempre chamava carregarTudo() (só os
+// dados do Mapa) — se a pessoa estivesse na aba Detalhamento, o clique
+// não fazia nada visível (recarregava o Mapa escondido, não a tabela
+// na tela), parecendo quebrado. Agora atualiza a aba que está aberta.
+function atualizarAbaAtual_(){
+  if (abaAtual_ === 'detalhamento') carregarDetalhamento_();
+  else carregarTudo();
 }
 
 async function buscarTodosCardsDetalhamento_(){
