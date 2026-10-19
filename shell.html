@@ -576,9 +576,6 @@ body.tema-claro .topbar * { color: #E8E9F0 !important; }
       <div class="sb-item" id="nav-config" onclick="navigate('config')" style="display:none;margin-bottom:6px;border-left:none;border-radius:7px;">
         <i class="ti ti-settings"></i><span>Configurações</span>
       </div>
-      <div class="sb-item" id="btn-ativar-push" onclick="ativarNotificacoesDesktop_()" style="margin-bottom:6px;border-left:none;border-radius:7px;cursor:pointer;">
-        <i class="ti ti-bell"></i><span id="txt-ativar-push">Ativar Notificações</span>
-      </div>
       <button class="sb-logout" onclick="logout()">
         <i class="ti ti-power"></i>Encerrar sessão
       </button>
@@ -718,34 +715,48 @@ function urlBase64ParaUint8ArrayShell_(base64String) {
   return outputArray;
 }
 
-async function registrarServiceWorkerEAtualizarBotaoPushDesktop_() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    var btn = document.getElementById('btn-ativar-push');
-    if (btn) btn.style.display = 'none'; // navegador não suporta
-    return;
-  }
+// Pergunta se quer ativar notificações só UMA vez por navegador — controlado
+// por esse flag no localStorage (não por usuário): se a pessoa já respondeu
+// (sim ou não) nesse computador, nunca mais pergunta de novo nele, mesmo
+// trocando de conta. Não pergunta se o navegador não suporta, se a
+// permissão já foi negada antes, se já existe inscrição ativa (ex: sessão
+// anterior), ou se tiver a troca de senha obrigatória na tela (prioridade
+// pra isso primeiro).
+function notifPromptRespondido_() {
+  return localStorage.getItem('barretos_push_perguntado') === '1';
+}
+function marcarNotifPromptRespondido_() {
+  localStorage.setItem('barretos_push_perguntado', '1');
+}
+
+async function talvezMostrarPromptNotificacoes_() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (notifPromptRespondido_()) return;
+  if (Notification.permission === 'denied') { marcarNotifPromptRespondido_(); return; }
+  var trocaSenhaEl = document.getElementById('troca-senha-overlay');
+  if (trocaSenhaEl && trocaSenhaEl.style.display === 'flex') return;
   try {
     var reg = await navigator.serviceWorker.register('sw.js');
     var sub = await reg.pushManager.getSubscription();
-    var txt = document.getElementById('txt-ativar-push');
-    if (sub && txt) txt.textContent = 'Notificações ativadas ✓';
-  } catch (e) {}
+    if (sub) { marcarNotifPromptRespondido_(); return; } // já inscrito (sessão anterior)
+  } catch (e) { return; }
+  setTimeout(function () {
+    var ov = document.getElementById('push-prompt-overlay');
+    if (ov) ov.style.display = 'flex';
+  }, 1500);
 }
 
-async function ativarNotificacoesDesktop_() {
-  var txt = document.getElementById('txt-ativar-push');
+async function confirmarAtivarPush_() {
+  marcarNotifPromptRespondido_();
+  document.getElementById('push-prompt-overlay').style.display = 'none';
   try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Esse navegador não suporta notificações.');
-      return;
-    }
     var permissao = await Notification.requestPermission();
-    if (permissao !== 'granted') { alert('Permissão de notificação negada.'); return; }
+    if (permissao !== 'granted') return;
 
     var reg = await navigator.serviceWorker.ready;
     var r = await apiFetchShell(API_BASE + '/push/vapid-public-key');
     var j = await r.json();
-    if (!j.publicKey) { alert('Notificações ainda não configuradas no servidor.'); return; }
+    if (!j.publicKey) return;
 
     var sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -760,12 +771,12 @@ async function ativarNotificacoesDesktop_() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login: localStorage.getItem('barretos_login') || '', subscription: sub.toJSON() }),
     });
+  } catch (e) {}
+}
 
-    if (txt) txt.textContent = 'Notificações ativadas ✓';
-    alert('Notificações ativadas! Você vai receber os alertas mesmo com o navegador fechado.');
-  } catch (e) {
-    alert('Não foi possível ativar as notificações: ' + e.message);
-  }
+function recusarAtivarPush_() {
+  marcarNotifPromptRespondido_();
+  document.getElementById('push-prompt-overlay').style.display = 'none';
 }
 
 // O Supabase só entende e-mail — quem digita um "usuário" comum (sem @)
@@ -883,7 +894,7 @@ function applyUser(user){
   if (localStorage.getItem("barretos_deve_trocar_senha") === "1") {
     document.getElementById("troca-senha-overlay").style.display = "flex";
   }
-  registrarServiceWorkerEAtualizarBotaoPushDesktop_();
+  talvezMostrarPromptNotificacoes_();
   var nome=user.nome||user.login||"?", perfil=user.perfil||"colaborador", login=user.login||"";
   document.getElementById("sb-uname").textContent    = nome;
   document.getElementById("sb-urole").textContent    = perfil.charAt(0).toUpperCase()+perfil.slice(1);
@@ -1353,6 +1364,16 @@ async function salvarTrocaSenhaObrigatoria(){
     <div id="ts-msg" style="font-size:12px;color:#EF4444;min-height:16px;margin-bottom:10px"></div>
     <button id="ts-btn" onclick="salvarTrocaSenhaObrigatoria()" style="width:100%;background:#F5B800;color:#111;border:none;border-radius:8px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">Salvar e continuar</button>
     <button onclick="logout()" style="width:100%;background:none;border:none;color:#6B7280;padding:10px;font-size:12px;cursor:pointer;margin-top:4px;font-family:inherit">Sair</button>
+  </div>
+</div>
+
+<div id="push-prompt-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99998;align-items:center;justify-content:center;">
+  <div style="background:#151820;border:1px solid #1E2130;border-radius:14px;padding:28px;max-width:360px;width:calc(100% - 32px);font-family:'DM Sans',sans-serif;text-align:center;">
+    <div style="font-size:30px;color:#F5B800;margin-bottom:10px"><i class="ti ti-bell"></i></div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px;color:#E8EAF0">Ativar notificações?</div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:20px">Receba avisos do sistema (fila de faturamento, cotação pendente, movimentação do Mapa das Operações etc.) mesmo com o navegador fechado.</div>
+    <button onclick="confirmarAtivarPush_()" style="width:100%;background:#F5B800;color:#111;border:none;border-radius:8px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px">Ativar</button>
+    <button onclick="recusarAtivarPush_()" style="width:100%;background:none;border:none;color:#6B7280;padding:10px;font-size:12px;cursor:pointer;font-family:inherit">Agora não</button>
   </div>
 </div>
 
