@@ -709,6 +709,31 @@ function atualizarAbaAtual_(){
   else carregarTudo();
 }
 
+// Não atualiza sozinho se tiver um modal de observação/checklist aberto,
+// ou se a pessoa estiver com foco num campo da própria lista (busca,
+// select de acompanhamento) — senão a tela troca debaixo do dedo dela no
+// meio da ação.
+function detalhamentoEmUso_(){
+  var ovNotas = document.getElementById('ov-notas');
+  var ovChecklist = document.getElementById('ov-checklist');
+  if (ovNotas && ovNotas.classList.contains('open')) return true;
+  if (ovChecklist && ovChecklist.classList.contains('open')) return true;
+  var ativo = document.activeElement;
+  if (ativo && ativo.id === 'det-busca') return true;
+  if (ativo && ativo.closest && ativo.closest('#det-tabela-corpo')) return true;
+  return false;
+}
+
+// Atualização automática do Detalhamento — mesmo padrão já usado nas
+// filas do Financeiro/Faturamento (recarrega sozinho, mesmo com a tela
+// aberta, pra não depender do clique manual em "Atualizar" que pode
+// ficar minutos atrasado).
+setInterval(function(){
+  if (abaAtual_ !== 'detalhamento') return;
+  if (detalhamentoEmUso_()) return;
+  carregarDetalhamento_();
+}, 30000);
+
 async function buscarTodosCardsDetalhamento_(){
   var promessas = EMPRESAS.map(function(emp){
     return apiFetch(API_BASE + '/kanban?empresa=' + encodeURIComponent(emp)).then(function(r){ return r.json(); }).catch(function(){ return []; });
