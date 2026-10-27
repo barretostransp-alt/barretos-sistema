@@ -1020,13 +1020,24 @@ var EMPRESA_NOME_PARA_ABA_FIN_ = {
   "Pinheiro Transportes e Serviços": "PINHEIRO",
 };
 
+// O código do card já diz sozinho de qual quadro ele é (mesma regra usada em
+// gerarProximoCodigo/PREFIXO_POR_EMPRESA no backend, kanbanService.js) —
+// mais confiável que o nome da empresa, que é um campo opcional na
+// Solicitação Pix e nem sempre vem preenchido (ver card S261038, que gerou
+// "não sei em qual quadro" mesmo tendo o código certinho).
+var PREFIXO_PARA_ABA_FIN_ = { G: "GONCALVES", S: "INFRA", B: "BARRETO'S", P: "PINHEIRO" };
+function abaDoCodigoCardFin_(codigo){
+  var letra = String(codigo||'').trim().charAt(0).toUpperCase();
+  return PREFIXO_PARA_ABA_FIN_[letra] || null;
+}
+
 function closeModalVerCard(){ document.getElementById('modal-ver-card').classList.remove('open'); }
 
 async function visualizarCardPix_(codigo, empresaNome){
-  var aba = EMPRESA_NOME_PARA_ABA_FIN_[empresaNome];
+  var aba = abaDoCodigoCardFin_(codigo) || EMPRESA_NOME_PARA_ABA_FIN_[empresaNome];
   document.getElementById('modal-ver-card').classList.add('open');
   if(!aba){
-    document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Não sei em qual quadro do Kanban esse card está — essa solicitação não tem a empresa preenchida.</div>';
+    document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Não consegui identificar o quadro do Kanban pelo código "'+e(codigo)+'".</div>';
     return;
   }
   document.getElementById('ver-card-body').innerHTML = '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0"><span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando card…</div>';
