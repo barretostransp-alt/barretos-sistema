@@ -203,6 +203,15 @@ select.form-input option{background:var(--surface2);color:var(--txt)}
 .sp-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--txt-dim);margin-bottom:4px}
 .sp-val{font-size:13px;font-weight:500}
+/* ── Anexos do card do Kanban, só leitura (modal "Visualizar Card") ──
+   mesmas classes/estilo já usados em faturamento.html ── */
+.alist{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.aitem{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px}
+.aname{flex:1;font-size:11px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asz{font-size:10px;color:var(--txt-dim);flex-shrink:0}
+.adl,.arm{background:none;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;flex-shrink:0}
+.adl{color:var(--gold)}
+.arm{color:var(--red)}
 /* ── INLINE STATUS SELECT ── */
 .status-sel{background:none;border:1px solid;border-radius:4px;padding:3px 8px;
   font-size:10px;font-weight:700;font-family:'Barlow',sans-serif;cursor:pointer;
@@ -913,6 +922,26 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     MODAL — VISUALIZAR CARD DO KANBAN (só leitura)
+     Mesmo recurso já existente em faturamento.html, pro Detalhamento
+     da Solicitação Pix também poder ver todas as informações do card
+     vinculado sem sair da tela.
+════════════════════════════════════════════════ -->
+<div id="modal-ver-card" class="modal-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <i class="ti ti-eye" style="color:var(--gold);font-size:20px"></i>
+      <span class="modal-title">Card do Kanban</span>
+      <button class="modal-close" onclick="closeModalVerCard()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="ver-card-body"><div style="color:var(--txt-dim);font-size:12px;padding:8px 0">Carregando…</div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModalVerCard()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ═══════════════════════════════════════════════════════════════
    FINANCEIRO — Barreto's
@@ -973,6 +1002,140 @@ async function apiFetch(url, options) {
     }
   }
   return res;
+}
+
+function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+/* ── Visualizar Card do Kanban (só leitura) — mesmo recurso de
+   faturamento.html, adaptado pro Detalhamento da Solicitação Pix: em vez
+   de ler código/empresa de um formulário aberto, recebe os dois já
+   prontos (vêm do lançamento Pix, ver openSidePanel). O lançamento só
+   guarda o nome completo da empresa (empresaCnpj), não a sigla da aba do
+   Kanban — resolve aqui com o mesmo mapeamento já usado no seletor
+   "Empresa / Aba no Kanban" da Nova Solicitação Pix (#p-aba). ── */
+var EMPRESA_NOME_PARA_ABA_FIN_ = {
+  "Barreto's Transportes e Serviços": "BARRETO'S",
+  "Barreto's Transportes Sites e Infraestrutura": "INFRA",
+  "Gonçalves Soluções em Logística": "GONCALVES",
+  "Pinheiro Transportes e Serviços": "PINHEIRO",
+};
+
+function closeModalVerCard(){ document.getElementById('modal-ver-card').classList.remove('open'); }
+
+async function visualizarCardPix_(codigo, empresaNome){
+  var aba = EMPRESA_NOME_PARA_ABA_FIN_[empresaNome];
+  document.getElementById('modal-ver-card').classList.add('open');
+  if(!aba){
+    document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Não sei em qual quadro do Kanban esse card está — essa solicitação não tem a empresa preenchida.</div>';
+    return;
+  }
+  document.getElementById('ver-card-body').innerHTML = '<div style="color:var(--txt-dim);font-size:12px;padding:8px 0"><span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Buscando card…</div>';
+  try{
+    var res = await apiFetch(API_BASE + '/kanban?empresa=' + encodeURIComponent(aba));
+    var cards = await res.json();
+    var card = (Array.isArray(cards)?cards:[]).find(function(c){ return String(c.codigo||'').trim().toUpperCase()===String(codigo).trim().toUpperCase(); });
+    if(!card){
+      document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Card não encontrado nesse quadro. Confira o código/empresa.</div>';
+      return;
+    }
+    function campo(label, valor){
+      if(valor===undefined||valor===null||valor==='') return '';
+      return '<div class="sp-field"><div class="sp-label">'+e(label)+'</div><div class="sp-val">'+e(valor)+'</div></div>';
+    }
+    document.getElementById('ver-card-body').innerHTML = `
+      <div class="modal-section-title"><i class="ti ti-id" style="font-size:12px"></i> Identificação</div>
+      <div class="grid-2">
+        ${campo('Código', card.codigo)}${campo('Título', card.titulo)}
+        ${campo('Status', card.status)}${campo('Acompanhamento', card.acompanhamento)}
+        ${campo('Cliente', card.cliente)}${campo('Contato Cliente', card.contato_cliente)}
+        ${campo('CNPJ Tomador', card.cnpj_tomador)}${campo('Vendedor', card.vendedor)}
+        ${campo('Modalidade', card.modalidade)}${campo('Tipo de Material', card.tipo_material)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-route" style="font-size:12px"></i> Rota</div>
+      <div class="grid-2">
+        ${campo('Origem', [card.endereco_origem,card.uf_origem].filter(Boolean).join('/'))}
+        ${campo('CEP Origem', card.cep_origem)}
+        ${campo('Destino', [card.endereco_destino,card.uf_destino].filter(Boolean).join('/'))}
+        ${campo('CEP Destino', card.cep_destino)}
+        ${campo('Data Coleta', card.data_coleta)}${campo('Previsão Entrega', card.previsao_entrega)}
+        ${campo('Data Entrega', card.data_entrega)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-truck" style="font-size:12px"></i> Veículo / Motorista</div>
+      <div class="grid-2">
+        ${campo('Tipo de Veículo', card.tipo_veiculo)}${campo('Motorista', card.motorista)}
+        ${campo('Telefone Motorista', card.telefone_motorista)}${campo('Gerenciamento', card.gerenciamento)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-cash" style="font-size:12px"></i> Financeiro</div>
+      <div class="grid-2">
+        ${campo('Frete Cobrado', card.frete_cobrado?fmtMoeda(card.frete_cobrado):'')}${campo('Frete Pago', card.frete_pago?fmtMoeda(card.frete_pago):'')}
+        ${campo('Pedágio', card.pedagio_valor?fmtMoeda(card.pedagio_valor):'')}${campo('Pedágio Incluso no Frete?', card.pedagio_incluso?'Sim':'Não')}
+        ${campo('Custo Operacional Total', card.custo_operacional_total?fmtMoeda(card.custo_operacional_total):'')}${campo('Adiantamento', card.adiantamento)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-building-bank" style="font-size:12px"></i> Dados Bancários</div>
+      <div class="grid-2">
+        ${campo('Titular da Conta', card.titular_conta)}${campo('Banco', card.banco)}
+        ${campo('Tipo de Chave PIX', card.tipo_chave_pix)}${campo('Chave PIX', card.chave_pix)}
+      </div>
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-file-description" style="font-size:12px"></i> Documentos</div>
+      <div class="grid-2">
+        ${campo('CT-e', card.cte)}${campo('NF', card.nf)}
+        ${campo('MDF', card.mdf)}${campo('Vale Pedágio', card.vale_pedagio)}
+        ${campo('Cotação vinculada', card.cotacao_numero?('#'+String(card.cotacao_numero).padStart(4,'0')):'')}${campo('Cadastrado na Bsoft?', card.cadastrado_bsoft?'Sim':'Não')}
+      </div>
+      ${card.observacao?('<div class="modal-section-title" style="margin-top:14px"><i class="ti ti-note" style="font-size:12px"></i> Observação</div><p style="font-size:12px">'+e(card.observacao)+'</p>'):''}
+      <div class="modal-section-title" style="margin-top:14px"><i class="ti ti-paperclip" style="font-size:12px"></i> Anexos do card</div>
+      <div class="alist" id="ver-card-att-list"></div>
+    `;
+    carregarAnexosParaExibirPix_('ver-card-att-list', card.codigo);
+  }catch(err){
+    document.getElementById('ver-card-body').innerHTML = '<div class="txt-red" style="font-size:12px;padding:8px 0">Não foi possível buscar agora ('+(err.message||'erro de conexão')+').</div>';
+  }
+}
+
+// O atributo "download" é ignorado pelo navegador em link de outro domínio
+// (caso do Supabase Storage) — busca o arquivo e força o download via
+// blob: (sempre "mesma origem").
+function baixarAnexoBlob_(el) {
+  var url = el.getAttribute("data-url");
+  var nome = el.getAttribute("data-nome");
+  fetch(url).then(function(r){ return r.blob(); }).then(function(blob){
+    var blobUrl = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = blobUrl; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 1000);
+  }).catch(function(){ window.open(url, "_blank"); });
+}
+
+function renderAttListReadonlyPix_(elId, anexos){
+  var l = document.getElementById(elId); if(!l) return;
+  if(!anexos || !anexos.length){ l.innerHTML = ''; return; }
+  l.innerHTML = anexos.map(function(a){
+    var nm = a.nome || 'arquivo';
+    var ico = /\.(jpg|jpeg|png|gif|webp)$/i.test(nm) ? 'ti-photo' : /\.pdf$/i.test(nm) ? 'ti-file-type-pdf' : 'ti-file';
+    return '<div class="aitem"><i class="ti '+ico+'" style="font-size:14px;color:var(--gold);flex-shrink:0"></i>'+
+      '<span class="aname">'+e(nm)+'</span>'+
+      '<a href="'+a.url+'" target="_blank" class="adl" style="color:var(--blue)" rel="noopener"><i class="ti ti-eye"></i></a>'+
+      '<a href="javascript:void(0)" class="adl" data-url="'+e(a.url)+'" data-nome="'+e(nm)+'" onclick="baixarAnexoBlob_(this)"><i class="ti ti-download"></i></a></div>';
+  }).join('');
+}
+function mostrarErroAnexosPix_(elId, retryFn){
+  var l = document.getElementById(elId); if(!l) return;
+  l.innerHTML = '<div style="color:var(--red);font-size:12px;padding:8px 0;display:flex;align-items:center;gap:8px">'+
+    '<i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0"></i>'+
+    '<span>Não deu pra carregar os anexos agora.</span>'+
+    '<button class="btn btn-ghost btn-sm" style="padding:2px 10px;flex-shrink:0" onclick="'+retryFn+'">Tentar de novo</button></div>';
+}
+function carregarAnexosParaExibirPix_(elId, codigo){
+  if(!codigo) return;
+  var retry = "carregarAnexosParaExibirPix_('"+elId+"','"+String(codigo).replace(/'/g,"\\'")+"')";
+  apiFetch(API_BASE + '/kanban/anexos?codigo=' + encodeURIComponent(codigo))
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(j.success) renderAttListReadonlyPix_(elId, j.anexos || []);
+      else mostrarErroAnexosPix_(elId, retry);
+    })
+    .catch(function(){ mostrarErroAnexosPix_(elId, retry); });
 }
 
 function mostrarTelaSemAcesso() {
@@ -1690,7 +1853,7 @@ function openSidePanel(id){
     <div class="sp-field"><div class="sp-label">Status</div>
       <span class="badge ${badgeClass(l.status,l.vencimento)}">${l.status}</span>
       ${isPago && l.dataPagamento ? `<span class="txt-dim" style="font-size:11px;margin-left:8px">em ${fmtData(l.dataPagamento)}</span>` : ''}</div>
-    ${l.origem==='pix'&&l.cardCodigo?`<div class="sp-field"><div class="sp-label">Card Kanban</div><div class="sp-val"><span class="cod-chip">${l.cardCodigo}</span></div></div>`:''}
+    ${l.origem==='pix'&&l.cardCodigo?`<div class="sp-field"><div class="sp-label">Card Kanban</div><div class="sp-val" style="display:flex;align-items:center;gap:8px"><span class="cod-chip">${l.cardCodigo}</span><button class="btn btn-ghost btn-sm" style="padding:2px 9px" onclick="visualizarCardPix_('${String(l.cardCodigo).replace(/'/g,"\\'")}','${String(l.empresaCnpj||'').replace(/'/g,"\\'")}')"><i class="ti ti-eye" style="font-size:12px"></i> Visualizar Card</button></div></div>`:''}
     ${l.origem==='pix'&&(l.tipoValor||isGestor)?`<div class="grid-2">${campoSelect('Tipo de Valor','tipoValor',l.tipoValor,['Saldo','Adiantamento','Total','Acréscimo'])}${campoNumero('Adiantamento (%)','adiantamento',l.adiantamento)}</div>
     <div class="only-gestor" style="background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)">Valor a Pagar Agora</div>
