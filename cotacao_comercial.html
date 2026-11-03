@@ -1279,6 +1279,11 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
         <option value="munk" class="opt-especial">Munk</option>
         <option value="prancha" class="opt-especial">Prancha</option>
       </select>
+      <div id="frac-regras-veiculos-wrap" style="display:none;margin-top:6px">
+        <button type="button" class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="abrirModalRegrasVeiculos()">
+          <i class="ti ti-settings" style="font-size:12px"></i> Regras de veículos (fracionado)
+        </button>
+      </div>
     </div>
     <div class="field-grid">
       <div class="field">
@@ -1436,6 +1441,16 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
         <div class="field">
           <label class="lbl">Peso cubado (kg)</label>
           <div class="readonly-field" id="disp-peso-cubado">— kg</div>
+        </div>
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label class="lbl" for="frac-paletes">Nº de paletes</label>
+          <input type="number" id="frac-paletes" value="1" min="0" step="1" oninput="calc()">
+        </div>
+        <div class="field">
+          <label class="lbl" for="frac-comprimento">Comprimento da carga (m)</label>
+          <input type="number" id="frac-comprimento" value="1" min="0" step="0.1" oninput="calc()">
         </div>
       </div>
       <div class="field">
@@ -1854,6 +1869,16 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
   </div>
 </div>
 
+<!-- MODAL DE REGRAS DE VEÍCULOS (fracionado) -->
+<div class="modal-overlay" id="regras-veiculos-overlay" onclick="if(event.target===this)fecharModalRegrasVeiculos()">
+  <div class="modal-box" style="max-width:780px">
+    <button class="modal-close" onclick="fecharModalRegrasVeiculos()">&times;</button>
+    <div class="modal-title"><i class="ti ti-settings" style="color:var(--gold)"></i> Regras de veículos — Fracionado</div>
+    <div class="modal-sub">O sistema escolhe automaticamente o menor veículo que comporta a carga, usando estes limites. Acima da carreta, a cotação deve ser feita como Dedicado. "Preço por KM" é a base do novo cálculo do frete.</div>
+    <div id="regras-veiculos-body"><div class="hist-loading"><span class="spinner"></span> Carregando…</div></div>
+  </div>
+</div>
+
 <script>
 var API_BASE = 'https://barretos-backend.onrender.com/api';
 
@@ -1958,6 +1983,7 @@ function mapearCotacaoDoApi_(row) {
     Viagens: row.viagens, ValKm: row.val_km, PesoReal: row.peso_real,
     Cubagem: row.cubagem ? JSON.stringify(row.cubagem) : '',
     CapPeso: row.cap_peso, CapVol: row.cap_vol,
+    FracPaletes: row.frac_paletes, FracComprimento: row.frac_comprimento,
     MargemTipo: row.margem_tipo || '', MargemVal: row.margem_val,
     OverridePiso: row.override_piso, OverrideTotal: row.override_total, OverrideDesconto: row.override_desconto,
     PrazoDias: row.prazo_dias, ObservacoesCliente: row.observacoes_cliente || '',
@@ -2013,6 +2039,7 @@ function mapearCotacaoParaApi_(d) {
     eixos: d.eixos, km: d.km, viagens: d.viagens, val_km: d.valKm,
     peso_real: d.pesoReal, cubagem: d.cubagem ? JSON.parse(d.cubagem) : null,
     cap_peso: d.capPeso, cap_vol: d.capVol,
+    frac_paletes: d.fracPaletes, frac_comprimento: d.fracComprimento,
     margem_tipo: d.margemTipo, margem_val: d.margemVal,
     override_piso: d.overridePiso, override_total: d.overrideTotal, override_desconto: d.overrideDesconto,
     prazo_dias: d.prazoDias, observacoes_cliente: d.observacoesCliente,
@@ -2024,6 +2051,155 @@ const tabelas={A:[[4.0338,444.84,5.166,533.36,5.8464,576.59,6.7381,642.1,7.4408,
 const eixosIdx=[2,3,4,5,6,7,9];
 const capVeic={fiorino:{eixosAntt:2,kg:650,m3:3.3,nome:'Fiorino'},vuc:{eixosAntt:2,kg:1500,m3:8,nome:'VUC'},toco:{eixosAntt:2,kg:6000,m3:40,nome:'Toco'},truck:{eixosAntt:3,kg:14000,m3:50,nome:'Truck'},bitruck:{eixosAntt:4,kg:22000,m3:60,nome:'Bitruck'},carreta4:{eixosAntt:5,kg:25000,m3:90,nome:'Carreta Toco'},carreta5:{eixosAntt:6,kg:32000,m3:90,nome:'Carreta Trucada / LS'},bitrem7:{eixosAntt:7,kg:42000,m3:180,nome:'Bitrem / Rodotrem 7 eixos'},bitrem9:{eixosAntt:9,kg:57000,m3:180,nome:'Bitrem / Rodotrem 9 eixos'},guindaste_tm:{eixosAntt:3,kg:0,m3:0,nome:'Guindaste TM',especial:true},munk:{eixosAntt:3,kg:0,m3:0,nome:'Munk',especial:true},prancha:{eixosAntt:5,kg:0,m3:0,nome:'Prancha',especial:true}};
 let modo='dedicado',cubRows=[],rowId=0;
+let VEICULOS_FRAC=[],MUNICIPIOS_FRAC=[],ESTADOS_FORA_AREA=[],EIXOS_DEDICADO_HTML='',fracDadosCarregados=false,fracCalcId=0;
+const ESTADO_NOME_PARA_UF={acre:'AC',alagoas:'AL',amapa:'AP',amazonas:'AM',bahia:'BA',ceara:'CE','distrito federal':'DF',
+  'espirito santo':'ES',goias:'GO',maranhao:'MA','mato grosso':'MT','mato grosso do sul':'MS','minas gerais':'MG',
+  para:'PA',paraiba:'PB',parana:'PR',pernambuco:'PE',piaui:'PI','rio de janeiro':'RJ','rio grande do norte':'RN',
+  'rio grande do sul':'RS',rondonia:'RO',roraima:'RR','santa catarina':'SC','sao paulo':'SP',sergipe:'SE',tocantins:'TO'};
+async function carregarDadosFracionado(){
+  if(fracDadosCarregados)return;
+  try{
+    const [rVeic,rMun,rEst]=await Promise.all([apiFetch(API_BASE+'/fracionado/veiculos'),apiFetch(API_BASE+'/fracionado/municipios'),apiFetch(API_BASE+'/fracionado/estados-fora-area')]);
+    VEICULOS_FRAC=(await rVeic.json()).sort((a,b)=>a.ordem-b.ordem);
+    MUNICIPIOS_FRAC=await rMun.json();
+    ESTADOS_FORA_AREA=await rEst.json();
+    fracDadosCarregados=true;
+  }catch(e){ console.error('Falha ao carregar dados do fracionado', e); }
+}
+function ehGestor(){const p=localStorage.getItem('barretos_perfil')||sessionStorage.getItem('barretos_perfil')||'';return p==='gestor';}
+function normStr(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s]/g,'').trim();}
+function slugVeiculo(nome){return String(nome).toLowerCase().trim().replace(/\s+/g,'_');}
+function capitalizarVeiculo(nome){return String(nome).replace(/\b\w/g,c=>c.toUpperCase());}
+function calcularVeiculoNecessario(peso,m3,paletes,comprimento){
+  for(const v of VEICULOS_FRAC){
+    if(peso<=v.peso_kg&&m3<=v.capacidade_m3&&paletes<=v.paletes&&comprimento<=v.comprimento_m)return v;
+  }
+  return null;
+}
+function popularEixosFracionado(){
+  if(!VEICULOS_FRAC.length)return;
+  const pesoReal=parseFloat(document.getElementById('peso-real')?.value)||0;
+  let tM3=0,pesoCubado=0;
+  for(const id of cubRows){const q=parseFloat(document.getElementById('qtd-'+id)?.value)||0,a=parseFloat(document.getElementById('alt-'+id)?.value)||0,l=parseFloat(document.getElementById('lar-'+id)?.value)||0,p=parseFloat(document.getElementById('pro-'+id)?.value)||0,m3=q*a*l*p;tM3+=m3;pesoCubado+=m3*300;}
+  const pesoConsid=Math.max(pesoReal,pesoCubado);
+  const paletes=parseFloat(document.getElementById('frac-paletes')?.value)||0;
+  const comprimento=parseFloat(document.getElementById('frac-comprimento')?.value)||0;
+  const necessario=calcularVeiculoNecessario(pesoConsid,tM3,paletes,comprimento);
+  const ordemMin=necessario?necessario.ordem:(VEICULOS_FRAC[VEICULOS_FRAC.length-1].ordem+1);
+  const disponiveis=VEICULOS_FRAC.filter(v=>v.ordem>=ordemMin);
+  const sel=document.getElementById('eixos');
+  const atual=sel.value;
+  if(!disponiveis.length){ sel.innerHTML='<option value="">— acima da capacidade do fracionado —</option>'; return; }
+  const aindaValido=disponiveis.some(v=>slugVeiculo(v.veiculo)===atual);
+  sel.innerHTML=disponiveis.map(v=>`<option value="${slugVeiculo(v.veiculo)}">${capitalizarVeiculo(v.veiculo)} (até ${fmtN(v.peso_kg,0)}kg / ${fmtN(v.capacidade_m3,1)}m³ / ${v.paletes} pal. / ${fmtN(v.comprimento_m,1)}m)</option>`).join('');
+  sel.value=aindaValido?atual:slugVeiculo(necessario.veiculo);
+}
+function extrairUfDoEndereco(label){
+  // "brasil"/"br" aparecem em quase todo endereço do Nominatim e não dizem
+  // nada sobre o estado — sem excluir, batiam por engano em município tipo
+  // "Brasil Novo (PA)" quando o destino real nem tinha município cadastrado.
+  const parts=String(label||'').split(/,|—|-|\//).map(s=>normStr(s.trim())).filter(s=>s.length>2&&s!=='brasil'&&s!=='br');
+  for(const part of parts){ if(ESTADO_NOME_PARA_UF[part]) return ESTADO_NOME_PARA_UF[part]; }
+  return null;
+}
+function buscarClassificacaoDestino(label){
+  const parts=String(label||'').split(/,|—|-|\//).map(s=>normStr(s.trim())).filter(s=>s.length>2&&s!=='brasil'&&s!=='br');
+  const ufAlvo=extrairUfDoEndereco(label);
+  const pool=ufAlvo?MUNICIPIOS_FRAC.filter(m=>m.uf===ufAlvo):MUNICIPIOS_FRAC;
+  const exato=pool.find(m=>parts.includes(normStr(m.municipio)));
+  if(exato)return exato;
+  // Sabendo o estado, só aceita match exato dentro dele — não arrisca cair
+  // num município de outro estado só porque um pedaço do endereço bateu.
+  if(ufAlvo)return null;
+  const aproximado=pool.find(m=>{const nm=normStr(m.municipio);return parts.some(part=>nm.startsWith(part)||part.startsWith(nm));});
+  return aproximado||null;
+}
+
+/* ---- Modal: Regras de veículos (fracionado) ---- */
+async function abrirModalRegrasVeiculos(){
+  document.getElementById('regras-veiculos-overlay').classList.add('open');
+  await carregarDadosFracionado();
+  renderRegrasVeiculos();
+}
+function fecharModalRegrasVeiculos(){ document.getElementById('regras-veiculos-overlay').classList.remove('open'); }
+function renderRegrasVeiculos(){
+  const body=document.getElementById('regras-veiculos-body');
+  if(!VEICULOS_FRAC.length){ body.innerHTML='<span style="font-size:12px;color:var(--text-muted)">Não foi possível carregar as regras.</span>'; return; }
+  const campo=(v,chave,step)=>`<input type="number" id="rv-${chave}-${v.id}" value="${v[chave]}" min="0" step="${step}" style="width:84px;padding:5px 7px;border-radius:6px;border:1px solid var(--charcoal-border);background:var(--charcoal-mid);color:inherit;font-size:12px">`;
+  body.innerHTML=`<div style="overflow-x:auto"><table class="cub-table" style="min-width:780px">
+    <thead><tr>
+      <th style="text-align:left">Veículo</th><th>Capac. (m³)</th><th>Paletes</th><th>Peso (kg)</th><th>Comprim. (m)</th><th>Preço/km (R$)</th><th>Frete mínimo (R$)</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${VEICULOS_FRAC.map(v=>`<tr id="rv-row-${v.id}">
+        <td style="text-align:left;font-weight:600">${capitalizarVeiculo(v.veiculo)}</td>
+        <td>${campo(v,'capacidade_m3','0.1')}</td>
+        <td>${campo(v,'paletes','1')}</td>
+        <td>${campo(v,'peso_kg','1')}</td>
+        <td>${campo(v,'comprimento_m','0.1')}</td>
+        <td>${campo(v,'preco_km','0.01')}</td>
+        <td>${campo(v,'frete_minimo','1')}</td>
+        <td><button class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="salvarRegraVeiculo('${v.id}')"><i class="ti ti-device-floppy" style="font-size:12px"></i></button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>
+  <p style="font-size:11px;color:var(--text-muted);margin-top:10px">Carga que não cabe em nenhum veículo acima (qualquer medida maior que a carreta) deve ser cotada como <strong>Dedicado</strong>. O frete mínimo é o piso de cada veículo — se o cálculo der um valor menor, o mínimo prevalece.</p>
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--charcoal-border)">
+    <div class="sec-label" style="margin-bottom:8px">Acréscimo por estado — destinos fora da planilha de municípios</div>
+    <div style="overflow-x:auto"><table class="cub-table" style="width:380px;table-layout:fixed">
+      <colgroup><col style="width:200px"><col style="width:130px"><col style="width:50px"></colgroup>
+      <thead><tr><th style="text-align:left">Estado</th><th style="text-align:left">Acréscimo (%)</th><th></th></tr></thead>
+      <tbody>
+        ${ESTADOS_FORA_AREA.map(e=>`<tr id="rv-estado-row-${e.id}">
+          <td style="text-align:left;font-weight:600">${e.nome_estado} (${e.id})</td>
+          <td style="text-align:left"><input type="number" id="rv-estado-pct-${e.id}" value="${e.acrescimo_pct}" min="0" step="0.1" style="width:90px;padding:5px 7px;border-radius:6px;border:1px solid var(--charcoal-border);background:var(--charcoal-mid);color:inherit;font-size:12px"></td>
+          <td><button class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="salvarEstadoForaArea('${e.id}')"><i class="ti ti-device-floppy" style="font-size:12px"></i></button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+async function salvarRegraVeiculo(id){
+  const payload={
+    capacidade_m3: parseFloat(document.getElementById('rv-capacidade_m3-'+id).value)||0,
+    paletes: parseInt(document.getElementById('rv-paletes-'+id).value)||0,
+    peso_kg: parseFloat(document.getElementById('rv-peso_kg-'+id).value)||0,
+    comprimento_m: parseFloat(document.getElementById('rv-comprimento_m-'+id).value)||0,
+    preco_km: parseFloat(document.getElementById('rv-preco_km-'+id).value)||0,
+    frete_minimo: parseFloat(document.getElementById('rv-frete_minimo-'+id).value)||0,
+  };
+  const btn=document.querySelector(`#rv-row-${id} button`);
+  const original=btn.innerHTML; btn.innerHTML='<span class="spinner" style="width:11px;height:11px;display:inline-block"></span>';
+  try{
+    const r=await apiFetch(API_BASE+'/fracionado/veiculos/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok)throw new Error('falha');
+    fracDadosCarregados=false;
+    await carregarDadosFracionado();
+    btn.innerHTML='<i class="ti ti-check" style="font-size:12px;color:var(--green-accent)"></i>';
+    if(modo==='fracionado'){popularEixosFracionado();calc();}
+    setTimeout(()=>{btn.innerHTML=original;},1500);
+  }catch(e){
+    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;color:var(--danger)"></i>';
+    setTimeout(()=>{btn.innerHTML=original;},2000);
+  }
+}
+async function salvarEstadoForaArea(id){
+  const pct=parseFloat(document.getElementById('rv-estado-pct-'+id).value)||0;
+  const btn=document.querySelector(`#rv-estado-row-${id} button`);
+  const original=btn.innerHTML; btn.innerHTML='<span class="spinner" style="width:11px;height:11px;display:inline-block"></span>';
+  try{
+    const r=await apiFetch(API_BASE+'/fracionado/estados-fora-area/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({acrescimo_pct:pct})});
+    if(!r.ok)throw new Error('falha');
+    fracDadosCarregados=false;
+    await carregarDadosFracionado();
+    btn.innerHTML='<i class="ti ti-check" style="font-size:12px;color:var(--green-accent)"></i>';
+    if(modo==='fracionado')calc();
+    setTimeout(()=>{btn.innerHTML=original;},1500);
+  }catch(e){
+    btn.innerHTML='<i class="ti ti-x" style="font-size:12px;color:var(--danger)"></i>';
+    setTimeout(()=>{btn.innerHTML=original;},2000);
+  }
+}
 function fmtBRL(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2})}
 function fmtPct(v){return v.toFixed(2).replace('.',',')+'%'}
 function fmtN(v,d){return v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})}
@@ -2031,7 +2207,7 @@ function updateCapacidades(){const vk=document.getElementById('eixos').value,c=c
 function addCubRow(){const id='r'+rowId++;cubRows.push(id);const tr=document.createElement('tr');tr.id='row-'+id;tr.innerHTML=`<td><input type="number" id="qtd-${id}" value="1" min="1" step="1" style="text-align:center" oninput="recalcCubagem()"></td><td><input type="number" id="alt-${id}" value="0.50" min="0.001" step="0.001" oninput="recalcCubagem()"></td><td><input type="number" id="lar-${id}" value="0.40" min="0.001" step="0.001" oninput="recalcCubagem()"></td><td><input type="number" id="pro-${id}" value="0.30" min="0.001" step="0.001" oninput="recalcCubagem()"></td><td class="out" id="m3-${id}">0,0600</td><td class="out" id="kg-${id}">18,00</td><td><button class="btn-del" onclick="delCubRow('${id}')"><i class="ti ti-x" style="font-size:13px"></i></button></td>`;document.getElementById('cub-body').appendChild(tr);recalcCubagem();}
 function delCubRow(id){cubRows=cubRows.filter(r=>r!==id);const el=document.getElementById('row-'+id);if(el)el.remove();recalcCubagem();}
 function recalcCubagem(){let tM3=0,tKg=0;for(const id of cubRows){const q=parseFloat(document.getElementById('qtd-'+id)?.value)||0,a=parseFloat(document.getElementById('alt-'+id)?.value)||0,l=parseFloat(document.getElementById('lar-'+id)?.value)||0,p=parseFloat(document.getElementById('pro-'+id)?.value)||0,m3=q*a*l*p,kg=m3*300;tM3+=m3;tKg+=kg;const me=document.getElementById('m3-'+id),ke=document.getElementById('kg-'+id);if(me)me.textContent=fmtN(m3,4);if(ke)ke.textContent=fmtN(kg,2);}document.getElementById('cub-total-m3').textContent=fmtN(tM3,4);document.getElementById('cub-total-kg').textContent=fmtN(tKg,2);const pR=parseFloat(document.getElementById('peso-real')?.value)||0,pC=tKg,pConsid=Math.max(pR,pC);document.getElementById('disp-peso-cubado').textContent=fmtN(pC,2)+' kg';const dc=document.getElementById('disp-peso-consid'),ic=document.getElementById('info-peso-consid');if(pR>=pC){dc.textContent=fmtN(pConsid,2)+' kg';dc.style.color='var(--blue-accent)';ic.innerHTML='<i class="ti ti-weight" style="vertical-align:-2px;margin-right:3px;color:var(--blue-accent)"></i>Critério: <strong>peso real</strong>';}else{dc.textContent=fmtN(pConsid,2)+' kg';dc.style.color='var(--green-accent)';ic.innerHTML='<i class="ti ti-cube" style="vertical-align:-2px;margin-right:3px;color:var(--green-accent)"></i>Critério: <strong>peso cubado</strong>';}calc();}
-function setModo(m){modo=m;document.getElementById('btn-ded').classList.toggle('active',m==='dedicado');document.getElementById('btn-fra').classList.toggle('active',m==='fracionado');const isFrac=m==='fracionado';['sec-cubagem','sec-frac','frac-desc','sec-val-km'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isFrac?'block':'none';});document.getElementById('lbl-viagens').textContent=isFrac?'Nº embarques':'Nº viagens';if(isFrac)updateCapacidades();calc();}
+function setModo(m){modo=m;document.getElementById('btn-ded').classList.toggle('active',m==='dedicado');document.getElementById('btn-fra').classList.toggle('active',m==='fracionado');const isFrac=m==='fracionado';['sec-cubagem','sec-frac','frac-desc','sec-val-km'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isFrac?'block':'none';});const rvw=document.getElementById('frac-regras-veiculos-wrap');if(rvw)rvw.style.display=(isFrac&&ehGestor())?'block':'none';document.getElementById('lbl-viagens').textContent=isFrac?'Nº embarques':'Nº viagens';if(isFrac){if(!EIXOS_DEDICADO_HTML)EIXOS_DEDICADO_HTML=document.getElementById('eixos').innerHTML;popularEixosFracionado();updateCapacidades();}else if(EIXOS_DEDICADO_HTML){document.getElementById('eixos').innerHTML=EIXOS_DEDICADO_HTML;document.getElementById('eixos').value='carreta4';updateCapacidades();}calc();}
 function row(label,val,icon,iconColor){return `<div class="result-row"><span class="result-row-label">${icon?`<i class="ti ${icon}" style="font-size:13px;color:${iconColor||'var(--text-muted)'}"></i>`:''}${label}</span><span class="result-row-val">${val}</span></div>`;}
 function calc(){
   const tab=document.getElementById('tabela').value,cIdx=parseInt(document.getElementById('carga').value),vkey=document.getElementById('eixos').value,veic=capVeic[vkey]||capVeic['carreta4'],eixo=veic.eixosAntt,km=parseFloat(document.getElementById('km').value)||0,viagens=parseInt(document.getElementById('viagens').value)||1,margemTipo=document.getElementById('margem-tipo').value,margemVal=parseFloat(document.getElementById('margem-val').value)||0,ra=document.getElementById('result-area'),eIdx=eixosIdx.indexOf(eixo),tRow=tabelas[tab][cIdx],ccd=tRow[eIdx*2],cc=tRow[eIdx*2+1];
@@ -2068,7 +2244,9 @@ function calc(){
     const pesoReal=parseFloat(document.getElementById('peso-real')?.value)||0,
           capPeso=parseFloat(document.getElementById('cap-peso')?.value)||1,
           capVol=parseFloat(document.getElementById('cap-vol')?.value)||1,
-          valKm=parseFloat(document.getElementById('val-km')?.value)||0;
+          valKm=parseFloat(document.getElementById('val-km')?.value)||0,
+          paletes=parseFloat(document.getElementById('frac-paletes')?.value)||0,
+          comprimento=parseFloat(document.getElementById('frac-comprimento')?.value)||0;
     let tM3=0,pesoCubado=0;
     for(const id of cubRows){const q=parseFloat(document.getElementById('qtd-'+id)?.value)||0,a=parseFloat(document.getElementById('alt-'+id)?.value)||0,l=parseFloat(document.getElementById('lar-'+id)?.value)||0,p=parseFloat(document.getElementById('pro-'+id)?.value)||0,m3=q*a*l*p;tM3+=m3;pesoCubado+=m3*300;}
     const pesoConsid=Math.max(pesoReal,pesoCubado),
@@ -2080,10 +2258,6 @@ function calc(){
     /* util bars */
     const uw=document.getElementById('util-wrap');
     if(uw){uw.style.display='block';const bP=document.getElementById('bar-peso'),bV=document.getElementById('bar-vol'),pP=document.getElementById('pct-peso-label'),pV=document.getElementById('pct-vol-label');if(bP){const pct=Math.min(ratoPeso*100,100);bP.style.width=pct.toFixed(1)+'%';bP.style.background=ratoPeso>1?'var(--danger)':'var(--blue-accent)';}if(bV){const pct=Math.min(ratoVol*100,100);bV.style.width=pct.toFixed(1)+'%';bV.style.background=ratoVol>1?'var(--danger)':'var(--green-accent)';}if(pP)pP.textContent=fmtPct(ratoPeso*100);if(pV)pV.textContent=fmtPct(ratoVol*100);}
-    /* Sem trava de peso — acima de 1.000 kg segue usando a última faixa da
-       tabela (mesmo comportamento de getPrecoByPeso); o aviso de "sob
-       revisão" pra cargas muito pesadas aparece mais abaixo, sem bloquear
-       o cálculo/proposta. */
     /* destination not set */
     if(!addrState.destino.lat){
       ra.innerHTML=`<div class="result-card"><div style="padding:18px 4px;text-align:center">
@@ -2094,75 +2268,75 @@ function calc(){
     }
     /* loading state */
     ra.innerHTML=`<div class="result-card"><div style="padding:18px 4px;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px">
-      <span class="spinner"></span><span style="font-size:13px;color:var(--text-muted)">Consultando tabela de preços…</span>
+      <span class="spinner"></span><span style="font-size:13px;color:var(--text-muted)">Calculando frete…</span>
     </div></div>`;
-    /* async table lookup */
     const _calcId=++fracCalcId;
-    calcFracionadoTabela(addrState.destino.lat,addrState.destino.lon,addrState.destino.label,pesoConsid).then(res=>{
+    carregarDadosFracionado().then(()=>{
       if(_calcId!==fracCalcId)return;
-      fracLastResult=res;
-      const faixaLabel=pesoConsid<=100?'0–100 kg':pesoConsid<=300?'101–300 kg':pesoConsid<=600?'301–600 kg':pesoConsid<=1000?'601–1.000 kg':'Acima de 1.000 kg';
-      if(res.tipo==='sem_preco'||res.tipo==='erro'){
+      popularEixosFracionado();
+      const veiculoNecessario=calcularVeiculoNecessario(pesoConsid,tM3,paletes,comprimento);
+      if(!veiculoNecessario){
         ra.innerHTML=`<div class="result-card" style="border-left:3px solid var(--warn-color)">
-          <div class="result-card-header"><span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${veic.nome}</span></div>
+          <div class="result-card-header"><span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span></div>
           <div style="padding:18px 4px;text-align:center">
-            <i class="ti ti-calculator-off" style="font-size:36px;color:var(--warn-color);display:block;margin-bottom:8px"></i>
-            <strong style="font-size:14px;display:block;margin-bottom:6px">Cotação Manual</strong>
-            <span style="font-size:12px;color:var(--text-muted)">Destino <strong>${res.cidade||'selecionado'}</strong> requer precificação manual.<br>Use o campo <strong style="color:var(--gold)">Ajuste manual</strong> para definir o valor.</span>
-          </div></div>
-        <div class="result-total-card"><div><div class="result-total-label">Total ao cliente</div><div class="result-total-sub">Cotação manual necessária</div></div><div class="result-total-val" style="font-size:15px;color:var(--warn-color)">Cotação Manual</div></div>`;
-        showBtnPDF();return;
+            <i class="ti ti-truck" style="font-size:36px;color:var(--warn-color);display:block;margin-bottom:8px"></i>
+            <strong style="font-size:14px;display:block;margin-bottom:6px">Acima da capacidade do fracionado</strong>
+            <span style="font-size:12px;color:var(--text-muted)">Peso, cubagem, paletes ou comprimento passam do limite da carreta.<br>Use a modalidade <strong style="color:var(--gold)">Dedicado</strong> para esta carga.</span>
+          </div></div>`;
+        document.getElementById('btn-pdf').classList.remove('visible');
+        return;
       }
-      /* build price rows */
-      const precoTabela=res.precoBase;
-      const precoComAcrescimo=res.tipo==='tabela'?res.precoFinal:res.precoComAcrescimo;
-      const precoExtra=res.precoExtra||0;
-      const subTotal=precoComAcrescimo+precoExtra;
+      const vkeySel=document.getElementById('eixos').value;
+      const veiculoSel=VEICULOS_FRAC.find(v=>slugVeiculo(v.veiculo)===vkeySel)||veiculoNecessario;
+      const classif=buscarClassificacaoDestino(addrState.destino.label);
+      const ufForaArea=classif?null:extrairUfDoEndereco(addrState.destino.label);
+      const estadoForaArea=ufForaArea?ESTADOS_FORA_AREA.find(e=>e.id===ufForaArea):null;
+      const pctClassif=classif?classif.classificacao_pct:(estadoForaArea?.acrescimo_pct||0);
+      const freteMinimo=veiculoSel.frete_minimo??300;
+      const base=km*veiculoSel.preco_km;
+      const comClassificacao=base*(1+pctClassif/100);
+      const minimoAplicado=comClassificacao<freteMinimo;
+      const freteBase=minimoAplicado?freteMinimo:comClassificacao;
       const custoKmTotal=valKm*km*viagens;
-      const baseCalc=(subTotal+custoKmTotal)*viagens;
+      const baseCalc=(freteBase+custoKmTotal)*viagens;
       const margem=margemTipo==='pct'?baseCalc*(margemVal/100):margemVal*viagens;
       const total=baseCalc+margem;
       const ovTot=getOverrideTotal(),ovPiso=getOverridePiso();
       const totalFinal=ovTot||total;
+      const valorNF=parseFloat(document.getElementById('valor-nf')?.value)||0;
       const localRow=(l,v,ic,cl)=>`<div class="result-row"><span class="result-row-label">${ic?`<i class="ti ${ic}" style="font-size:12px;color:${cl||'var(--text-muted)'};margin-right:6px"></i>`:'<span style="display:inline-block;width:18px"></span>'}${l}</span><span class="result-row-val">${v}</span></div>`;
       let rows='';
-      if(res.tipo==='proximidade'){
-        rows+=localRow(`Referência mais próxima`,`<strong>${res.cidadeRef} — ${res.ufRef}</strong>`,'ti-map-pin','var(--warn-color)');
-        rows+=localRow(`Distância extra até referência`,`${res.distKm} km × R$ 2,00 = ${fmtBRL(precoExtra)}`,'ti-road','var(--text-muted)');
-        rows+=`<div class="divider-row"></div>`;
-      } else {
-        rows+=localRow(`Destino (tabela)`,`<strong>${res.cidade} — ${res.uf}</strong>`,'ti-map-pin','var(--green-accent)');
-      }
-      rows+=localRow(`Peso considerado (${faixaLabel})`,`<span style="font-family:JetBrains Mono,monospace;font-size:12px">${fmtN(pesoConsid,2)} kg</span>`,`ti-${criterioPeso?'weight':'cube'}`,critColor);
+      rows+=localRow(`Destino`,classif?`<strong>${classif.municipio} — ${classif.uf}</strong>`:`<strong>${addrState.destino.label.split(',')[0]}${ufForaArea?' — '+ufForaArea:''}</strong> <span style="color:var(--text-muted);font-size:10px">(fora da planilha de municípios — acréscimo ${fmtPct(pctClassif)})</span>`,'ti-map-pin','var(--green-accent)');
+      rows+=localRow(`Veículo (automático: ${capitalizarVeiculo(veiculoNecessario.veiculo)})`,`<strong>${capitalizarVeiculo(veiculoSel.veiculo)}</strong>`,'ti-truck','var(--gold)');
+      rows+=localRow(`Peso considerado (${crit})`,`<span style="font-family:JetBrains Mono,monospace;font-size:12px">${fmtN(pesoConsid,2)} kg</span>`,`ti-${criterioPeso?'weight':'cube'}`,critColor);
       rows+=`<div class="divider-row"></div>`;
-      rows+=localRow(`Preço de tabela`,ovPiso?`<strong class="row-piso-val">${fmtBRL(ovPiso)}</strong>`:`<strong class="row-piso-val">${fmtBRL(precoTabela)}</strong>`,null);
-      if(res.acrescimo>0&&res.tipo==='tabela')rows+=localRow(`Acréscimo (${res.acrescimo}%)`,fmtBRL(precoComAcrescimo-precoTabela),'ti-percentage','var(--warn-color)');
-      if(res.tipo==='proximidade')rows+=localRow(`Subtotal tabela + distância`,fmtBRL(subTotal),null);
-      if(viagens>1)rows+=localRow(`× ${viagens} embarques`,fmtBRL(subTotal*viagens),null);
-      if(valKm>0)rows+=localRow(`Valor/km (${fmtBRL(valKm)}/km × ${km} km${viagens>1?' × '+viagens:''})`,fmtBRL(custoKmTotal),'ti-road','var(--text-muted)');
+      rows+=localRow(`Frete base (${fmtBRL(veiculoSel.preco_km)}/km × ${km} km)`,fmtBRL(base),'ti-road','var(--text-muted)');
+      rows+=localRow(`Classificação do destino (${fmtPct(pctClassif)})`,fmtBRL(comClassificacao-base),'ti-percentage','var(--warn-color)');
+      if(minimoAplicado)rows+=localRow(`Valor mínimo aplicado (${capitalizarVeiculo(veiculoSel.veiculo)})`,`<strong class="row-piso-val">${fmtBRL(freteMinimo)}</strong>`,'ti-alert-circle','var(--warn-color)');
+      else rows+=localRow(`Frete com classificação`,`<strong class="row-piso-val">${ovPiso?fmtBRL(ovPiso):fmtBRL(freteBase)}</strong>`,null);
+      if(viagens>1)rows+=localRow(`× ${viagens} embarques`,fmtBRL(freteBase*viagens),null);
+      if(valKm>0)rows+=localRow(`Valor/km adicional (${fmtBRL(valKm)}/km × ${km} km${viagens>1?' × '+viagens:''})`,fmtBRL(custoKmTotal),'ti-road','var(--text-muted)');
       rows+=localRow(`Sua margem ${margemTipo==='pct'?'('+margemVal+'%)':'(R$ fixo)'}`,fmtBRL(margem),'ti-percentage','var(--warn-color)');
-      const avisoRevisao = pesoConsid>=3000 ? `
+      const avisoNF=valorNF>100000?`
         <div class="result-card" style="border-left:3px solid var(--warn-color);margin-bottom:10px">
           <div style="padding:10px 14px;display:flex;align-items:center;gap:10px">
             <i class="ti ti-alert-triangle" style="font-size:20px;color:var(--warn-color);flex-shrink:0"></i>
-            <span style="font-size:12px;color:var(--text-muted)"><strong style="color:var(--warn-color)">Sob revisão:</strong> peso considerado acima de 3.000 kg — o valor abaixo segue usando a última faixa da tabela; recomendamos conferir manualmente antes de enviar ao cliente.</span>
+            <span style="font-size:12px;color:var(--text-muted)"><strong style="color:var(--warn-color)">Atenção:</strong> valor de NF acima de R$ 100.000,00 (${fmtBRL(valorNF)}) — confira se precisa de seguro/tratamento especial antes de enviar a proposta.</span>
           </div>
-        </div>` : '';
+        </div>`:'';
       ra.innerHTML=`
-        ${avisoRevisao}
+        ${avisoNF}
         <div class="result-card">
           <div class="result-card-header">
             <span class="badge badge-orange"><i class="ti ti-package" style="font-size:10px"></i>Fracionado</span>
-            <span class="badge" style="margin-left:4px;background:rgba(245,197,24,.1);color:var(--gold);border:1px solid rgba(245,197,24,.25)">Tabela SP</span>
-            ${res.tipo==='proximidade'?`<span class="badge" style="margin-left:4px;background:rgba(255,159,67,.1);color:var(--warn-color);border:1px solid rgba(255,159,67,.25)"><i class="ti ti-compass" style="font-size:10px"></i>Proximidade · ${res.distKm}km</span>`:''}
-            <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${veic.nome}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${capitalizarVeiculo(veiculoSel.veiculo)}</span>
           </div>
           <div class="result-card-body">${rows}</div>
         </div>
         <div class="result-total-card">
           <div>
             <div class="result-total-label">Total ao cliente</div>
-            <div class="result-total-sub">${viagens} embarque${viagens>1?'s':''} · ${pesoConsid} kg · ${faixaLabel}</div>
+            <div class="result-total-sub">${viagens} embarque${viagens>1?'s':''} · ${km} km · ${pesoConsid} kg</div>
           </div>
           <div class="result-total-val">${fmtBRL(totalFinal)}</div>
         </div>`;
@@ -2170,201 +2344,9 @@ function calc(){
       checkRouteHistory();
     }).catch(()=>{
       if(_calcId!==fracCalcId)return;
-      ra.innerHTML=`<div class="result-card"><div class="no-data-result"><i class="ti ti-wifi-off" style="font-size:36px;color:var(--danger);opacity:.5"></i><strong>Erro de conexão</strong><span style="color:var(--text-muted)">Não foi possível consultar a rota. Verifique sua internet.</span></div></div>`;
+      ra.innerHTML=`<div class="result-card"><div class="no-data-result"><i class="ti ti-wifi-off" style="font-size:36px;color:var(--danger);opacity:.5"></i><strong>Erro de conexão</strong><span style="color:var(--text-muted)">Não foi possível calcular o frete. Verifique sua internet.</span></div></div>`;
     });
   }
-}
-/* ============================================================
-   TABELA DE FRETES FRACIONADOS — Partida: São Paulo
-   p = [0-100kg, 101-300kg, 301-600kg, 601-1000kg, 1001-1500kg]
-   a = acréscimo %, sp = sem preço fixo
-   ============================================================ */
-const TABELA_FRETE=[
-  // Centro-Oeste
-  {c:'Brasília',uf:'DF',lat:-15.7801,lon:-47.9292,p:[800,1200,2000,3000,4300],a:0,sp:false},
-  {c:'Goiânia + Anápolis',uf:'GO',lat:-16.6869,lon:-49.2648,p:[800,1200,1800,2300,3100],a:0,sp:false},
-  {c:'Santa Terezinha do Oeste',uf:'GO',lat:-24.7827,lon:-53.8308,p:[1200,1800,2800,4000,5500],a:10,sp:false},
-  {c:'Jataí',uf:'GO',lat:-17.8831,lon:-51.7125,p:[1000,1500,2300,3000,4000],a:10,sp:false},
-  {c:'Luziânia',uf:'GO',lat:-16.2523,lon:-47.9501,p:[800,1200,2000,3000,4300],a:0,sp:false},
-  {c:'Itumbiara',uf:'GO',lat:-18.4186,lon:-49.2157,p:[1000,1500,2300,3000,4000],a:0,sp:false},
-  {c:'Campo Grande',uf:'MS',lat:-20.4697,lon:-54.6201,p:[800,1200,1800,2500,3200],a:0,sp:false},
-  {c:'Dourados',uf:'MS',lat:-22.2232,lon:-54.8117,p:[800,1200,1800,2500,3200],a:15,sp:false},
-  {c:'Três Lagoas',uf:'MS',lat:-20.7833,lon:-51.7009,p:[800,1200,1800,2500,3200],a:0,sp:false},
-  {c:'Corumbá',uf:'MS',lat:-19.0083,lon:-57.6533,p:[800,1200,1800,2500,3200],a:50,sp:false},
-  {c:'Cuiabá',uf:'MT',lat:-15.5989,lon:-56.0949,p:[800,1200,1800,2400,3000],a:0,sp:false},
-  {c:'Rondonópolis',uf:'MT',lat:-16.4700,lon:-54.6338,p:[800,1200,1800,2400,3000],a:0,sp:false},
-  {c:'Sinop',uf:'MT',lat:-11.8641,lon:-55.5039,p:[800,1200,1800,2400,3000],a:20,sp:false},
-  {c:'Juína',uf:'MT',lat:-11.3833,lon:-58.7167,p:[1500,2000,2800,3800,5000],a:0,sp:false},
-  {c:'Cáceres',uf:'MT',lat:-16.0762,lon:-57.6808,p:[800,1200,1800,2400,3000],a:15,sp:false},
-  {c:'Barra do Garças',uf:'MT',lat:-15.8900,lon:-52.2566,p:[800,1200,1800,2400,3000],a:15,sp:false},
-  // Nordeste
-  {c:'Maceió',uf:'AL',lat:-9.6658,lon:-35.7350,p:[800,1000,1300,2000,3000],a:0,sp:false},
-  {c:'Arapiraca',uf:'AL',lat:-9.7528,lon:-36.6614,p:[900,1200,1600,2500,3800],a:0,sp:false},
-  {c:'Salvador',uf:'BA',lat:-12.9714,lon:-38.5014,p:[800,1200,1800,2500,3500],a:0,sp:false},
-  {c:'Feira de Santana',uf:'BA',lat:-12.2664,lon:-38.9663,p:[700,1100,1700,2300,3300],a:0,sp:false},
-  {c:'Vitória da Conquista',uf:'BA',lat:-14.8603,lon:-40.8446,p:[800,1200,1800,2500,3500],a:0,sp:false},
-  {c:'Barreiras',uf:'BA',lat:-12.1522,lon:-44.9989,p:[1000,1500,2500,3500,4500],a:0,sp:false},
-  {c:'Juazeiro',uf:'BA',lat:-9.4147,lon:-40.5020,p:[1100,1700,2800,4000,5000],a:0,sp:false},
-  {c:'Ilhéus',uf:'BA',lat:-14.7938,lon:-39.0486,p:[1000,1500,2500,3500,4500],a:0,sp:false},
-  {c:'Seabra',uf:'BA',lat:-12.4217,lon:-41.7672,p:[1000,1500,2500,3500,4500],a:0,sp:false},
-  {c:'Teixeira de Freitas',uf:'BA',lat:-17.5353,lon:-39.7428,p:[800,1200,1800,2500,3500],a:0,sp:false},
-  {c:'Fortaleza',uf:'CE',lat:-3.7172,lon:-38.5433,p:[1200,1800,2800,4000,5000],a:0,sp:false},
-  {c:'Juazeiro do Norte',uf:'CE',lat:-7.2136,lon:-39.3193,p:[1500,2200,3200,4700,5800],a:10,sp:false},
-  {c:'Sobral',uf:'CE',lat:-3.6884,lon:-40.3520,p:[1500,2200,3200,4700,5800],a:10,sp:false},
-  {c:'Tauá',uf:'CE',lat:-6.0022,lon:-40.2914,p:[1500,2200,3200,4700,5800],a:0,sp:false},
-  {c:'São Luís',uf:'MA',lat:-2.5297,lon:-44.3028,p:[1300,2200,3000,3800,5000],a:0,sp:false},
-  {c:'Imperatriz',uf:'MA',lat:-5.5259,lon:-47.4741,p:[1200,2000,2800,3600,4400],a:0,sp:false},
-  {c:'Caxias',uf:'MA',lat:-4.8611,lon:-43.3561,p:[1500,2500,3500,4800,6000],a:0,sp:false},
-  {c:'Açailândia',uf:'MA',lat:-4.9500,lon:-47.5000,p:[1200,2000,2800,3600,4400],a:10,sp:false},
-  {c:'Bacabal',uf:'MA',lat:-4.2278,lon:-44.7875,p:[1300,2200,3000,3800,5000],a:15,sp:false},
-  {c:'João Pessoa',uf:'PB',lat:-7.1195,lon:-34.8450,p:[900,1400,2000,2500,3000],a:0,sp:false},
-  {c:'Campina Grande',uf:'PB',lat:-7.2306,lon:-35.8811,p:[900,1400,2000,2500,3000],a:10,sp:false},
-  {c:'Patos',uf:'PB',lat:-7.0244,lon:-37.2800,p:[900,1400,2000,2500,3000],a:20,sp:false},
-  {c:'Recife',uf:'PE',lat:-8.0543,lon:-34.8811,p:[1200,1500,1800,2200,2500],a:0,sp:false},
-  {c:'Caruaru',uf:'PE',lat:-8.2836,lon:-35.9764,p:[1200,1800,2160,2640,3000],a:0,sp:false},
-  {c:'Petrolina',uf:'PE',lat:-9.3897,lon:-40.5026,p:[1200,1800,2160,2640,3000],a:10,sp:false},
-  {c:'Vitória de Santo Antão',uf:'PE',lat:-8.1258,lon:-35.2953,p:[1200,1800,2160,2640,3000],a:0,sp:false},
-  {c:'Teresina',uf:'PI',lat:-5.0892,lon:-42.8019,p:[1200,1500,2000,2700,3500],a:0,sp:false},
-  {c:'Parnaíba',uf:'PI',lat:-2.9045,lon:-41.7769,p:[1200,1500,2000,2700,3500],a:30,sp:false},
-  {c:'Picos',uf:'PI',lat:-7.0772,lon:-41.4672,p:[1200,1800,2160,2640,3000],a:30,sp:false},
-  {c:'Floriano',uf:'PI',lat:-6.7669,lon:-43.0219,p:[1200,1800,2160,2640,3000],a:20,sp:false},
-  {c:'Natal',uf:'RN',lat:-5.7793,lon:-35.2009,p:[1500,2000,2800,3500,4500],a:0,sp:false},
-  {c:'Mossoró',uf:'RN',lat:-5.1878,lon:-37.3441,p:[1500,2000,2800,3500,4500],a:10,sp:false},
-  {c:'Caicó',uf:'RN',lat:-6.4581,lon:-37.0964,p:[1500,2000,2800,3500,4500],a:10,sp:false},
-  {c:'Aracaju',uf:'SE',lat:-10.9472,lon:-37.0731,p:[900,1500,2000,2800,4000],a:0,sp:false},
-  // Norte
-  {c:'Rio Branco',uf:'AC',lat:-9.9754,lon:-67.8249,p:[900,1400,2000,3000,4000],a:0,sp:false},
-  {c:'Cruzeiro do Sul',uf:'AC',lat:-7.6306,lon:-72.6736,p:[1500,2500,3500,4500,6000],a:10,sp:false},
-  {c:'Tarauacá',uf:'AC',lat:-8.1572,lon:-70.7706,p:[1200,2200,3200,4200,6200],a:0,sp:false},
-  {c:'Manaus',uf:'AM',lat:-3.1019,lon:-60.0250,p:[1500,2200,3000,3800,5000],a:0,sp:false},
-  {c:'Parintins',uf:'AM',lat:-2.6259,lon:-56.7358,p:[2000,2800,4000,5000,6200],a:0,sp:false},
-  {c:'Itacoatiara',uf:'AM',lat:-3.1378,lon:-58.4428,p:[1900,3000,4000,5500,7000],a:0,sp:false},
-  {c:'Tefé',uf:'AM',lat:-3.3667,lon:-64.7000,p:[null,null,null,null,null],a:0,sp:true},
-  {c:'Tabatinga',uf:'AM',lat:-4.2572,lon:-69.9389,p:[null,null,null,null,null],a:0,sp:true},
-  {c:'São Gabriel da Cachoeira',uf:'AM',lat:-0.1300,lon:-67.0872,p:[null,null,null,null,null],a:0,sp:true},
-  {c:'Macapá',uf:'AP',lat:0.0356,lon:-51.0706,p:[1800,2800,3800,4800,6000],a:10,sp:false},
-  {c:'Oiapoque',uf:'AP',lat:3.8406,lon:-51.8339,p:[2800,3800,5000,6500,7800],a:0,sp:false},
-  {c:'Belém',uf:'PA',lat:-1.4558,lon:-48.5039,p:[1000,1500,2000,3000,4000],a:0,sp:false},
-  {c:'Santarém',uf:'PA',lat:-2.4448,lon:-54.7081,p:[1000,1500,2000,3000,4000],a:15,sp:false},
-  {c:'Marabá',uf:'PA',lat:-5.3681,lon:-49.1178,p:[1000,1500,2000,3000,4000],a:0,sp:false},
-  {c:'Altamira',uf:'PA',lat:-3.2041,lon:-52.2059,p:[1000,1500,2000,3000,4000],a:20,sp:false},
-  {c:'Redenção',uf:'PA',lat:-8.0281,lon:-50.0297,p:[1000,1500,2000,3000,4000],a:20,sp:false},
-  {c:'Castanhal',uf:'PA',lat:-1.2956,lon:-47.9219,p:[1000,1500,2000,3000,4000],a:10,sp:false},
-  {c:'Porto Velho',uf:'RO',lat:-8.7612,lon:-63.9004,p:[1000,1400,2000,3000,4000],a:0,sp:false},
-  {c:'Ji-Paraná',uf:'RO',lat:-10.8792,lon:-61.9469,p:[1000,1400,2000,3000,4000],a:0,sp:false},
-  {c:'Vilhena',uf:'RO',lat:-12.7408,lon:-60.1458,p:[910,1300,1900,2800,3800],a:0,sp:false},
-  {c:'Ariquemes',uf:'RO',lat:-9.9097,lon:-63.0381,p:[1000,1400,2000,3000,4000],a:0,sp:false},
-  {c:'Boa Vista',uf:'RR',lat:2.8235,lon:-60.6758,p:[1800,2500,3400,4300,5500],a:0,sp:false},
-  {c:'Rorainópolis',uf:'RR',lat:0.9278,lon:-60.4736,p:[1800,2500,3400,4300,5500],a:0,sp:false},
-  {c:'Pacaraima',uf:'RR',lat:4.4769,lon:-61.1467,p:[1800,2500,3400,4300,5500],a:30,sp:false},
-  {c:'Araguaína',uf:'TO',lat:-7.1911,lon:-48.2046,p:[1100,1700,2300,3000,3500],a:0,sp:false},
-  {c:'Gurupi',uf:'TO',lat:-11.7294,lon:-49.0706,p:[800,1400,2000,2500,3000],a:0,sp:false},
-  {c:'Palmas',uf:'TO',lat:-10.2128,lon:-48.3603,p:[1000,1500,2200,2800,3300],a:0,sp:false},
-  {c:'Guaraí',uf:'TO',lat:-8.8333,lon:-48.5167,p:[900,1300,2100,2650,3150],a:0,sp:false},
-  // Sudeste
-  {c:'Vitória + Vila Velha',uf:'ES',lat:-20.3155,lon:-40.3128,p:[800,1200,1800,2800,3500],a:0,sp:false},
-  {c:'Cachoeiro de Itapemirim',uf:'ES',lat:-20.8489,lon:-41.1131,p:[700,1100,1700,2600,3300],a:0,sp:false},
-  {c:'Linhares',uf:'ES',lat:-19.3914,lon:-40.0675,p:[1000,1500,2300,3200,4000],a:0,sp:false},
-  {c:'Belo Horizonte',uf:'MG',lat:-19.9167,lon:-43.9345,p:[600,1000,1300,2000,2500],a:0,sp:false},
-  {c:'Uberlândia',uf:'MG',lat:-18.9186,lon:-48.2772,p:[600,1000,1300,2000,2500],a:0,sp:false},
-  {c:'Juiz de Fora',uf:'MG',lat:-21.7642,lon:-43.3503,p:[800,1200,1800,2000,2500],a:0,sp:false},
-  {c:'Montes Claros',uf:'MG',lat:-16.7281,lon:-43.8628,p:[800,1500,2100,2600,3000],a:0,sp:false},
-  {c:'Governador Valadares',uf:'MG',lat:-18.8511,lon:-41.9497,p:[800,1200,1800,2000,2500],a:10,sp:false},
-  {c:'Uberaba',uf:'MG',lat:-19.7481,lon:-47.9383,p:[600,1000,1300,2000,2500],a:0,sp:false},
-  {c:'Lavras',uf:'MG',lat:-21.2481,lon:-44.9994,p:[600,1000,1300,2000,2500],a:0,sp:false},
-  {c:'Patos de Minas',uf:'MG',lat:-18.5786,lon:-46.5178,p:[800,1500,2100,2600,3000],a:0,sp:false},
-  {c:'Rio de Janeiro + Niterói',uf:'RJ',lat:-22.9068,lon:-43.1729,p:[500,700,1000,1200,1500],a:0,sp:false},
-  {c:'Duque de Caxias + Nova Iguaçu',uf:'RJ',lat:-22.7850,lon:-43.3117,p:[500,700,1000,1200,1500],a:0,sp:false},
-  {c:'Campos dos Goytacazes',uf:'RJ',lat:-21.7542,lon:-41.3244,p:[500,700,1000,1200,1500],a:30,sp:false},
-  {c:'Volta Redonda',uf:'RJ',lat:-22.5231,lon:-44.0997,p:[500,700,1000,1200,1500],a:0,sp:false},
-  {c:'São Paulo + Guarulhos',uf:'SP',lat:-23.5505,lon:-46.6333,p:[300,350,400,450,500],a:0,sp:false},
-  {c:'Campinas',uf:'SP',lat:-22.9056,lon:-47.0608,p:[400,500,700,900,1200],a:0,sp:false},
-  {c:'Ribeirão Preto',uf:'SP',lat:-21.1783,lon:-47.8108,p:[700,1000,1400,2000,2800],a:0,sp:false},
-  {c:'São José do Rio Preto',uf:'SP',lat:-20.8197,lon:-49.3794,p:[700,1000,1400,2000,2800],a:10,sp:false},
-  {c:'Sorocaba',uf:'SP',lat:-23.5019,lon:-47.4581,p:[400,500,700,900,1200],a:0,sp:false},
-  {c:'Presidente Prudente',uf:'SP',lat:-22.1208,lon:-51.3886,p:[700,1000,1400,2000,2800],a:10,sp:false},
-  {c:'Santos',uf:'SP',lat:-23.9608,lon:-46.3331,p:[400,500,700,900,1200],a:0,sp:false},
-  {c:'Aparecida',uf:'SP',lat:-22.8486,lon:-45.2258,p:[400,500,700,900,1200],a:0,sp:false},
-  // Sul
-  {c:'Curitiba',uf:'PR',lat:-25.4284,lon:-49.2733,p:[400,800,1200,1500,2000],a:0,sp:false},
-  {c:'Londrina',uf:'PR',lat:-23.3103,lon:-51.1628,p:[700,1100,1500,2000,2500],a:0,sp:false},
-  {c:'Cascavel',uf:'PR',lat:-24.9578,lon:-53.4595,p:[700,1100,1500,2000,2500],a:20,sp:false},
-  {c:'Maringá',uf:'PR',lat:-23.4273,lon:-51.9375,p:[700,1100,1500,2000,2500],a:10,sp:false},
-  {c:'Porto Alegre',uf:'RS',lat:-30.0346,lon:-51.2177,p:[700,1200,1800,2500,3000],a:0,sp:false},
-  {c:'Caxias do Sul',uf:'RS',lat:-29.1634,lon:-51.1793,p:[700,1200,1800,2500,3000],a:10,sp:false},
-  {c:'Pelotas',uf:'RS',lat:-31.7649,lon:-52.3392,p:[1050,1800,2700,3750,4500],a:0,sp:false},
-  {c:'Santa Maria',uf:'RS',lat:-29.6842,lon:-53.8069,p:[980,1680,2520,3500,4200],a:0,sp:false},
-  {c:'Passo Fundo',uf:'RS',lat:-28.2622,lon:-52.4083,p:[980,1680,2520,3500,4200],a:0,sp:false},
-  {c:'Florianópolis',uf:'SC',lat:-27.5954,lon:-48.5480,p:[500,800,1300,1800,2500],a:0,sp:false},
-  {c:'Joinville',uf:'SC',lat:-26.3045,lon:-48.8487,p:[400,700,1200,1600,2300],a:0,sp:false},
-  {c:'Blumenau',uf:'SC',lat:-26.9189,lon:-49.0661,p:[600,1000,1400,2000,2500],a:0,sp:false},
-  {c:'Chapecó',uf:'SC',lat:-27.1007,lon:-52.6153,p:[600,1000,1400,2000,2500],a:20,sp:false},
-];
-
-let fracCalcId=0, fracLastResult=null;
-
-function normStr(s){return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'').trim();}
-
-function findCityByName(label){
-  /* parse parts from nominatim label */
-  const parts=label.split(/,|—|-|\//).map(s=>normStr(s.trim())).filter(s=>s.length>2);
-  for(const row of TABELA_FRETE){
-    const cities=row.c.split('+').map(x=>normStr(x.trim()));
-    for(const part of parts){
-      if(cities.some(c=>c===part||c.startsWith(part)||part.startsWith(c)))return row;
-    }
-  }
-  return null;
-}
-
-function haversineDist(lat1,lon1,lat2,lon2){
-  const R=6371,toR=x=>x*Math.PI/180,dLat=toR(lat2-lat1),dLon=toR(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-function findNearestCity(lat,lon){
-  let nearest=null,minD=Infinity;
-  for(const row of TABELA_FRETE){
-    if(row.sp)continue;
-    const d=haversineDist(lat,lon,row.lat,row.lon);
-    if(d<minD){minD=d;nearest=row;}
-  }
-  return{city:nearest,distHav:minD};
-}
-
-function getPrecoByPeso(row,peso){
-  if(peso<=100)return row.p[0];
-  if(peso<=300)return row.p[1];
-  if(peso<=600)return row.p[2];
-  if(peso<=1000)return row.p[3];
-  return row.p[4];
-}
-
-async function getOSRMDist(lat1,lon1,lat2,lon2){
-  try{
-    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`);
-    const d=await r.json();
-    if(d.code==='Ok'&&d.routes?.length)return Math.round(d.routes[0].distance/1000);
-  }catch(e){}
-  return null;
-}
-
-async function calcFracionadoTabela(destLat,destLon,destLabel,pesoConsid){
-  const match=findCityByName(destLabel);
-  if(match){
-    if(match.sp)return{tipo:'sem_preco',cidade:match.c};
-    const precoBase=getPrecoByPeso(match,pesoConsid);
-    if(precoBase==null)return{tipo:'sem_preco',cidade:match.c};
-    return{tipo:'tabela',cidade:match.c,uf:match.uf,precoBase,acrescimo:match.a,precoFinal:precoBase*(1+match.a/100)};
-  }
-  /* proximidade */
-  const{city:nearest,distHav}=findNearestCity(destLat,destLon);
-  if(!nearest)return{tipo:'erro'};
-  const distKm=(await getOSRMDist(destLat,destLon,nearest.lat,nearest.lon))||Math.round(distHav*1.3);
-  const precoBase=getPrecoByPeso(nearest,pesoConsid);
-  const precoExtra=distKm*2;
-  return{tipo:'proximidade',cidadeRef:nearest.c,ufRef:nearest.uf,distKm,precoBase,acrescimo:0,precoComAcrescimo:precoBase,precoExtra,precoFinal:precoBase+precoExtra};
 }
 
 /* ---- ALERTA DE ROTA JÁ COTADA ---- */
@@ -4204,6 +4186,8 @@ function abrirDetalheCotacao(numero) {
       <div class="det-field"><div class="det-lbl">Viagens/Embarques</div><div class="det-val">${fmtCampo(r['Viagens'])}</div></div>
       <div class="det-field"><div class="det-lbl">Valor/km adicional</div><div class="det-val">${fmtCampo(r['ValKm'])}</div></div>
       <div class="det-field"><div class="det-lbl">Peso real (kg)</div><div class="det-val">${fmtCampo(r['Modalidade'] === 'Dedicado' ? 0 : r['PesoReal'])}</div></div>
+      ${r['Modalidade']!=='Dedicado'?`<div class="det-field"><div class="det-lbl">Nº de paletes</div><div class="det-val">${fmtCampo(r['FracPaletes'])}</div></div>
+      <div class="det-field"><div class="det-lbl">Comprimento da carga (m)</div><div class="det-val">${fmtCampo(r['FracComprimento'])}</div></div>`:''}
       ${cubagemHTML}
       <div class="det-field"><div class="det-lbl">Cap. peso (kg)</div><div class="det-val">${fmtCampo(r['CapPeso'])}</div></div>
       <div class="det-field"><div class="det-lbl">Cap. cúbica (m³)</div><div class="det-val">${fmtCampo(r['CapVol'])}</div></div>
@@ -4495,6 +4479,8 @@ function coletarCamposCotacao() {
     cubagem:             modo==='fracionado' ? JSON.stringify(serializeCubagem()) : '',
     capPeso:             document.getElementById('cap-peso')?.value||'',
     capVol:              document.getElementById('cap-vol')?.value||'',
+    fracPaletes:         document.getElementById('frac-paletes')?.value||'',
+    fracComprimento:     document.getElementById('frac-comprimento')?.value||'',
     margemTipo:          document.getElementById('margem-tipo')?.value||'',
     margemVal:           document.getElementById('margem-val')?.value||'',
     overridePiso:        document.getElementById('override-piso')?.value?.trim()||'',
@@ -5042,6 +5028,8 @@ async function loadRefazer() {
     setVal('peso-real',    row['PesoReal']);
     setVal('cap-peso',     row['CapPeso']);
     setVal('cap-vol',      row['CapVol']);
+    setVal('frac-paletes',      row['FracPaletes']);
+    setVal('frac-comprimento',  row['FracComprimento']);
     setVal('margem-tipo',  row['MargemTipo']);
     setVal('margem-val',   row['MargemVal']);
     setVal('override-piso',     row['OverridePiso']);
