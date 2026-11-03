@@ -461,6 +461,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
     </div>
     <input type="hidden" id="r-cte-temp">
     <input type="hidden" id="r-id">
+    <div id="r-aviso-complementar" style="display:none;background:var(--gold-dim);border:1px solid var(--gold);border-radius:9px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--gold);font-weight:700"></div>
     <div id="r-aviso-finalizacao" style="display:none;background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:12px"></div>
     <div id="r-att-list" class="alist" style="margin-bottom:14px"></div>
 
@@ -603,6 +604,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <input class="form-input" type="number" step="0.01" id="r-valor-freteiro" placeholder="0,00" oninput="atualizarPreviewCalculo()">
       </div>
     </div>
+    <div id="r-complementar-info" style="display:none;font-size:11px;color:var(--txt-dim);margin-top:10px;background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:10px 14px"></div>
     <div class="form-grid" style="margin-top:12px">
       <div class="form-group">
         <label class="form-label">Observações</label>
@@ -661,6 +663,19 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
       </div>
     </div>
     <div id="sol-status-kanban" style="font-size:11px;color:var(--txt-dim);margin-top:6px"></div>
+
+    <div class="modal-section-title"><i class="ti ti-file-plus" style="font-size:13px"></i> CT-e Complementar</div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">É CT-e complementar?</label>
+        <div class="ped-toggle-wrap" onclick="toggleSolComplementar()">
+          <div class="ped-toggle" id="sol-complementar_sw"><div class="knob"></div></div>
+          <span class="ped-toggle-label" id="sol-complementar_lbl">Não</span>
+        </div>
+        <input type="hidden" id="sol-tipo" value="normal">
+      </div>
+    </div>
+    <div id="sol-complementar-info" style="display:none;font-size:11px;color:var(--txt-dim);margin-top:6px;background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:9px;padding:10px 14px"></div>
 
     <div class="modal-section-title"><i class="ti ti-paperclip" style="font-size:13px"></i> Anexar Nota(s) Fiscal(is)</div>
     <div class="az" id="sol-att-drop" onclick="document.getElementById('sol-att-inp').click()"
@@ -1397,6 +1412,11 @@ function bolinhaPrioridadeFat_(prioridade){
   return '<span title="Prioridade" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>';
 }
 
+function badgeComplementarFat_(tipo){
+  if(tipo !== 'complementar') return '';
+  return '<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gold);background:var(--gold-dim);border:1px solid var(--gold-border);border-radius:5px;padding:1px 6px">Complementar</span>';
+}
+
 function fmtDataHoraFat_(isoTimestamp){
   if(!isoTimestamp) return '';
   var d = new Date(isoTimestamp);
@@ -1414,7 +1434,7 @@ function mapearRegistroDoApi_(row){
     valePedagio: row.vale_pedagio||'', gnre: row.gnre, status: row.status, solicitante: row.solicitante||'',
     dataSolicitacao: fmtDataHoraFat_(row.data_solicitacao), solicitaMdf: row.solicita_mdf||'', obsRotaMdf: row.obs_rota_mdf||'',
     custoOperacionalTotal: row.custo_operacional_total, statusCanhoto: row.status_canhoto||'',
-    prioridade: row.prioridade||'',
+    prioridade: row.prioridade||'', tipo: row.tipo||'normal',
   };
   Object.assign(r, calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento));
   return r;
@@ -1486,7 +1506,7 @@ function renderFila(){
     var mdfTxt = r.solicitaMdf==='Sim' ? '<span style="display:block"><i class="ti ti-file-certificate" style="font-size:11px"></i> MDF solicitado</span>' : '';
     return `<div class="fila-card" ${ehColaborador?'':`onclick="abrirFinalizacao('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:var(--gold-dim)"><i class="ti ti-file-invoice" style="color:var(--gold)"></i></div>
-      <div class="fila-card-main"><strong style="display:flex;align-items:center;gap:7px">${bolinhaPrioridadeFat_(r.prioridade)}${r.cliente||'—'} · Cód. ${r.cod||'—'}</strong>
+      <div class="fila-card-main"><strong style="display:flex;align-items:center;gap:7px">${bolinhaPrioridadeFat_(r.prioridade)}${r.cliente||'—'} · Cód. ${r.cod||'—'} ${badgeComplementarFat_(r.tipo)}</strong>
         <span style="display:block">Solicitado por ${r.solicitante||'—'} em ${r.dataSolicitacao||'—'}</span>
         ${mdfTxt}
       </div>
@@ -1535,7 +1555,7 @@ function renderHistorico(){
     return `<tr>
       <td>${r.dataSolicitacao||'—'}</td>
       <td>${r.cliente||'—'}</td>
-      <td>${r.cod||'—'}</td>
+      <td>${r.cod||'—'} ${badgeComplementarFat_(r.tipo)}</td>
       <td>${r.solicitante||'—'}</td>
       <td>${statusBadge}</td>
       <td>${(r.cte||'').indexOf('PENDENTE-')===0 ? '—' : (r.cte||'—')}</td>
@@ -1984,6 +2004,8 @@ function openModalRegistro(){
   document.getElementById('r-cte-temp').value = '';
   document.getElementById('r-id').value = '';
   document.getElementById('r-aviso-finalizacao').style.display = 'none';
+  document.getElementById('r-aviso-complementar').style.display = 'none';
+  document.getElementById('r-complementar-info').style.display = 'none';
   document.getElementById('r-att-list').innerHTML = '';
   pendCteArquivoReg = null;
   pendMdfArquivoReg = null;
@@ -2032,6 +2054,39 @@ function abrirFinalizacao(regId){
   // ficava sendo esquecido, gerando registros finalizados com Valor
   // Freteiro zerado.
   if(r.cod) buscarCardKanbanFat('r');
+  if(r.tipo === 'complementar'){
+    var avisoComp = document.getElementById('r-aviso-complementar');
+    avisoComp.style.display = 'block';
+    avisoComp.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:13px"></i> Esta solicitação é um CT-e COMPLEMENTAR do card ' + (r.cod||'—') + '.';
+    carregarInfoComplementarReg_(r.cod, r.empresa);
+  }
+}
+
+// Mesma conta da solicitação, repetida aqui na finalização — a pessoa que
+// finaliza é quem efetivamente digita o Total Frete, então é aqui que a
+// sugestão precisa estar pra ela poder usar (ou ajustar). Também aproveita
+// pra apontar o número do CT-e principal já emitido (quando não há
+// ambiguidade — só um CT-e normal emitido de verdade pra esse código).
+async function carregarInfoComplementarReg_(cod, empresa){
+  var info = document.getElementById('r-complementar-info');
+  info.style.display = 'block';
+  info.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Calculando valor sugerido do complementar…';
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/valor-sugerido-complementar?cod=' + encodeURIComponent(cod) + '&empresa=' + encodeURIComponent(empresa));
+    var r = await res.json();
+    if(!res.ok){ info.innerHTML = '<span class="txt-red">Não foi possível calcular o valor sugerido (' + (r.error||'erro') + ').</span>'; return; }
+    info.innerHTML = badgeComplementarFat_('complementar') + ' Frete cobrado no card: <strong>' + fmtMoeda(r.freteCobrado) + '</strong>'
+      + ' · Já emitido pra esse código: <strong>' + fmtMoeda(r.totalJaEmitido) + '</strong>'
+      + ' · Sugestão: <strong>' + fmtMoeda(r.valorSugerido) + '</strong> <span style="color:var(--txt-muted)">(preenchido no Total Frete — pode ajustar)</span>';
+    var totalFreteEl = document.getElementById('r-total-frete');
+    if(!totalFreteEl.value) totalFreteEl.value = r.valorSugerido;
+    atualizarPreviewCalculo();
+    var avisoComp = document.getElementById('r-aviso-complementar');
+    avisoComp.innerHTML = '<i class="ti ti-alert-triangle" style="font-size:13px"></i> Esta solicitação é um CT-e COMPLEMENTAR do card ' + (cod||'—') + '.'
+      + (r.cteOriginal ? ' CT-e principal já emitido: <strong>Nº ' + e(r.cteOriginal) + '</strong>.' : '');
+  }catch(e){
+    info.innerHTML = '<span class="txt-red">Não foi possível calcular agora (erro de conexão).</span>';
+  }
 }
 
 function closeModalSolicitacao(){ document.getElementById('modal-solicitacao').classList.remove('open'); }
@@ -2051,6 +2106,10 @@ function openModalSolicitacao(){
   document.getElementById('sol-obs-rota-mdf').value = '';
   document.getElementById('grupo-obs-rota-mdf').style.display = 'none';
   document.getElementById('sol-status-kanban').innerHTML = '';
+  document.getElementById('sol-tipo').value = 'normal';
+  document.getElementById('sol-complementar_sw').classList.remove('on');
+  document.getElementById('sol-complementar_lbl').textContent = 'Não';
+  document.getElementById('sol-complementar-info').style.display = 'none';
   custoOperacionalCardSolicitacaoFat = null;
   pendAttSol = []; driveAttsSol = []; renderAttListSol();
   document.getElementById('modal-solicitacao').classList.add('open');
@@ -2070,6 +2129,41 @@ function toggleSolPrioridade(){
   sw.classList.toggle('on', ligando);
   lbl.textContent = ligando ? 'Sim' : 'Não';
   lbl.style.color = ligando ? 'var(--red)' : '';
+}
+
+function toggleSolComplementar(){
+  var hid = document.getElementById('sol-tipo');
+  var sw = document.getElementById('sol-complementar_sw');
+  var lbl = document.getElementById('sol-complementar_lbl');
+  var ligando = hid.value !== 'complementar';
+  hid.value = ligando ? 'complementar' : 'normal';
+  sw.classList.toggle('on', ligando);
+  lbl.textContent = ligando ? 'Sim' : 'Não';
+  lbl.style.color = ligando ? 'var(--gold)' : '';
+  atualizarInfoComplementarSol();
+}
+
+// Mostra, logo na solicitação, quanto já foi emitido pra esse card e quanto
+// sobraria pro CT-e complementar — sem isso, essa conta só aparecia depois,
+// escondida dentro do "Visualizar Card".
+async function atualizarInfoComplementarSol(){
+  var info = document.getElementById('sol-complementar-info');
+  if(document.getElementById('sol-tipo').value !== 'complementar'){ info.style.display = 'none'; return; }
+  var cod = document.getElementById('sol-cod').value.trim();
+  var abaSelect = document.getElementById('sol-aba');
+  if(!cod){ info.style.display = 'block'; info.innerHTML = 'Informe e busque o código do card pra calcular o valor sugerido.'; return; }
+  info.style.display = 'block';
+  info.innerHTML = '<span class="spinner" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Calculando valor sugerido…';
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/valor-sugerido-complementar?cod=' + encodeURIComponent(cod) + '&empresa=' + encodeURIComponent(abaSelect.value));
+    var r = await res.json();
+    if(!res.ok){ info.innerHTML = '<span class="txt-red">Não foi possível calcular agora (' + (r.error||'erro') + ').</span>'; return; }
+    info.innerHTML = 'Frete cobrado no card: <strong>' + fmtMoeda(r.freteCobrado) + '</strong>'
+      + ' · Já emitido pra esse código: <strong>' + fmtMoeda(r.totalJaEmitido) + '</strong>'
+      + ' · <span style="color:var(--gold)">Sugestão de valor complementar: <strong>' + fmtMoeda(r.valorSugerido) + '</strong></span>';
+  }catch(e){
+    info.innerHTML = '<span class="txt-red">Não foi possível calcular agora (erro de conexão).</span>';
+  }
 }
 
 async function enviarSolicitacao(){
@@ -2097,7 +2191,8 @@ async function enviarSolicitacao(){
     solicitante: usuarioAtualNomeFat(),
     prioridade: prioridade,
     solicitaMdf: document.getElementById('sol-solicita-mdf').value,
-    obsRotaMdf: document.getElementById('sol-obs-rota-mdf').value.trim()
+    obsRotaMdf: document.getElementById('sol-obs-rota-mdf').value.trim(),
+    tipo: document.getElementById('sol-tipo').value
   };
   if(custoOperacionalCardSolicitacaoFat !== null) payload.custoOperacionalTotal = custoOperacionalCardSolicitacaoFat;
 
@@ -2346,6 +2441,7 @@ async function buscarCardKanbanFat(prefixo){
       if(prefixo==='r') custoOperacionalCardAtualFat = null; else custoOperacionalCardSolicitacaoFat = null;
       statusEl.innerHTML = '<span class="txt-green">✓ Card vinculado.</span> <span style="color:var(--orange)">(⚠ Custo Operacional Total não encontrado nesse card.)</span>';
     }
+    if(prefixo==='sol') atualizarInfoComplementarSol();
   }catch(e){
     statusEl.innerHTML = '<span class="txt-red">Não foi possível buscar agora ('+(e.message||'erro de conexão')+').</span>';
   }
