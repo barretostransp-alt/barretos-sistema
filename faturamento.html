@@ -999,7 +999,7 @@ async function fetchComTentativas_(url, options, maxTentativas){
 
 function handleFilesSol(files){
   Array.prototype.forEach.call(files, function(f){
-    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    if(f.size > 10000000){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
     pendAttSol.push(f);
   });
   renderAttListSol();
@@ -1167,7 +1167,7 @@ function handleFilesSp(files){
   var r = registros.find(function(x){ return x._id===currentSideId; });
   if(!r) return;
   Array.prototype.forEach.call(files, function(f){
-    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    if(f.size > 10000000){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
     enviarAnexoSp_(r, f);
   });
 }
@@ -1181,7 +1181,8 @@ async function enviarAnexoSp_(r, f){
       reader.onerror = function(){ reject(new Error('Falha ao ler ' + f.name)); };
       reader.readAsDataURL(f);
     });
-    await uploadAnexoFat_(r.cod, r._id, f.name, base64, f.type || 'application/octet-stream');
+    var j = await uploadAnexoFat_(r.cod, r._id, f.name, base64, f.type || 'application/octet-stream');
+    if(!j.success || !j.anexo) throw new Error(j.error || 'não foi salvo pelo servidor');
     carregarAnexosParaExibirEditavel_('sp-att-list', r.cod, r._id);
   }catch(err){ alert('Erro ao enviar anexo ' + f.name + ': ' + err.message); }
   finally{ if(drop) drop.style.opacity = '1'; }
@@ -1193,7 +1194,7 @@ var pendAttCan = [], driveAttsCan = [];
 
 function handleFilesCan(files){
   Array.prototype.forEach.call(files, function(f){
-    if(f.size > 10*1048576){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
+    if(f.size > 10000000){ alert('Arquivo ' + f.name + ' excede 10MB.'); return; }
     pendAttCan.push(f);
   });
   renderAttListCan();
@@ -2312,15 +2313,17 @@ async function salvarRegistro(){
   if(pendCteArquivoReg){
     try{
       var base64Cte = await lerArquivoBase64_(pendCteArquivoReg);
-      await uploadAnexoFat_(salvo.cod, salvo.id, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
-    }catch(errCte){ console.error('[salvarRegistro] falha ao anexar CT-e:', errCte); }
+      var jCte = await uploadAnexoFat_(salvo.cod, salvo.id, pendCteArquivoReg.name, base64Cte, pendCteArquivoReg.type || 'application/pdf');
+      if(!jCte.success || !jCte.anexo) throw new Error(jCte.error || 'não foi salvo pelo servidor');
+    }catch(errCte){ console.error('[salvarRegistro] falha ao anexar CT-e:', errCte); falhasEspelhoReg.push(pendCteArquivoReg.name); }
     pendCteArquivoReg = null;
   }
   if(pendMdfArquivoReg){
     try{
       var base64Mdf = await lerArquivoBase64_(pendMdfArquivoReg);
-      await uploadAnexoFat_(salvo.cod, salvo.id, pendMdfArquivoReg.name, base64Mdf, pendMdfArquivoReg.type || 'application/pdf');
-    }catch(errMdf){ console.error('[salvarRegistro] falha ao anexar MDF:', errMdf); }
+      var jMdf = await uploadAnexoFat_(salvo.cod, salvo.id, pendMdfArquivoReg.name, base64Mdf, pendMdfArquivoReg.type || 'application/pdf');
+      if(!jMdf.success || !jMdf.anexo) throw new Error(jMdf.error || 'não foi salvo pelo servidor');
+    }catch(errMdf){ console.error('[salvarRegistro] falha ao anexar MDF:', errMdf); falhasEspelhoReg.push(pendMdfArquivoReg.name); }
     pendMdfArquivoReg = null;
   }
 
@@ -2337,10 +2340,9 @@ async function salvarRegistro(){
   // empresa errada, card excluído) — avisa em vez de deixar passar em
   // silêncio (ver caso do card S26905).
   if(salvo.avisoKanban) alert('⚠ ' + salvo.avisoKanban);
-  // Cópia do CT-e/MDF pro card falhou (ver caso do card S26919: o CT-e não
-  // chegou no card enquanto o MDF, na mesma sessão, chegou sem problema) —
-  // avisa em vez de deixar o card sem o arquivo sem ninguém perceber.
-  if(falhasEspelhoReg.length) alert('⚠ O registro foi salvo, mas ' + (falhasEspelhoReg.length===1 ? 'este arquivo não chegou' : 'estes arquivos não chegaram') + ' no card: ' + falhasEspelhoReg.join(', ') + '. Reenvie pela tela do card ou peça pra reanexar.');
+  // Upload do CT-e/MDF falhou (ver caso do card S26919, antes isso passava
+  // em silêncio) — avisa em vez de deixar o anexo sumir sem ninguém perceber.
+  if(falhasEspelhoReg.length) alert('⚠ O registro foi salvo, mas ' + (falhasEspelhoReg.length===1 ? 'este arquivo NÃO foi salvo' : 'estes arquivos NÃO foram salvos') + ': ' + falhasEspelhoReg.join(', ') + '. Abra o registro e anexe de novo.');
 }
 
 /* ── Busca do card no Kanban ──
