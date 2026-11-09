@@ -1278,11 +1278,17 @@ function buscarCanhotoPorCod(){
   var listaEl = document.getElementById('can-lista-escolha');
   listaEl.innerHTML = '';
   if(!cod){ statusEl.innerHTML = '<span class="txt-red">Informe o código do card.</span>'; return; }
+  var codUpper = cod.toUpperCase();
   var candidatos = todosRegistrosFat.filter(function(r){
-    return (r.cod||'').trim().toUpperCase()===cod.toUpperCase() && r.status==='Faturado' && r.statusCanhoto==='Em Andamento';
+    return (r.cod||'').trim().toUpperCase()===codUpper && r.status==='Faturado' && r.statusCanhoto==='Em Andamento';
   });
   if(!candidatos.length){
-    statusEl.innerHTML = '<span class="txt-red">Nenhum CT-e desse card aguardando canhoto.</span>';
+    var jaFinalizado = todosRegistrosFat.some(function(r){
+      return (r.cod||'').trim().toUpperCase()===codUpper && r.status==='Faturado' && r.statusCanhoto==='Finalizado';
+    });
+    statusEl.innerHTML = jaFinalizado
+      ? '<span class="txt-red">Esse card já teve seu canhoto baixado.</span>'
+      : '<span class="txt-red">Nenhum CT-e desse card aguardando canhoto.</span>';
     return;
   }
   if(candidatos.length===1){
