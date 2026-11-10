@@ -477,6 +477,9 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
         <button class="btn btn-ghost btn-sm" onclick="exportViagensExcel()" style="white-space:nowrap">
           <i class="ti ti-file-spreadsheet" style="font-size:13px"></i> Excel
         </button>
+        <button class="btn btn-ghost btn-sm" id="btn-comissao-tabelas" style="display:none;white-space:nowrap" onclick="abrirModalComissaoTabelas()">
+          <i class="ti ti-percentage" style="font-size:13px"></i> Tabelas de Comissão
+        </button>
       </div>
       <div class="panel">
         <div class="panel-body" style="padding:0">
@@ -949,10 +952,12 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
       <div class="form-group"><label class="form-label">Cliente <span class="req">*</span></label><input class="form-input" id="vg-cliente" placeholder="Nome do cliente"></div>
       <div class="form-group"><label class="form-label">Nº Embarque</label><input class="form-input" id="vg-embarque"></div>
       <div class="form-group"><label class="form-label">Peso (ton)</label><input class="form-input" id="vg-peso" type="number" step="0.01" placeholder="0,00"></div>
-      <div class="form-group"><label class="form-label">F. Empresa (R$) <span class="req">*</span></label><input class="form-input" id="vg-fempresa" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="form-group"><label class="form-label">F. Empresa (R$) <span class="req">*</span></label><input class="form-input" id="vg-fempresa" type="number" step="0.01" placeholder="0,00" oninput="recalcularComissao(false)"></div>
       <div class="form-group"><label class="form-label">Pedágio (R$)</label><input class="form-input" id="vg-pedagio" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Abastecimento (R$)</label><input class="form-input" id="vg-abast" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Litros Abastecidos</label><input class="form-input" id="vg-litros" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="form-group"><label class="form-label">Tabela de Comissão</label>
+        <select class="form-input" id="vg-comissao-tabela" onchange="recalcularComissao(true)"><option value="">Manual (sem tabela)</option></select></div>
       <div class="form-group"><label class="form-label">Comissão (R$)</label><input class="form-input" id="vg-comissao" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">KM Total (Odômetro)</label><input class="form-input" id="vg-km" type="number" placeholder="0"></div>
       <div class="form-group"><label class="form-label">Situação</label>
@@ -966,6 +971,20 @@ body.tema-claro .tbl thead tr{background:#F8FAFC!important;}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-viagem').classList.remove('open')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveViagem()"><i class="ti ti-check" style="font-size:14px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tabelas de Comissão (só gestor edita; qualquer um com acesso à Frota só lê) -->
+<div id="modal-comissao-tabelas" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title"><i class="ti ti-percentage" style="color:var(--gold);margin-right:6px"></i>Tabelas de Comissão</div>
+      <button class="modal-close" onclick="document.getElementById('modal-comissao-tabelas').classList.remove('open')">×</button>
+    </div>
+    <div id="comissao-tabelas-body"></div>
+    <div class="modal-footer" style="justify-content:flex-start">
+      <button class="btn btn-ghost btn-sm" onclick="adicionarLinhaComissaoTabela()"><i class="ti ti-plus" style="font-size:13px"></i> Nova tabela</button>
     </div>
   </div>
 </div>
@@ -1371,7 +1390,7 @@ function mostrarTelaSemAcesso() {
 }
 
 let currentView = 'dashboard';
-let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[], os:[], checklists:[], motoristasLogin:[] };
+let db = { veiculos:[], motoristas:[], viagens:[], combustivel:[], despesas:[], manutencao:[], multas:[], os:[], checklists:[], motoristasLogin:[], comissaoTabelas:[] };
 
 const VIEWS = {
   dashboard:   { title:'Dashboard',       icon:'ti-layout-dashboard', sub:'' },
@@ -1473,6 +1492,7 @@ function openAddModal() {
     }
     if(currentView==='viagens'){
       editingViagem = null;
+      vgComissaoAutoValue = null;
       document.getElementById('modal-viagem').querySelector('.modal-title').innerHTML='<i class="ti ti-route" style="color:var(--gold);margin-right:6px"></i>Lançar Viagem';
       document.getElementById('modal-viagem').querySelectorAll('input,select').forEach(el=>{ if(el.id!=='vg-situacao') el.value=''; });
       document.getElementById('vg-situacao').value='À VENCER';
@@ -1568,6 +1588,7 @@ function adaptarViagem(v) {
     LITROS: v.litros || '',
     PEDAGIO: ped,
     'COMISSÃO': com,
+    COMISSAO_TABELA_ID: v.comissao_tabela_id || '',
     'KM TOTAL': v.km_total || '',
     KM: v.km_total || '',
     'KM RODADO': v.km_rodado || '',
@@ -1660,7 +1681,7 @@ function adaptarChecklist(c) {
 
 async function apiGet() {
   try {
-    const [veiculos, motoristas, viagens, combustivel, despesas, manutencoes, multas, os, checklists] = await Promise.all([
+    const [veiculos, motoristas, viagens, combustivel, despesas, manutencoes, multas, os, checklists, comissaoTabelas] = await Promise.all([
       apiFetch(`${API_BASE}/veiculos`).then(r=>r.json()),
       apiFetch(`${API_BASE}/motoristas`).then(r=>r.json()),
       apiFetch(`${API_BASE}/viagens`).then(r=>r.json()),
@@ -1670,6 +1691,7 @@ async function apiGet() {
       apiFetch(`${API_BASE}/multas`).then(r=>r.json()),
       apiFetch(`${API_BASE}/frota-os`).then(r=>r.json()),
       apiFetch(`${API_BASE}/frota-os/checklists`).then(r=>r.json()),
+      apiFetch(`${API_BASE}/comissao-tabelas`).then(r=>r.json()).catch(()=>[]),
     ]);
     return {
       status: 'ok',
@@ -1682,6 +1704,7 @@ async function apiGet() {
       multas: (multas||[]).map(adaptarMulta),
       os: (os||[]).map(adaptarOs),
       checklists: (checklists||[]).map(adaptarChecklist),
+      comissaoTabelas: Array.isArray(comissaoTabelas) ? comissaoTabelas : [],
     };
   } catch(e) { console.error(e); return null; }
 }
@@ -1699,6 +1722,7 @@ async function loadAllData() {
     db.multas      = res.multas      || [];
     db.os          = res.os          || [];
     db.checklists  = res.checklists  || [];
+    db.comissaoTabelas = Array.isArray(res.comissaoTabelas) ? res.comissaoTabelas : [];
     renderAll();
   } else {
     showNoConfig();
@@ -2412,7 +2436,8 @@ async function saveViagem() {
     PESO:document.getElementById('vg-peso').value,'F.EMPRESA':document.getElementById('vg-fempresa').value,
     PEDAGIO:document.getElementById('vg-pedagio').value,ABASTECIMENTO:document.getElementById('vg-abast').value,
     LITROS:document.getElementById('vg-litros').value,
-    COMISSÃO:document.getElementById('vg-comissao').value,'KM TOTAL':document.getElementById('vg-km').value,KM:document.getElementById('vg-km').value,
+    COMISSÃO:document.getElementById('vg-comissao').value,COMISSAO_TABELA_ID:document.getElementById('vg-comissao-tabela').value,
+    'KM TOTAL':document.getElementById('vg-km').value,KM:document.getElementById('vg-km').value,
     'SITUAÇÃO DE PAGAMENTO':document.getElementById('vg-situacao').value,MOTORISTA3:document.getElementById('vg-tipo-veic').value};
   if(!data.PLACA||!data['F.EMPRESA']){alert('Preencha placa e faturamento');return;}
   if(isEditing) data._editKey = viagemEditKey(editingViagem);
@@ -2574,7 +2599,116 @@ function populateSelects() {
   // Autocomplete datalists
   populateDatalist('desc');
   populateDatalist('forn');
+  popularComissaoTabelasSelect();
 }
+// Tabela de comissão no modal de Lançar Viagem — preserva a seleção atual
+// igual aos outros selects acima, pra não perder a escolha ao recarregar.
+function popularComissaoTabelasSelect() {
+  const el = document.getElementById('vg-comissao-tabela');
+  if (!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">Manual (sem tabela)</option>' +
+    db.comissaoTabelas.map(t => `<option value="${t.id}">${t.nome} — ${t.tipo === 'fixo' ? 'R$ ' + Number(t.valor).toFixed(2) : Number(t.valor) + '%'}</option>`).join('');
+  el.value = cur;
+}
+// Último valor que a própria recalcularComissao() preencheu — serve pra
+// saber se o usuário já editou o campo na mão depois (nesse caso, mexer só
+// no frete não apaga o ajuste manual; trocar a tabela sempre recalcula).
+let vgComissaoAutoValue = null;
+function recalcularComissao(forcar) {
+  const tabela = db.comissaoTabelas.find(t => t.id === document.getElementById('vg-comissao-tabela').value);
+  const comissaoEl = document.getElementById('vg-comissao');
+  if (!tabela) { vgComissaoAutoValue = null; return; }
+  if (!forcar && vgComissaoAutoValue !== null && comissaoEl.value !== vgComissaoAutoValue) return;
+  const faturamento = parseFloat(document.getElementById('vg-fempresa').value) || 0;
+  const valor = tabela.tipo === 'fixo' ? Number(tabela.valor) : faturamento * Number(tabela.valor) / 100;
+  comissaoEl.value = valor.toFixed(2);
+  vgComissaoAutoValue = comissaoEl.value;
+}
+
+/* ── Tabelas de Comissão (admin, só gestor) ── */
+function abrirModalComissaoTabelas() {
+  renderComissaoTabelas();
+  document.getElementById('modal-comissao-tabelas').classList.add('open');
+}
+function renderComissaoTabelas() {
+  const body = document.getElementById('comissao-tabelas-body');
+  const linha = (t) => {
+    const id = t.id || '';
+    const novo = !id;
+    const rowId = id || 'novo';
+    return `<tr id="ct-row-${rowId}">
+      <td><input class="form-input" id="ct-nome-${rowId}" value="${novo?'':(t.nome||'')}" placeholder="Nome" style="min-width:110px"></td>
+      <td><select class="form-input" id="ct-tipo-${rowId}" style="min-width:140px">
+        <option value="fixo" ${t.tipo==='fixo'?'selected':''}>Fixo (R$)</option>
+        <option value="percentual" ${t.tipo==='percentual'||novo?'selected':''}>% do frete</option>
+      </select></td>
+      <td><input class="form-input" id="ct-valor-${rowId}" type="number" step="0.01" value="${novo?'':Number(t.valor||0)}" style="width:90px"></td>
+      <td style="white-space:nowrap">
+        <button class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="${novo?'criarComissaoTabela()':'salvarComissaoTabela(\''+id+'\')'}"><i class="ti ti-device-floppy" style="font-size:12px"></i></button>
+        ${novo?'':`<button class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="excluirComissaoTabela('${id}')"><i class="ti ti-trash" style="font-size:12px"></i></button>`}
+      </td>
+    </tr>`;
+  };
+  body.innerHTML = `<div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th style="text-align:left">Nome</th><th style="text-align:left">Tipo</th><th style="text-align:left">Valor</th><th></th></tr></thead>
+    <tbody>${db.comissaoTabelas.map(linha).join('')}</tbody>
+  </table></div>`;
+}
+function adicionarLinhaComissaoTabela() {
+  const body = document.getElementById('comissao-tabelas-body');
+  if (document.getElementById('ct-row-novo')) return; // já tem uma linha em branco aberta
+  body.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr id="ct-row-novo">
+    <td><input class="form-input" id="ct-nome-novo" placeholder="Nome" style="min-width:110px"></td>
+    <td><select class="form-input" id="ct-tipo-novo" style="min-width:140px">
+      <option value="fixo">Fixo (R$)</option>
+      <option value="percentual" selected>% do frete</option>
+    </select></td>
+    <td><input class="form-input" id="ct-valor-novo" type="number" step="0.01" style="width:90px"></td>
+    <td style="white-space:nowrap"><button class="btn-copy" style="padding:4px 10px;font-size:11px" onclick="criarComissaoTabela()"><i class="ti ti-device-floppy" style="font-size:12px"></i></button></td>
+  </tr>`);
+}
+async function criarComissaoTabela() {
+  const nome = document.getElementById('ct-nome-novo').value.trim();
+  const tipo = document.getElementById('ct-tipo-novo').value;
+  const valor = parseFloat(document.getElementById('ct-valor-novo').value) || 0;
+  if (!nome) { alert('Informe o nome da tabela.'); return; }
+  const ordem = db.comissaoTabelas.length ? Math.max(...db.comissaoTabelas.map(t=>t.ordem||0)) + 1 : 1;
+  try {
+    const r = await apiFetch(`${API_BASE}/comissao-tabelas`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nome, tipo, valor, ordem }) });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); alert('Erro ao criar tabela: ' + (j.error||'verifique os dados.')); return; }
+    await loadAllData();
+    renderComissaoTabelas();
+  } catch(e) { alert('Erro de conexão ao criar tabela.'); }
+}
+async function salvarComissaoTabela(id) {
+  const payload = {
+    nome: document.getElementById('ct-nome-'+id).value.trim(),
+    tipo: document.getElementById('ct-tipo-'+id).value,
+    valor: parseFloat(document.getElementById('ct-valor-'+id).value) || 0,
+  };
+  if (!payload.nome) { alert('Informe o nome da tabela.'); return; }
+  try {
+    const r = await apiFetch(`${API_BASE}/comissao-tabelas/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); alert('Erro ao salvar tabela: ' + (j.error||'verifique os dados.')); return; }
+    await loadAllData();
+    renderComissaoTabelas();
+  } catch(e) { alert('Erro de conexão ao salvar tabela.'); }
+}
+async function excluirComissaoTabela(id) {
+  const emUso = db.viagens.filter(v => v.COMISSAO_TABELA_ID === id).length;
+  const aviso = emUso
+    ? `Essa tabela está em uso em ${emUso} viagem(ns). Elas continuam com o valor de comissão que já têm, só perdem o vínculo com esta tabela. Continuar?`
+    : 'Excluir esta tabela de comissão?';
+  if (!confirm(aviso)) return;
+  try {
+    const r = await apiFetch(`${API_BASE}/comissao-tabelas/${id}`, { method:'DELETE' });
+    if (!r.ok) { const j = await r.json().catch(()=>({})); alert('Erro ao excluir tabela: ' + (j.error||'')); return; }
+    await loadAllData();
+    renderComissaoTabelas();
+  } catch(e) { alert('Erro de conexão ao excluir tabela.'); }
+}
+
 function calcFuelTotal() {
   const l=parseFloat(document.getElementById('c-litros').value||0);
   const v=parseFloat(document.getElementById('c-vlitro').value||0);
@@ -2682,6 +2816,7 @@ function montarRequisicao(data) {
         valor_abastecimento: Number(data.ABASTECIMENTO)||0,
         valor_pedagio: Number(data.PEDAGIO)||0,
         valor_comissao: Number(data['COMISSÃO'])||0,
+        comissao_tabela_id: data.COMISSAO_TABELA_ID || null,
         litros: data.LITROS ? Number(data.LITROS) : null,
         km_total: data['KM TOTAL'] ? Number(data['KM TOTAL']) : null,
         tipo_veiculo: data.MOTORISTA3 || null,
@@ -3143,7 +3278,12 @@ function openEditViagem(r) {
   document.getElementById('vg-pedagio').value    = parseBRL(r['PEDAGIO']||r['Pedagio'])||'';
   document.getElementById('vg-abast').value      = parseBRL(r['ABASTECIMENTO']||r['Abastecimento'])||'';
   document.getElementById('vg-litros').value     = r['LITROS']||r['Litros']||'';
+  document.getElementById('vg-comissao-tabela').value = r['COMISSAO_TABELA_ID']||'';
   document.getElementById('vg-comissao').value   = parseBRL(r['COMISSÃO']||r['Comissao'])||'';
+  // Baseline = valor já salvo, sem chamar recalcularComissao() — reabrir pra
+  // editar nunca recalcula sozinho; só muda se o usuário mexer na tabela ou
+  // no frete a partir daqui.
+  vgComissaoAutoValue = document.getElementById('vg-comissao').value;
   document.getElementById('vg-km').value         = r['KM TOTAL']||r['KM']||'';
   document.getElementById('vg-situacao').value   = r['SITUAÇÃO DE PAGAMENTO']||r['Situacao Pagamento']||'À VENCER';
   document.getElementById('vg-tipo-veic').value  = r['MOTORISTA3']||'';
@@ -3224,6 +3364,7 @@ async function saveViagemStatusInline(sel, r) {
     'NUMEDO DO EMBARQUE':r['NUMEDO DO EMBARQUE']||r['Embarque']||'',PESO:r['PESO']||'',
     'F.EMPRESA':parseBRL(r['F.EMPRESA']||r['F.Empresa']),PEDAGIO:parseBRL(r['PEDAGIO']||r['Pedagio']),
     ABASTECIMENTO:parseBRL(r['ABASTECIMENTO']||r['Abastecimento']),COMISSÃO:parseBRL(r['COMISSÃO']||r['Comissao']),
+    COMISSAO_TABELA_ID:r['COMISSAO_TABELA_ID']||'',
     LITROS:r['LITROS']||r['Litros']||'',
     'KM TOTAL':r['KM TOTAL']||r['KM']||'',KM:r['KM TOTAL']||r['KM']||'',
     'SITUAÇÃO DE PAGAMENTO':newStatus,MOTORISTA3:r['MOTORISTA3']||''};
@@ -4353,6 +4494,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     ['divider-acesso','section-acesso','nav-login-motorista','nav-detalhamento-motorista'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.style.display='';
     });
+    const btnCt=document.getElementById('btn-comissao-tabelas'); if(btnCt) btnCt.style.display='';
   }
   const mes=new Date().toISOString().slice(0,7);
   // Set date range for viagens to current month
