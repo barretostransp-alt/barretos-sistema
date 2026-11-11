@@ -585,6 +585,12 @@ tbody tr:last-child{border-bottom:none;}
     <select class="fsel" id="tx-f-cat"  onchange="filterTx()"><option value="">Todas as Categorias</option></select>
     <select class="fsel" id="tx-f-subcat" onchange="filterTx()"><option value="">Todas as Subcategorias</option></select>
     <select class="fsel" id="tx-f-type" onchange="filterTx()"><option value="">Todos os Tipos</option><option value="C">Crédito</option><option value="D">Débito</option></select>
+    <select class="fsel" id="tx-f-status" onchange="filterTx()">
+      <option value="">Todos os Status</option>
+      <option value="classified">✓ Classificado</option>
+      <option value="unclassified">⚠ Revisar</option>
+      <option value="duplicate">⛔ Duplicados</option>
+    </select>
     <button class="btn bg bsm" onclick="resetTxFilters()" style="color:var(--gray-400)" title="Limpar filtros">✕</button>
     <button class="btn bg bsm" onclick="exportTx()">⬇ Exportar CSV</button>
   </div>
@@ -1242,6 +1248,17 @@ tbody tr:last-child{border-bottom:none;}
         <div style="font-size:.7rem;color:var(--gray-400);margin-bottom:4px">Descrição Bancária</div>
         <div style="font-size:.85rem;font-weight:500" id="cl-desc">—</div>
       </div>
+      <div id="cl-dup-section" style="display:none;background:var(--danger-light);border:1px solid rgba(226,75,74,.3);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span>⛔</span><strong style="font-size:.8rem;color:var(--danger)" id="cl-dup-title">Possível lançamento duplicado</strong>
+        </div>
+        <div style="font-size:.72rem;color:var(--gray-500);margin-bottom:8px">Mesma data, valor e início da descrição desta transação:</div>
+        <div id="cl-dup-matches" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bg bsm" id="cl-dup-btn" onclick="toggleDupIgnorado()" style="font-size:.7rem"></button>
+          <button class="btn bg bsm" onclick="deleteCurrentClassifyTx()" style="font-size:.7rem;color:var(--danger)">🗑 Excluir este lançamento</button>
+        </div>
+      </div>
       <div class="fg" id="cl-lastcat-banner" style="display:none;background:var(--success-light);border:1px solid rgba(46,189,133,.3);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;font-size:.74rem;color:var(--success);display:flex;align-items:center;gap:8px">
         <span>📌</span>
         <span style="flex:1">Categoria padrão da sessão: <strong id="cl-lastcat-name">—</strong></span>
@@ -1600,7 +1617,7 @@ async function carregarContasAPagarDoFinanceiro() {
 const S = {
   transactions: [], payables: [], receivables: [],
   fleet: [], drivers: [], importHistory: [], learnings: [],
-  classifyIdx: -1,
+  classifyIdx: -1, classifyTxId: null,
   categories: [],
   catUsage: {},   // { 'NomeCategoria': contagemDeUso } — alimenta "Mais usadas"
   catFavs: [],    // [ 'NomeCategoria', ... ] — categorias marcadas como favoritas
@@ -2506,7 +2523,7 @@ async function renderDashboard() {
   document.getElementById('dash-alert-badge').className = 'badge ' + (alts.length ? 'bda' : 'bgr');
   const ab = document.getElementById('dash-alerts-body');
   ab.innerHTML = alts.length
-    ? alts.slice(0,4).map(a=>`<div class="alt alt-${a.tp}" style="margin-bottom:8px"><span>${a.ic}</span><div><strong style="font-size:.78rem">${a.tt}</strong><br><span style="font-size:.72rem">${a.ds}</span></div></div>`).join('')
+    ? alts.slice(0,4).map(a=>`<div class="alt alt-${a.tp}" style="margin-bottom:8px${a.action?';cursor:pointer':''}"${a.action?` onclick="${a.action}" title="Clique para abrir"`:''}><span>${a.ic}</span><div><strong style="font-size:.78rem">${a.tt}</strong><br><span style="font-size:.72rem">${a.ds}</span></div>${a.action?'<span style="font-size:13px;color:var(--gray-400);margin-left:auto">→</span>':''}</div>`).join('')
       + (alts.length>4?`<button class="btn bg bsm" style="width:100%;justify-content:center;margin-top:4px" onclick="showView('alerts')">Ver todos (${alts.length}) →</button>`:'')
     : '<div class="es"><div class="es-ic">✅</div><div class="es-tt">Nenhum alerta</div></div>';
 }
@@ -3219,7 +3236,7 @@ function renderTransactions() {
 }
 
 function resetTxFilters() {
-  ['tx-search','tx-f-bank','tx-f-cat','tx-f-subcat','tx-f-type'].forEach(id => {
+  ['tx-search','tx-f-bank','tx-f-cat','tx-f-subcat','tx-f-type','tx-f-status'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -3232,13 +3249,23 @@ function filterTx() {
   const ct = (document.getElementById('tx-f-cat')   ||{value:''}).value;
   const sc = (document.getElementById('tx-f-subcat')||{value:''}).value;
   const ty = (document.getElementById('tx-f-type')  ||{value:''}).value;
+  const st = (document.getElementById('tx-f-status')||{value:''}).value;
 
+  const dupKeys = st === 'duplicate' ? computeLiveDuplicateKeys() : null;
   const base = filterByEmpresa(S.transactions);
   let f = base.filter(t => {
     if (q && !t.desc.toLowerCase().includes(q) && !(t.cat||'').toLowerCase().includes(q) && !String(t.val).includes(q)) return false;
     if (bk && t.banco !== bk) return false;
     if (ct && t.cat   !== ct) return false;
     if (ty && t.type  !== ty) return false;
+    if (st) {
+      if (st === 'duplicate') {
+        if (t.dupIgnorado || !dupKeys.has(txDupKey_(t))) return false;
+      } else {
+        const s = t.status === 'classified' ? 'classified' : 'unclassified';
+        if (s !== st) return false;
+      }
+    }
     if (sc) {
       const c = S.categories.find(x => x.name === t.cat);
       if (!c || c.categoria !== sc) return false;
@@ -3277,14 +3304,15 @@ function filterTx() {
     return;
   }
 
+  const dupKeysBadge = dupKeys || computeLiveDuplicateKeys();
   tbody.innerHTML = f.map(t => {
     const ri  = S.transactions.indexOf(t);
     const key = txKey(t);
     const selected = _txSelected.has(key);
-    const sb = t.status==='classified'
-      ? '<span class="badge bsu">✓ Classificado</span>'
-      : t.status==='duplicate'
+    const sb = (!t.dupIgnorado && (t.status==='duplicate' || dupKeysBadge.has(txDupKey_(t))))
       ? '<span class="badge bda">⛔ Duplicado</span>'
+      : t.status==='classified'
+      ? '<span class="badge bsu">✓ Classificado</span>'
       : '<span class="badge bwa">⚠ Revisar</span>';
     const catObj  = S.categories.find(c => c.name === t.cat);
     const subcat  = catObj && catObj.categoria ? catObj.categoria : '—';
@@ -3299,7 +3327,10 @@ function filterTx() {
       <td style="font-size:.72rem;color:var(--gray-500)">${t.empresa}</td>
       <td class="${t.val>=0?'vp':'vn'}" style="text-align:right">${fM(t.val)}</td>
       <td>${sb}</td>
-      <td style="text-align:right"><button class="btn bg bsm bi" onclick="openClassify(${ri})" title="Classificar">✎</button></td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn bg bsm bi" onclick="openClassify(${ri})" title="Classificar">✎</button>
+        <button class="btn bg bsm bi" onclick="deleteTx(${ri})" title="Excluir" style="color:var(--danger)">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -3731,16 +3762,38 @@ async function desconciliarFiltro() {
   toast(`${conciliados.length} lançamento(s) desconciliados (status e categoria apagados)`, '↺');
 }
 
+// Exclui pelo id (estável), não pelo índice no array — índices mudam toda
+// vez que uma transação é removida, o que quebraria referências guardadas
+// em outro lugar (ex: o modal de classificação aberto numa 2ª transação).
+async function excluirTransacaoPorId_(id) {
+  try {
+    const res = await apiFetch(API_BASE + '/conciliacao/transacoes/' + id, { method:'DELETE' });
+    if (!res.ok && res.status !== 204) { toast('Erro ao excluir', '⚠️'); return false; }
+  } catch(e) { toast('Erro de conexão ao excluir', '⚠️'); return false; }
+  const i = S.transactions.findIndex(x => x.id === id);
+  if (i !== -1) S.transactions.splice(i, 1);
+  return true;
+}
+
+// Reaplica a tela que estiver aberta no momento (Transações, Conciliação,
+// Dashboard ou Alertas) — todas essas telas têm sua própria função de
+// render que recalcula filtros/KPIs a partir de S.transactions.
+function refreshActiveConciliacaoView_() {
+  const cur = document.querySelector('.view.active');
+  if (!cur) return;
+  const name = cur.id.replace('view-', '');
+  const r = { transactions: renderTransactions, conciliation: renderConciliation, dashboard: renderDashboard, alerts: renderAlerts };
+  if (r[name]) r[name]();
+}
+
 async function deleteTx(idx) {
   const t = S.transactions[idx];
   if (!t) return;
   if (!confirm(`Excluir "${t.desc.slice(0,40)}" — ${fM(t.val)}?`)) return;
-  try {
-    const res = await apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, { method:'DELETE' });
-    if (!res.ok && res.status !== 204) { toast('Erro ao excluir', '⚠️'); return; }
-  } catch(e) { toast('Erro de conexão ao excluir', '⚠️'); return; }
-  S.transactions.splice(idx, 1);
-  updateBadges(); renderConciliation();
+  const ok = await excluirTransacaoPorId_(t.id);
+  if (!ok) return;
+  updateBadges(); updateKPIs();
+  refreshActiveConciliacaoView_();
   toast('Lançamento excluído', '🗑');
 }
 
@@ -4608,11 +4661,35 @@ function saveRule() {
 // ═══════════════════════════════════════
 // ALERTS
 // ═══════════════════════════════════════
+// Chave usada para achar duplicados "ao vivo" — mesma transação (data+valor+
+// início da descrição) aparecendo mais de uma vez em S.transactions, mesmo
+// vindo de importações/lotes diferentes. Separado do status='duplicate'
+// gravado na transação (que só marca repetição dentro do mesmo arquivo
+// importado — ver AUDIT_CHECKS) porque aqui o objetivo é achar qualquer
+// duplicidade, não só a intra-lote.
+function txDupKey_(t) { return t.date+'_'+t.val+'_'+t.desc.slice(0,15); }
+// Transações marcadas "não é duplicado" (dupIgnorado) ficam de fora da
+// contagem — tanto pra não aparecerem elas mesmas quanto pra não "segurar"
+// a flag de duplicado em cima de outra transação que só coincide com elas.
+function computeLiveDuplicateKeys() {
+  const counts = {};
+  S.transactions.forEach(t => { if (t.dupIgnorado) return; const k=txDupKey_(t); counts[k]=(counts[k]||0)+1; });
+  const keys = new Set();
+  Object.keys(counts).forEach(k=>{ if(counts[k]>1) keys.add(k); });
+  return keys;
+}
+function isLiveDuplicate(t) { return !t.dupIgnorado && computeLiveDuplicateKeys().has(txDupKey_(t)); }
+function findDuplicateMatches(t) {
+  const k = txDupKey_(t);
+  return S.transactions.filter(x => x !== t && txDupKey_(x) === k);
+}
+
 function computeAlerts() {
   const a = [];
+  const dupKeys = computeLiveDuplicateKeys();
   const seen = {}; let dups = 0;
-  S.transactions.forEach(t => { const k=t.date+'_'+t.val+'_'+t.desc.slice(0,15); if(seen[k])dups++; else seen[k]=true; });
-  if (dups) a.push({tp:'danger', ic:'🔴', tt:dups+' pagamento(s) duplicado(s) detectado(s)', ds:'Verifique os lançamentos na tela de Transações'});
+  S.transactions.forEach(t => { if(t.dupIgnorado)return; const k=txDupKey_(t); if(!dupKeys.has(k))return; if(seen[k])dups++; else seen[k]=true; });
+  if (dups) a.push({tp:'danger', ic:'🔴', tt:dups+' pagamento(s) duplicado(s) detectado(s)', ds:'Clique para ver só os duplicados em Transações', action:'goToDuplicateTransactions()'});
   const unc = S.transactions.filter(t=>t.status==='unclassified');
   if (unc.length) a.push({tp:'warning', ic:'🟡', tt:unc.length+' transação(ões) sem categoria', ds:'Total: R$ '+fN(unc.reduce((x,t)=>x+Math.abs(t.val),0))+' aguardando classificação'});
   const ov = S.payables.filter(p=>p.status==='overdue');
@@ -4621,13 +4698,22 @@ function computeAlerts() {
   return a;
 }
 
+function goToDuplicateTransactions() {
+  showView('transactions');
+  resetTxFilters();
+  const sel = document.getElementById('tx-f-status');
+  if (sel) sel.value = 'duplicate';
+  filterTx();
+}
+
 function renderAlerts() {
   const alts = computeAlerts();
   const c = document.getElementById('alerts-container');
   c.innerHTML = alts.length
-    ? alts.map(a=>`<div class="alt alt-${a.tp}" style="border-radius:var(--radius);margin-bottom:12px">
+    ? alts.map(a=>`<div class="alt alt-${a.tp}" style="border-radius:var(--radius);margin-bottom:12px${a.action?';cursor:pointer':''}"${a.action?` onclick="${a.action}" title="Clique para abrir"`:''}>
         <span style="font-size:18px">${a.ic}</span>
         <div style="flex:1"><strong>${a.tt}</strong><br><span style="font-size:.75rem">${a.ds}</span></div>
+        ${a.action?'<span style="font-size:14px;color:var(--gray-400)">→</span>':''}
       </div>`).join('')
     : '<div class="es"><div class="es-ic">✅</div><div class="es-tt">Nenhum alerta</div><div class="es-sb">O sistema está monitorando em tempo real</div></div>';
 }
@@ -5248,6 +5334,7 @@ function openClassify(idx) {
   S.classifyIdx = idx;
   const t = S.transactions[idx];
   if (!t) return;
+  S.classifyTxId = t.id;
   document.getElementById('cl-desc').textContent = t.desc;
   // Pré-seleciona: categoria já existente da transação (se já classificada)
   // OU a última categoria usada na sessão de conciliação (produtividade)
@@ -5257,7 +5344,93 @@ function openClassify(idx) {
     : (S.lastUsedCat || '');
   catPickSetValue('cl', preset, t.desc);
   updateLastCatBanner();
+  renderDupSection();
   openModal('modal-classify');
+}
+
+// Acha a transação que o modal de classificação está editando no momento
+// pelo id (estável), nunca pelo índice guardado em S.classifyIdx — excluir
+// uma transação de dentro do modal (ex: um dos "comparados") desloca os
+// índices de tudo que vem depois dela no array.
+function currentClassifyTx_() {
+  return S.transactions.find(x => x.id === S.classifyTxId) || null;
+}
+
+// Mostra, dentro do modal de classificação, os outros lançamentos que batem
+// com a mesma chave (data+valor+início da descrição) usada no alerta de
+// duplicados — pra dar pra comparar valor/data/descrição e confirmar se é
+// mesmo duplicado antes de decidir.
+function renderDupSection() {
+  const t = currentClassifyTx_();
+  const section   = document.getElementById('cl-dup-section');
+  const matchesEl = document.getElementById('cl-dup-matches');
+  const btn       = document.getElementById('cl-dup-btn');
+  const titleEl   = document.getElementById('cl-dup-title');
+  if (!t) { section.style.display = 'none'; return; }
+  const matches = findDuplicateMatches(t);
+  if (!matches.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  matchesEl.innerHTML = matches.map(m => `<div style="background:#fff;border:1px solid rgba(226,75,74,.25);border-radius:6px;padding:8px 10px;font-size:.74rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span style="color:var(--gray-500)">${m.date} · ${m.banco||'—'}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <strong class="${m.val>=0?'vp':'vn'}">${fM(m.val)}</strong>
+        <button class="btn bg bsm bi" onclick="deleteDupMatch('${m.id}')" title="Excluir este lançamento" style="color:var(--danger);padding:2px 6px">🗑</button>
+      </div>
+    </div>
+    <div style="color:var(--gray-700);margin-top:2px">${m.desc}</div>
+  </div>`).join('');
+  if (t.dupIgnorado) {
+    titleEl.textContent = 'Marcado como "não é duplicado"';
+    btn.textContent = '↩ Marcar como possível duplicado de novo';
+  } else {
+    titleEl.textContent = 'Possível lançamento duplicado';
+    btn.textContent = '✓ Não é duplicado — manter na lista normal';
+  }
+}
+
+async function toggleDupIgnorado() {
+  const t = currentClassifyTx_();
+  if (!t) return;
+  const novo = !t.dupIgnorado;
+  try {
+    await apiFetch(API_BASE + '/conciliacao/transacoes/' + t.id, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dupIgnorado: novo })
+    });
+  } catch(e) { toast('Erro de conexão ao salvar', '⚠️'); return; }
+  t.dupIgnorado = novo;
+  renderDupSection();
+  updateBadges(); updateKPIs();
+  refreshActiveConciliacaoView_();
+  toast(novo ? 'Marcado como "não é duplicado"' : 'Voltou a ser considerado possível duplicado', novo?'✅':'↩️');
+}
+
+// Exclui um dos lançamentos listados como "comparado" dentro do modal —
+// mantém o modal aberto na transação original e atualiza a comparação.
+async function deleteDupMatch(id) {
+  const alvo = S.transactions.find(x => x.id === id);
+  if (!alvo) return;
+  if (!confirm(`Excluir "${alvo.desc.slice(0,40)}" — ${fM(alvo.val)}?`)) return;
+  const ok = await excluirTransacaoPorId_(id);
+  if (!ok) return;
+  updateBadges(); updateKPIs();
+  refreshActiveConciliacaoView_();
+  renderDupSection();
+  toast('Lançamento excluído', '🗑');
+}
+
+// Exclui a própria transação que o modal está classificando — fecha o modal
+// em seguida, já que não há mais o que classificar.
+async function deleteCurrentClassifyTx() {
+  const t = currentClassifyTx_();
+  if (!t) return;
+  if (!confirm(`Excluir "${t.desc.slice(0,40)}" — ${fM(t.val)}?`)) return;
+  const ok = await excluirTransacaoPorId_(t.id);
+  if (!ok) return;
+  updateBadges(); updateKPIs();
+  closeModal('modal-classify');
+  refreshActiveConciliacaoView_();
+  toast('Lançamento excluído', '🗑');
 }
 
 // Mostra/esconde a faixa "Categoria padrão da sessão" no topo do modal de
@@ -5287,8 +5460,7 @@ function clearLastUsedCat() {
 }
 
 async function saveClassification() {
-  const idx = S.classifyIdx;
-  const t = S.transactions[idx];
+  const t = currentClassifyTx_();
   if (!t) { closeModal('modal-classify'); return; }
   const cat   = document.getElementById('cl-cat').value;
   if (!cat) { toast('Selecione uma categoria','⚠️'); return; }
@@ -6046,7 +6218,7 @@ async function loadDoServidor() {
       id: t.id, importId: t.import_id, date: fmtDataISOParaBR_(t.data), desc: t.descricao, val: Number(t.valor)||0,
       type: t.tipo, fitid: t.fitid, cat: t.categoria, conf: Number(t.confianca)||0, banco: t.banco, empresa: t.empresa,
       complemento: t.complemento, cpfCnpj: t.cpf_cnpj, favorecido: t.favorecido, saldoInicial: t.saldo_inicial,
-      status: statusFromCat(t.categoria)
+      status: statusFromCat(t.categoria), dupIgnorado: !!t.dup_ignorado
     }));
     S.categories    = (json.categories||[]).map(c => ({ id:c.id, name:c.name, grupo:c.grupo, categoria:c.categoria, type:c.tipo, color:c.color, acc:c.acc, kw:c.kw }));
     S.importHistory = (json.importHistory||[]).map(h => ({ id:h.id, date: new Date(h.data_hora).toLocaleDateString('pt-BR'), time: new Date(h.data_hora).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
