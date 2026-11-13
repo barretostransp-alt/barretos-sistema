@@ -848,7 +848,7 @@ async function doLogin() {
 var TOOLS = {
   inicio:    { src:"inicio.html",               cat:"",            label:"Início",                icon:"ti-home"             },
   dashboard: { src:"dashbord_home.html",         cat:"Geral",       label:"Dashboard",             icon:"ti-layout-dashboard" },
-  torre_controle: { src:"torre_de_controle.html", cat:"Geral",      label:"Indicadores TV",         icon:"ti-device-tv"        },
+  torre_controle: { src:"torre_de_controle.html", cat:"Geral",      label:"Indicadores TV",         icon:"ti-device-tv",        asstOculto:true },
   calendario:{ src:"calendario.html",            cat:"Geral",       label:"Calendário",            icon:"ti-calendar"         },
   despesas:  { src:"despesas.html",              cat:"Geral",       label:"Despesas",              icon:"ti-wallet"           },
   diarias:   { src:"diarias_desktop.html",      cat:"RH",          label:"Diárias de Motoristas", icon:"ti-calendar-check"   },
@@ -1018,6 +1018,15 @@ function navigate(key){
     : '<span class="topbar-page">'+tool.label+'</span>';
   document.getElementById("iframe-loading").classList.remove("hidden");
   document.getElementById("main-frame").src=tool.src;
+  var bolha=document.getElementById("asst-bubble"), painel=document.getElementById("asst-panel");
+  if(bolha){
+    // Indicadores TV (torre_controle) fica num telão sem ninguém mexendo
+    // no teclado — a bolha do Manuel só atrapalharia. Some por completo
+    // ali, mesmo pra quem tem permissão de usar o assistente; volta
+    // normal em qualquer outra aba.
+    bolha.style.display = tool.asstOculto ? "none" : (asstPermitido ? "flex" : "none");
+  }
+  if(painel && tool.asstOculto) painel.classList.remove("open");
 }
 function onFrameLoad(){
   document.getElementById("iframe-loading").classList.add("hidden");
@@ -3091,10 +3100,12 @@ var asstHistorico = [];
 var asstAguardando = false;
 var asstArquivoPendente = null; // {file, nome, mimeType}
 
+var asstPermitido = false; // guarda o resultado da checagem de permissão pra navigate() poder reaplicar ao trocar de aba
+
 function inicializarAssistente(perms) {
-  var pode = Array.isArray(perms) && perms.some(function(p){ return FERRAMENTAS_ASSISTENTE.indexOf(p) !== -1; });
+  asstPermitido = Array.isArray(perms) && perms.some(function(p){ return FERRAMENTAS_ASSISTENTE.indexOf(p) !== -1; });
   var bolha = document.getElementById('asst-bubble');
-  if (bolha) bolha.style.display = pode ? 'flex' : 'none';
+  if (bolha) bolha.style.display = asstPermitido ? 'flex' : 'none';
 }
 
 function toggleAssistente() {
