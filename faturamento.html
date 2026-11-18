@@ -639,7 +639,7 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
   <div class="modal" style="max-width:680px">
     <div class="modal-header">
       <i class="ti ti-send" style="color:var(--gold);font-size:20px"></i>
-      <span class="modal-title">Nova Solicitação de Faturamento</span>
+      <span class="modal-title" id="modal-solicitacao-titulo">Nova Solicitação de Faturamento</span>
       <button class="modal-close" onclick="closeModalSolicitacao()"><i class="ti ti-x"></i></button>
     </div>
 
@@ -1441,7 +1441,7 @@ function mapearRegistroDoApi_(row){
     valePedagio: row.vale_pedagio||'', gnre: row.gnre, status: row.status, solicitante: row.solicitante||'',
     dataSolicitacao: fmtDataHoraFat_(row.data_solicitacao), solicitaMdf: row.solicita_mdf||'', obsRotaMdf: row.obs_rota_mdf||'',
     custoOperacionalTotal: row.custo_operacional_total, statusCanhoto: row.status_canhoto||'',
-    prioridade: row.prioridade||'', tipo: row.tipo||'normal',
+    prioridade: row.prioridade||'', tipo: row.tipo||'normal', naturezaOperacao: row.natureza_operacao||'',
   };
   Object.assign(r, calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento));
   return r;
@@ -1511,6 +1511,9 @@ function renderFila(){
   var ehColaborador = document.body.getAttribute('data-mode')==='colaborador';
   var htmlSolicitacoes = pendentes.map(function(r){
     var mdfTxt = r.solicitaMdf==='Sim' ? '<span style="display:block"><i class="ti ti-file-certificate" style="font-size:11px"></i> MDF solicitado</span>' : '';
+    // Quem não tem visão de gestão só edita as próprias solicitações —
+    // gestor edita qualquer uma.
+    var podeEditarFila = !ehColaborador || ehMinhaSolicitacaoFat_(r);
     return `<div class="fila-card" ${ehColaborador?'':`onclick="abrirFinalizacao('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:var(--gold-dim)"><i class="ti ti-file-invoice" style="color:var(--gold)"></i></div>
       <div class="fila-card-main"><strong style="display:flex;align-items:center;gap:7px">${bolinhaPrioridadeFat_(r.prioridade)}${r.cliente||'—'} · Cód. ${r.cod||'—'} ${badgeComplementarFat_(r.tipo)}</strong>
@@ -1518,6 +1521,7 @@ function renderFila(){
         ${mdfTxt}
       </div>
       <div style="display:flex;gap:6px;align-items:center">
+        ${podeEditarFila ? '<button class="btn btn-ghost btn-sm" title="Editar solicitação" onclick="event.stopPropagation();abrirEdicaoSolicitacao(\''+r._id+'\')"><i class="ti ti-pencil"></i></button>' : ''}
         ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirFinalizacao(\''+r._id+'\')"><i class="ti ti-check"></i> Faturado</button>'}
         <button class="btn btn-danger btn-sm" title="Excluir solicitação" onclick="event.stopPropagation();excluirSolicitacaoFila('${r._id}')"><i class="ti ti-trash"></i></button>
       </div>
@@ -1594,6 +1598,14 @@ function ehVendedorFat(user){
   if(!user) return false;
   var base = normNomeLoginFat_(user.nome||'') + ' ' + normNomeLoginFat_(user.login||'');
   return contemTodosTokensFat_(base, ['sabrina']) || contemTodosTokensFat_(base, ['leonardo']) || contemTodosTokensFat_(base, ['jesse']) || contemTodosTokensFat_(base, ['vicentte']);
+}
+// Mesma comparação já usada em renderHistorico() pra filtrar "só os meus
+// registros" — reaproveitada aqui pra decidir quem pode ver o lápis de
+// editar uma solicitação pendente na Fila.
+function ehMinhaSolicitacaoFat_(r){
+  var nome = usuarioAtualNomeFat().toLowerCase();
+  var solicitante = (r.solicitante||'').toLowerCase();
+  return solicitante.indexOf(nome)===0 || nome.indexOf(solicitante)===0;
 }
 
 function aplicarModoPorSessaoFat(){
@@ -2099,6 +2111,9 @@ async function carregarInfoComplementarReg_(cod, empresa){
 function closeModalSolicitacao(){ document.getElementById('modal-solicitacao').classList.remove('open'); }
 
 var custoOperacionalCardSolicitacaoFat = null;
+// null = criando uma solicitação nova; com valor = editando essa solicitação
+// pendente (ver abrirEdicaoSolicitacao).
+var editandoSolicitacaoId = null;
 
 function openModalSolicitacao(){
   ['sol-cliente','sol-motorista','sol-vendedor','sol-veiculo','sol-origem','sol-uf','sol-destino','sol-uf2',
@@ -2118,8 +2133,67 @@ function openModalSolicitacao(){
   document.getElementById('sol-complementar_lbl').textContent = 'Não';
   document.getElementById('sol-complementar-info').style.display = 'none';
   custoOperacionalCardSolicitacaoFat = null;
+  editandoSolicitacaoId = null;
+  document.getElementById('modal-solicitacao-titulo').textContent = 'Nova Solicitação de Faturamento';
+  document.querySelector('#modal-solicitacao .btn-primary').innerHTML = '<i class="ti ti-send"></i> Enviar Solicitação';
   pendAttSol = []; driveAttsSol = []; renderAttListSol();
   document.getElementById('modal-solicitacao').classList.add('open');
+}
+
+// Reabre o mesmo modal da solicitação, já preenchido, pra completar algo
+// que ficou faltando (anexo, pedido de MDF, etc.) numa solicitação que
+// ainda está "Aguardando Faturamento". Quem não tem visão de gestão só
+// chega aqui pelas próprias solicitações (ver o lápis em renderFila()) —
+// a checagem de verdade é no backend (atualizarSolicitacao só aceita
+// registro ainda pendente), isso aqui é só o que decide mostrar o lápis.
+async function abrirEdicaoSolicitacao(id){
+  var r = todosRegistrosFat.find(function(x){ return x._id === id; });
+  if(!r){ alert('Solicitação não encontrada — atualize a tela e tente de novo.'); return; }
+
+  document.getElementById('sol-cliente').value = r.cliente || '';
+  document.getElementById('sol-empresa').value = r.empresa || '';
+  document.getElementById('sol-aba').value = r.empresa || '';
+  document.getElementById('sol-cod').value = r.cod || '';
+  document.getElementById('sol-motorista').value = r.motorista || '';
+  document.getElementById('sol-vendedor').value = r.vendedor || '';
+  document.getElementById('sol-veiculo').value = r.veiculo || '';
+  document.getElementById('sol-origem').value = r.origem || '';
+  document.getElementById('sol-uf').value = r.uf || '';
+  document.getElementById('sol-destino').value = r.destino || '';
+  document.getElementById('sol-uf2').value = r.uf2 || '';
+  document.getElementById('sol-observacoes').value = r.observacoes || '';
+  document.getElementById('sol-natureza-operacao').value = r.naturezaOperacao || '';
+  document.getElementById('sol-status-kanban').innerHTML = '';
+
+  var prioridadeSim = r.prioridade === 'Sim';
+  document.getElementById('sol-prioridade').value = prioridadeSim ? 'Sim' : 'Nao';
+  document.getElementById('sol-prioridade_sw').classList.toggle('on', prioridadeSim);
+  document.getElementById('sol-prioridade_lbl').textContent = prioridadeSim ? 'Sim' : 'Não';
+  document.getElementById('sol-prioridade_lbl').style.color = prioridadeSim ? 'var(--red)' : '';
+
+  var complementar = r.tipo === 'complementar';
+  document.getElementById('sol-tipo').value = complementar ? 'complementar' : 'normal';
+  document.getElementById('sol-complementar_sw').classList.toggle('on', complementar);
+  document.getElementById('sol-complementar_lbl').textContent = complementar ? 'Sim' : 'Não';
+  document.getElementById('sol-complementar-info').style.display = 'none';
+
+  document.getElementById('sol-solicita-mdf').value = r.solicitaMdf === 'Sim' ? 'Sim' : 'Não';
+  document.getElementById('sol-obs-rota-mdf').value = r.obsRotaMdf || '';
+  toggleObsRotaMdf();
+
+  custoOperacionalCardSolicitacaoFat = null;
+  editandoSolicitacaoId = id;
+  document.getElementById('modal-solicitacao-titulo').textContent = 'Editar Solicitação de Faturamento';
+  document.querySelector('#modal-solicitacao .btn-primary').innerHTML = '<i class="ti ti-device-floppy"></i> Salvar Alterações';
+
+  pendAttSol = []; driveAttsSol = []; renderAttListSol();
+  document.getElementById('modal-solicitacao').classList.add('open');
+
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/anexos?codigo=' + encodeURIComponent(r.cod||'') + '&faturamentoId=' + encodeURIComponent(id));
+    var j = await res.json();
+    if(j.success && Array.isArray(j.anexos)){ driveAttsSol = j.anexos; renderAttListSol(); }
+  }catch(e){ console.error('[abrirEdicaoSolicitacao] erro ao carregar anexos existentes:', e); }
 }
 
 function toggleObsRotaMdf(){
@@ -2203,26 +2277,31 @@ async function enviarSolicitacao(){
   };
   if(custoOperacionalCardSolicitacaoFat !== null) payload.custoOperacionalTotal = custoOperacionalCardSolicitacaoFat;
 
+  var editandoFat = editandoSolicitacaoId;
   var btn = document.querySelector('#modal-solicitacao .btn-primary');
   var textoOriginal = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando…';
+  btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> ' + (editandoFat ? 'Salvando…' : 'Enviando…');
 
   var falhasEspelhoSol = [];
   var falhasPrincipalSol = [];
   try{
-    var res = await apiFetch(API_BASE + '/faturamento/solicitar', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    if(!res.ok){ var j = await res.json(); alert('Erro ao enviar solicitação: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+    var res = editandoFat
+      ? await apiFetch(API_BASE + '/faturamento/' + editandoFat + '/solicitacao', {
+          method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        })
+      : await apiFetch(API_BASE + '/faturamento/solicitar', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao ' + (editandoFat?'salvar a solicitação':'enviar solicitação') + ': ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+    var salvoFat = await res.json();
     if(pendAttSol.length){
       btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Enviando anexo(s)…';
-      var criado = await res.json();
-      var resultadoAttSol = await saveAttSol(criado.cod, criado.id);
+      var resultadoAttSol = await saveAttSol(salvoFat.cod, salvoFat.id || editandoFat);
       falhasEspelhoSol = resultadoAttSol.falhasEspelho;
       falhasPrincipalSol = resultadoAttSol.falhasPrincipal;
     }
-  }catch(e){ alert('Erro de conexão ao enviar solicitação.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
+  }catch(e){ alert('Erro de conexão ao ' + (editandoFat?'salvar a solicitação':'enviar solicitação') + '.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
   await loadAllData();
 
   btn.disabled = false;
