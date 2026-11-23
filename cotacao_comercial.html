@@ -589,6 +589,7 @@
   }
   .addr-pin-a { background: #2EBD85; color: #fff; }
   .addr-pin-b { background: #E24B4A; color: #fff; }
+  .addr-pin-mid { background: #3B82F6; color: #fff; }
   .addr-input {
     flex: 1;
     background: transparent !important;
@@ -647,6 +648,14 @@
     margin-left: auto;
   }
   .addr-swap:hover { background: var(--gold); color: #111; border-color: var(--gold); }
+  .btn-add-parada {
+    display: flex; align-items: center; gap: 6px;
+    background: none; border: 1px dashed var(--charcoal-border);
+    border-radius: 8px; padding: 8px 12px; margin: 2px 0 10px 32px;
+    color: var(--txt-dim); font-size: 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .btn-add-parada:hover { border-color: var(--gold); color: var(--gold); }
   /* Resultado rota */
   .route-result {
     background: rgba(46,189,133,.08);
@@ -1315,16 +1324,22 @@ body.tema-claro .section-title,body.tema-claro .tab-label{color:#111827!importan
     <!-- Linha conectora -->
     <div class="addr-connector">
       <div class="addr-connector-line"></div>
-      <button class="addr-swap" onclick="swapAddr()" title="Inverter origem e destino">
+      <button class="addr-swap" onclick="swapAddr()" title="Inverter ordem dos pontos">
         <i class="ti ti-arrows-up-down" style="font-size:14px"></i>
       </button>
     </div>
 
-    <!-- Endereço Destino -->
+    <!-- Paradas intermediárias (B, C, D... conforme forem adicionadas) -->
+    <div id="paradas-container"></div>
+    <button type="button" class="btn-add-parada" onclick="adicionarParada()">
+      <i class="ti ti-plus" style="font-size:13px"></i> Adicionar parada
+    </button>
+
+    <!-- Endereço Destino (sempre a última letra da sequência) -->
     <div class="field">
       <label class="lbl" for="addr-destino">Endereço de destino</label>
       <div class="addr-wrap" id="wrap-destino">
-        <span class="addr-pin addr-pin-b">B</span>
+        <span class="addr-pin addr-pin-b" id="pin-destino">B</span>
         <input type="text" id="addr-destino" class="addr-input" placeholder="Rua, cidade, estado..." autocomplete="off">
         <button class="addr-clear" id="clear-destino" onclick="clearAddr('destino')" style="display:none" aria-label="Limpar">
           <i class="ti ti-x" style="font-size:12px"></i>
@@ -4538,22 +4553,90 @@ async function saveToSheets(){
    ROTEAMENTO — Nominatim (geocoding) + OSRM (distância)
    Sem chave de API necessária
    ============================================================ */
+// "paradas" são pontos opcionais entre origem e destino (letras B, C, D...
+// — o destino sempre fica com a última letra da sequência). Não entram no
+// cálculo de preço (pedágio/classificação do destino continuam só com
+// addrState.origem/addrState.destino, como sempre) — só somam na rota, no
+// km total e no desenho do mapa, via waypoints do próprio OSRM.
 const addrState = {
   origem:  { lat: null, lon: null, label: '' },
-  destino: { lat: null, lon: null, label: '' }
+  destino: { lat: null, lon: null, label: '' },
+  paradas: [],
 };
 let debounceTimers = {};
+let proximoParadaId_ = 0;
+const paradasInicializadas_ = new Set();
+
+function letraPonto_(i) { return String.fromCharCode(65 + i); } // 0->A, 1->B, ...
+
+function addrSlot_(side) {
+  if (side === 'origem') return addrState.origem;
+  if (side === 'destino') return addrState.destino;
+  const m = /^parada-(\d+)$/.exec(side);
+  return m ? (addrState.paradas.find(p => p.id === +m[1]) || null) : null;
+}
+function setAddrSlot_(side, val) {
+  if (side === 'origem') { addrState.origem = val; return; }
+  if (side === 'destino') { addrState.destino = val; return; }
+  const m = /^parada-(\d+)$/.exec(side);
+  if (m) {
+    const p = addrState.paradas.find(x => x.id === +m[1]);
+    if (p) Object.assign(p, val);
+  }
+}
+function todosPontosProntos_() {
+  return !!(addrState.origem.lat && addrState.destino.lat && addrState.paradas.every(p => p.lat));
+}
+
+function adicionarParada() {
+  addrState.paradas.push({ id: proximoParadaId_++, lat: null, lon: null, label: '' });
+  renderParadas();
+}
+function removerParada(id) {
+  addrState.paradas = addrState.paradas.filter(p => p.id !== id);
+  paradasInicializadas_.delete(id);
+  renderParadas();
+  if (todosPontosProntos_()) calcRoute();
+}
+function renderParadas() {
+  const cont = document.getElementById('paradas-container');
+  cont.innerHTML = addrState.paradas.map((p, idx) => {
+    const letra = letraPonto_(idx + 1);
+    const valorEscapado = (p.label || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    return `
+      <div class="addr-connector"><div class="addr-connector-line"></div></div>
+      <div class="field">
+        <label class="lbl">Parada ${letra}</label>
+        <div class="addr-wrap" id="wrap-parada-${p.id}">
+          <span class="addr-pin addr-pin-mid">${letra}</span>
+          <input type="text" id="addr-parada-${p.id}" class="addr-input" placeholder="Rua, cidade, estado..." autocomplete="off" value="${valorEscapado}">
+          <button class="addr-clear" onclick="removerParada(${p.id})" title="Remover parada">
+            <i class="ti ti-x" style="font-size:12px"></i>
+          </button>
+          <div class="addr-dropdown" id="drop-parada-${p.id}"></div>
+        </div>
+      </div>`;
+  }).join('');
+  addrState.paradas.forEach(p => {
+    if (!paradasInicializadas_.has(p.id)) {
+      setupAddr('parada-' + p.id);
+      paradasInicializadas_.add(p.id);
+    }
+  });
+  const pinDestino = document.getElementById('pin-destino');
+  if (pinDestino) pinDestino.textContent = letraPonto_(addrState.paradas.length + 1);
+}
 
 function setupAddr(side) {
   const input   = document.getElementById('addr-' + side);
   const drop    = document.getElementById('drop-' + side);
-  const clearBtn= document.getElementById('clear-' + side);
+  const clearBtn= document.getElementById('clear-' + side); // paradas não têm esse botão (usam "Remover parada")
 
   input.addEventListener('input', () => {
     const q = input.value.trim();
-    clearBtn.style.display = q ? 'flex' : 'none';
-    addrState[side].lat = null;
-    addrState[side].lon = null;
+    if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+    const slot = addrSlot_(side);
+    if (slot) { slot.lat = null; slot.lon = null; }
     document.getElementById('km-auto-badge').style.display = 'none';
     clearTimeout(debounceTimers[side]);
     if (q.length < 3) { closeDrop(side); return; }
@@ -4620,11 +4703,12 @@ function renderSuggestions(side, results) {
 }
 
 function selectAddr(side, lat, lon, label) {
-  addrState[side] = { lat: parseFloat(lat), lon: parseFloat(lon), label };
+  setAddrSlot_(side, { lat: parseFloat(lat), lon: parseFloat(lon), label });
   document.getElementById('addr-' + side).value = label;
-  document.getElementById('clear-' + side).style.display = 'flex';
+  const clearBtn = document.getElementById('clear-' + side);
+  if (clearBtn) clearBtn.style.display = 'flex';
   closeDrop(side);
-  if (addrState.origem.lat && addrState.destino.lat) calcRoute();
+  if (todosPontosProntos_()) calcRoute();
 }
 
 function closeDrop(side) {
@@ -4644,16 +4728,22 @@ function clearAddr(side) {
   closeDrop(side);
 }
 
+// Inverte a ordem de todos os pontos (origem, paradas e destino) — com
+// paradas no meio, isso vira "percorrer a mesma sequência ao contrário",
+// não só trocar A por B.
 function swapAddr() {
-  const tmpState = {...addrState.origem};
-  const tmpVal   = document.getElementById('addr-origem').value;
-  addrState.origem = {...addrState.destino};
-  addrState.destino = tmpState;
-  document.getElementById('addr-origem').value  = document.getElementById('addr-destino').value;
-  document.getElementById('addr-destino').value = tmpVal;
+  const pontosInvertidos = [addrState.origem, ...addrState.paradas, addrState.destino].slice().reverse();
+  addrState.origem = { ...pontosInvertidos[0] };
+  addrState.destino = { ...pontosInvertidos[pontosInvertidos.length - 1] };
+  addrState.paradas = pontosInvertidos.slice(1, -1).map(p => ({ ...p, id: proximoParadaId_++ }));
+  paradasInicializadas_.clear();
+
+  document.getElementById('addr-origem').value  = addrState.origem.label;
+  document.getElementById('addr-destino').value = addrState.destino.label;
   document.getElementById('clear-origem').style.display  = addrState.origem.lat  ? 'flex' : 'none';
   document.getElementById('clear-destino').style.display = addrState.destino.lat ? 'flex' : 'none';
-  if (addrState.origem.lat && addrState.destino.lat) calcRoute();
+  renderParadas();
+  if (todosPontosProntos_()) calcRoute();
 }
 
 // Geocodifica um endereço já digitado (ex.: ao carregar uma cotação
@@ -4679,9 +4769,8 @@ let mapaRota = null;
 let camadasRotaMapa = [];
 
 async function calcRoute() {
-  const o = addrState.origem;
-  const d = addrState.destino;
-  if (!o.lat || !d.lat) return;
+  const pontos = [addrState.origem, ...addrState.paradas, addrState.destino];
+  if (!todosPontosProntos_()) return;
 
   document.getElementById('route-result').style.display     = 'none';
   document.getElementById('route-error').style.display      = 'none';
@@ -4696,7 +4785,12 @@ async function calcRoute() {
     // geometria completa do traçado (um ponto a cada poucos metros/km, não
     // só nas curvas) — usado pra desenhar o mapa e pro backend medir
     // distância e sentido reais até cada praça candidata de pedágio.
-    const url = `https://router.project-osrm.org/route/v1/driving/${o.lon},${o.lat};${d.lon},${d.lat}?alternatives=true&overview=full&geometries=geojson&steps=true`;
+    // Com paradas no meio, manda todos os pontos como waypoints — o OSRM já
+    // soma a distância/duração de todos os trechos sozinho (r.distance/
+    // r.duration do resultado já vêm somados), então o resto do cálculo
+    // abaixo (km, duração, nomes de rodovia) não precisa mudar nada.
+    const coordsStr = pontos.map(p => `${p.lon},${p.lat}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?alternatives=true&overview=full&geometries=geojson&steps=true`;
     const res  = await fetch(url);
     const data = await res.json();
 
@@ -4796,9 +4890,22 @@ function selecionarRotaOpcao(i) {
   camadasRotaMapa.forEach(c => mapaRota.removeLayer(c));
   camadasRotaMapa = [];
 
-  const o = addrState.origem, d = addrState.destino;
-  camadasRotaMapa.push(L.circleMarker([o.lat, o.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#3B82F6', fillOpacity: 1 }).addTo(mapaRota));
-  camadasRotaMapa.push(L.circleMarker([d.lat, d.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#E24B4A', fillOpacity: 1 }).addTo(mapaRota));
+  // Um marcador lettered (A, B, C...) por ponto — origem e destino nas
+  // pontas, paradas no meio, mesma cor/letra do campo de endereço.
+  const pontosMapa = [addrState.origem, ...addrState.paradas, addrState.destino];
+  pontosMapa.forEach((p, idx) => {
+    const isOrigem = idx === 0;
+    const isDestino = idx === pontosMapa.length - 1;
+    const cor = isOrigem ? '#2EBD85' : isDestino ? '#E24B4A' : '#3B82F6';
+    const raio = (isOrigem || isDestino) ? 13 : 11;
+    const icone = L.divIcon({
+      className: '',
+      html: `<div style="width:${raio*2}px;height:${raio*2}px;border-radius:50%;background:${cor};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 11px/1 'DM Sans',sans-serif;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${letraPonto_(idx)}</div>`,
+      iconSize: [raio*2, raio*2],
+      iconAnchor: [raio, raio],
+    });
+    camadasRotaMapa.push(L.marker([p.lat, p.lon], { icon: icone }).addTo(mapaRota));
+  });
   // Alternativas por baixo, esmaecidas; a escolhida por cima, com contorno
   // branco (contrasta com o mapa claro e com as rodovias já coloridas).
   rotaOpcoes.forEach((outra, idx) => { if (idx !== i) desenharLinhaRota_(outra.coordsCompletas, '#7a8699', 4, 0.65); });
@@ -5083,7 +5190,7 @@ async function loadRefazer() {
       geocodeSilencioso('origem', row['Endereço Origem']),
       geocodeSilencioso('destino', row['Endereço Destino']),
     ]).then(() => {
-      if (addrState.origem.lat && addrState.destino.lat) calcRoute();
+      if (todosPontosProntos_()) calcRoute();
     });
     // Empresa emissora + CNPJ Emit
     if (row['Empresa']) {

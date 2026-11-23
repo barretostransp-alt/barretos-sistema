@@ -301,6 +301,10 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
     <i class="ti ti-list-check"></i>Fila de Faturamento
     <span class="nav-badge" id="badge-fila" style="display:none"></span>
   </div>
+  <div class="nav-item only-gestor" onclick="showView('controle-mdf')" data-view="controle-mdf">
+    <i class="ti ti-file-certificate"></i>Controle de MDF
+    <span class="nav-badge" id="badge-mdf" style="display:none"></span>
+  </div>
   <div class="nav-item" onclick="showView('historico')" data-view="historico">
     <i class="ti ti-history"></i>Histórico
   </div>
@@ -409,6 +413,24 @@ body.tema-claro .fila-card{background:#FFFFFF!important;border-color:#E2E8F0!imp
         <button class="btn btn-primary btn-sm" onclick="openModalSolicitacao()"><i class="ti ti-plus"></i> Nova Solicitação</button>
       </div>
       <div id="fila-list"></div>
+    </div>
+
+    <!-- CONTROLE DE MDF -->
+    <div id="view-controle-mdf" class="view">
+      <div class="filter-bar">
+        <input class="filter-input" id="mdf-f-texto" placeholder="Buscar MDF, CT-e, cód. do card, cliente…" oninput="renderControleMdf()" style="flex:1;min-width:220px">
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding:0">
+          <table class="tbl">
+            <thead><tr>
+              <th>MDF</th><th>CT-e</th><th>Cód.</th><th>Cliente</th>
+              <th>Entrada</th><th>Finalizado</th><th class="txt-right" style="text-align:right">Dias em aberto</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-controle-mdf"><tr><td colspan="9" class="tbl-empty">Nenhum MDF registrado</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- HISTÓRICO (pessoal para quem só vê a fila; completo pra visão de gestão) -->
@@ -1383,12 +1405,19 @@ async function finalizarCanhotoUI(){
 async function finalizarCanhotoAnalisado(){
   if(currentSideId==null) return;
   if(!confirm('Confirmar que o canhoto foi conferido e está tudo certo?')) return;
+  var r = registros.find(function(x){ return x._id === currentSideId; });
+  var finalizarMdf = false;
+  if(r && r.mdf && !r.mdfDataFinalizado){
+    finalizarMdf = confirm('Esse CT-e tem o MDF nº '+r.mdf+' em aberto. Finalizou o MDF também?');
+  }
   var btn = document.getElementById('sp-btn-finalizar-canhoto');
   var textoOriginal = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="width:11px;height:11px"></span> Finalizando…';
   try{
-    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(currentSideId) + '/canhoto/finalizar', { method: 'POST' });
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(currentSideId) + '/canhoto/finalizar', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({finalizarMdf: finalizarMdf})
+    });
     if(!res.ok){ var j = await res.json(); alert('Erro ao finalizar: ' + (j.error||'desconhecido')); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
     var finalizado = await res.json();
   }catch(e){ alert('Erro de conexão ao finalizar.'); btn.disabled=false; btn.innerHTML=textoOriginal; return; }
@@ -1442,6 +1471,7 @@ function mapearRegistroDoApi_(row){
     dataSolicitacao: fmtDataHoraFat_(row.data_solicitacao), solicitaMdf: row.solicita_mdf||'', obsRotaMdf: row.obs_rota_mdf||'',
     custoOperacionalTotal: row.custo_operacional_total, statusCanhoto: row.status_canhoto||'',
     prioridade: row.prioridade||'', tipo: row.tipo||'normal', naturezaOperacao: row.natureza_operacao||'',
+    mdfDataEntrada: row.mdf_data_entrada||'', mdfDataFinalizado: row.mdf_data_finalizado||'',
   };
   Object.assign(r, calcularResultado(r.totalFrete, r.valorFreteiro, r.gnre, r.observacoes, r.dataFaturamento));
   return r;
@@ -1462,6 +1492,7 @@ async function loadAllData(){
   }
   renderAll();
   if(document.getElementById('view-fila').classList.contains('active')) renderFila();
+  if(document.getElementById('view-controle-mdf').classList.contains('active')) renderControleMdf();
   if(document.getElementById('view-historico').classList.contains('active')) renderHistorico();
 }
 
@@ -1528,9 +1559,10 @@ function renderFila(){
     </div>`;
   }).join('');
   var htmlAnalise = aguardandoAnalise.map(function(r){
+    var mdfTag = r.mdf ? '<span class="badge badge-gold" style="white-space:nowrap"><i class="ti ti-file-certificate" style="font-size:11px"></i> MDF nº '+e(r.mdf)+'</span>' : '';
     return `<div class="fila-card" ${ehColaborador?'':`onclick="openSidePanel('${r._id}')"`} style="cursor:${ehColaborador?'default':'pointer'}">
       <div class="fila-card-icon" style="background:var(--blue-dim)"><i class="ti ti-receipt" style="color:var(--blue)"></i></div>
-      <div class="fila-card-main"><strong>${r.cliente||'—'} · CT-e ${r.cte||'—'}</strong>
+      <div class="fila-card-main"><strong style="display:flex;align-items:center;gap:7px">${r.cliente||'—'} · CT-e ${r.cte||'—'} ${mdfTag}</strong>
         <span style="display:block">Canhoto enviado, aguardando análise · Cód. ${r.cod||'—'}</span>
       </div>
       ${ehColaborador ? '' : '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openSidePanel(\''+r._id+'\')"><i class="ti ti-eye"></i> Analisar</button>'}
@@ -1540,6 +1572,71 @@ function renderFila(){
   el.innerHTML =
     (htmlSolicitacoes ? (aguardandoAnalise.length?titulo('Aguardando faturamento'):'') + htmlSolicitacoes : '') +
     (htmlAnalise ? titulo('Canhoto aguardando análise') + htmlAnalise : '');
+}
+
+/* ── Controle de MDF — um MDF entra na lista assim que ganha um número
+   (ver sincronização no backend) e sai da contagem de dias quando alguém
+   confirma a finalização (pelo aviso do canhoto ou direto aqui). ── */
+function diasEmAbertoMdf_(r){
+  if(!r.mdfDataEntrada) return null;
+  var inicio = new Date(r.mdfDataEntrada);
+  var fim = r.mdfDataFinalizado ? new Date(r.mdfDataFinalizado) : new Date();
+  return Math.max(0, Math.floor((fim - inicio) / 86400000));
+}
+function renderControleMdf(){
+  var filtro = (document.getElementById('mdf-f-texto').value||'').toLowerCase();
+  // Só entram MDFs com data de entrada registrada — ou seja, só o que
+  // passou pelo controle novo daqui pra frente. MDFs antigos (de antes
+  // dessa tela existir) não têm essa data e ficam de fora, por pedido do
+  // Alex pra começar o controle "zerado".
+  var rows = todosRegistrosFat.filter(function(r){ return !!r.mdfDataEntrada; });
+  if(filtro){
+    rows = rows.filter(function(r){
+      return (r.mdf||'').toLowerCase().includes(filtro) ||
+             (r.cte||'').toLowerCase().includes(filtro) ||
+             (r.cod||'').toLowerCase().includes(filtro) ||
+             (r.cliente||'').toLowerCase().includes(filtro);
+    });
+  }
+  rows.sort(function(a,b){
+    var aAberto = !a.mdfDataFinalizado, bAberto = !b.mdfDataFinalizado;
+    if(aAberto !== bAberto) return aAberto ? -1 : 1;
+    return (diasEmAbertoMdf_(b)||0) - (diasEmAbertoMdf_(a)||0);
+  });
+
+  var abertos = rows.filter(function(r){ return !r.mdfDataFinalizado; }).length;
+  var badge = document.getElementById('badge-mdf');
+  if(abertos){ badge.style.display='inline-block'; badge.textContent=abertos; } else badge.style.display='none';
+
+  var tbody = document.getElementById('tbody-controle-mdf');
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">Nenhum MDF registrado</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r){
+    var dias = diasEmAbertoMdf_(r);
+    var aberto = !r.mdfDataFinalizado;
+    var diasTxt = dias==null ? '—' : (dias + (dias===1?' dia':' dias'));
+    var statusBadge = aberto ? '<span class="badge badge-orange">Em aberto</span>' : '<span class="badge badge-green">Finalizado</span>';
+    return `<tr>
+      <td class="txt-mono">${e(r.mdf)}</td>
+      <td class="txt-mono">${r.cte||'—'}</td>
+      <td><span class="cod-chip">${r.cod||'—'}</span></td>
+      <td>${r.cliente||'—'}</td>
+      <td class="txt-mono">${r.mdfDataEntrada ? fmtDataHoraFat_(r.mdfDataEntrada) : '—'}</td>
+      <td class="txt-mono">${r.mdfDataFinalizado ? fmtDataHoraFat_(r.mdfDataFinalizado) : '—'}</td>
+      <td class="txt-right txt-mono" style="font-weight:700">${diasTxt}</td>
+      <td>${statusBadge}</td>
+      <td>${aberto ? '<button class="btn btn-ghost btn-sm" onclick="finalizarMdfDireto(\''+r._id+'\')"><i class="ti ti-check"></i> Finalizar MDF</button>' : ''}</td>
+    </tr>`;
+  }).join('');
+}
+async function finalizarMdfDireto(id){
+  var r = todosRegistrosFat.find(function(x){ return x._id === id; });
+  if(!r) return;
+  if(!confirm('Confirmar que o MDF nº '+r.mdf+' foi finalizado?')) return;
+  try{
+    var res = await apiFetch(API_BASE + '/faturamento/' + encodeURIComponent(id) + '/mdf/finalizar', { method: 'POST' });
+    if(!res.ok){ var j = await res.json(); alert('Erro ao finalizar o MDF: ' + (j.error||'desconhecido')); return; }
+  }catch(e){ alert('Erro de conexão ao finalizar o MDF.'); return; }
+  await loadAllData();
 }
 
 /* ── Histórico — pessoal (só leitura) pra quem só vê a Fila; completo pra
@@ -1843,6 +1940,7 @@ function showView(name){
     dashboard: ['ti-layout-dashboard','Dashboard','Resumo do faturamento por empresa'],
     detalhamento: ['ti-table','Detalhamento','Todos os registros de faturamento'],
     fila: ['ti-list-check','Fila de Faturamento','Solicitações aguardando emissão do CT-e'],
+    'controle-mdf': ['ti-file-certificate','Controle de MDF','Dias em aberto de cada MDF emitido'],
     historico: ['ti-history','Histórico', document.body.getAttribute('data-mode')==='colaborador' ? 'Suas solicitações (somente leitura)' : 'Todas as solicitações']
   };
   var t = titles[name];
@@ -1850,6 +1948,7 @@ function showView(name){
   document.getElementById('topbar-title').textContent = t[1];
   document.getElementById('topbar-sub').textContent = t[2];
   if(name==='fila') renderFila();
+  if(name==='controle-mdf') renderControleMdf();
   if(name==='historico') renderHistorico();
   if(name==='dashboard') carregarDashboardFat();
 }
