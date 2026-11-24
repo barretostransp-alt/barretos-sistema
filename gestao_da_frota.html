@@ -2271,7 +2271,8 @@ function filterDespesas() {
         ${statusOpts.map(o=>`<option${o===st?' selected':''}>${o}</option>`).join('')}
       </select></td>
       <td>${r['Comprovante']?`<a href="${r['Comprovante']}" target="_blank" class="btn btn-ghost btn-sm"><i class="ti ti-paperclip" style="font-size:12px"></i></a>`:'—'}</td>
-      <td>${!isManut?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editDespesa(${i})" title="Editar"><i class="ti ti-pencil" style="font-size:12px"></i></button>`:'—'}</td>
+      <td>${!isManut?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editDespesa(${i})" title="Editar"><i class="ti ti-pencil" style="font-size:12px"></i></button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red,#e5484d)" onclick="event.stopPropagation();excluirDespesa(${i})" title="Excluir"><i class="ti ti-trash" style="font-size:12px"></i></button>`:'—'}</td>
     </tr>`;
   }).join('');
 
@@ -2869,6 +2870,10 @@ function montarRequisicao(data) {
         return { url: `${API_BASE}/despesas/${data._originalData._id}`, method: 'PUT', body: payload };
       }
       return { url: `${API_BASE}/despesas`, method: 'POST', body: payload };
+    }
+    case 'deleteDespesa': {
+      if (!data._originalData || !data._originalData._id) return {};
+      return { url: `${API_BASE}/despesas/${data._originalData._id}`, method: 'DELETE' };
     }
     case 'manutencao': {
       const veiculo_id = idDoVeiculoPorPlaca(data.Placa);
@@ -4606,6 +4611,16 @@ function editDespesa(idx){
   document.getElementById('modal-despesa').querySelector('.modal-title').innerHTML=
     '<i class="ti ti-pencil" style="color:var(--gold);margin-right:6px"></i>Editar Despesa';
   document.getElementById('modal-despesa').classList.add('open');
+}
+async function excluirDespesa(idx){
+  const r=(window.filteredDespesas||[])[idx];
+  if(!r||r._src==='manutencao')return;
+  const desc = `${fmtDate(r['Data']||'')} — ${r['Placa']||'—'} — ${r['Descricao']||r['Descrição']||''}`;
+  if(!confirm(`Excluir esta despesa?\n\n${desc}\n\nEsta ação não pode ser desfeita.`)) return;
+  const res = await apiPost({ action:'deleteDespesa', _originalData: r });
+  if(res?.success){ await loadAllData(); }
+  else if(API_BASE) alert('Erro ao excluir a despesa. ' + (res?.error ? res.error : 'Verifique se o backend está rodando.'));
+  else alert('Configure a API para excluir despesas.');
 }
 </script>
 </body>
